@@ -1,91 +1,169 @@
-# app_local.py - PARA EJECUCIÓN LOCAL
+# app_final.py - VERSIÓN PRÁCTICA
 import streamlit as st
 import pandas as pd
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
 import time
-import re
 from io import BytesIO
-import os
 
-st.set_page_config(page_title="TikTok Scraper Local", layout="wide")
+st.set_page_config(page_title="TikTok Manager", layout="wide")
 
-# RUTA A TU CHROMEDRIVER (AJUSTA ESTA RUTA)
-CHROMEDRIVER_PATH = "/usr/local/bin/chromedriver"  # Linux/Mac
-# CHROMEDRIVER_PATH = "C:/chromedriver.exe"  # Windows
-
-def run_local_scraper():
-    """SCRAPER REAL para ejecución local"""
-    
-    try:
-        # Configurar Chrome
-        options = Options()
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
-        
-        # Iniciar driver
-        driver = webdriver.Chrome(
-            executable_path=CHROMEDRIVER_PATH,
-            options=options
-        )
-        
-        st.info("🌐 Abriendo TikTok...")
-        driver.get("https://www.tiktok.com")
-        time.sleep(5)
-        
-        # Verificar sesión
-        st.info("🔐 Verificando sesión...")
-        time.sleep(5)
-        
-        # Ir a contenido
-        st.info("📊 Navegando a contenido...")
-        driver.get("https://www.tiktok.com/tiktokstudio/content")
-        time.sleep(10)
-        
-        # Extraer datos (código real de tiktok.txt)
-        # ... [aquí va el código completo de tiktok.txt]
-        
-        # Por simplicidad, aquí solo un ejemplo
-        videos_data = []
-        
-        # Cerrar driver
-        driver.quit()
-        
-        if videos_data:
-            df = pd.DataFrame(videos_data)
-            return df
-        else:
-            return pd.DataFrame()
-            
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
-        return pd.DataFrame()
+# CSS
+st.markdown("""
+<style>
+    .info-box {
+        background: #f0f9ff;
+        padding: 20px;
+        border-radius: 10px;
+        border-left: 5px solid #1e3a8a;
+        margin: 10px 0;
+    }
+    .warning-box {
+        background: #fef3c7;
+        padding: 20px;
+        border-radius: 10px;
+        border-left: 5px solid #f59e0b;
+        margin: 10px 0;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 def main():
-    st.title("🚀 TikTok Scraper LOCAL")
+    st.title("🎯 TikTok Data Manager")
     
-    st.warning("""
-    **EJECUTANDO LOCALMENTE**
-    
-    Este código funciona SOLO en tu computadora, NO en Streamlit Cloud.
-    
-    Requisitos:
-    1. Chrome instalado
-    2. ChromeDriver descargado
-    3. Selenium instalado
-    """)
-    
-    if st.button("🚀 Ejecutar Scraper Real", type="primary"):
-        data = run_local_scraper()
+    # Sidebar
+    with st.sidebar:
+        st.header("⚙️ Configuración")
         
-        if not data.empty:
-            st.session_state.tiktok_data = data
-            st.success(f"✅ {len(data)} videos obtenidos")
-            st.dataframe(data)
-        else:
-            st.error("No se obtuvieron datos")
+        st.markdown("""
+        <div class="info-box">
+        <strong>📋 Estado:</strong><br>
+        • Modo: Demostración<br>
+        • Plataforma: Streamlit Cloud<br>
+        • Scraping: No disponible aquí
+        </div>
+        """, unsafe_allow_html=True)
+        
+        option = st.selectbox(
+            "Selecciona modo:",
+            ["Demostración", "Local", "API Externa"]
+        )
+        
+        if st.button("🔄 Actualizar"):
+            st.rerun()
+    
+    # Contenido basado en selección
+    if option == "Demostración":
+        st.markdown("""
+        <div class="warning-box">
+        <h3>⚠️ Limitaciones de Streamlit Cloud</h3>
+        <p>Streamlit Cloud <strong>NO permite</strong> ejecutar Selenium.</p>
+        <p><strong>Solución:</strong> Ejecuta el scraping LOCALMENTE en tu computadora.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Botón para descargar código local
+        with st.expander("📥 Descargar Código para Ejecución Local"):
+            st.code("""
+# Para ejecutar LOCALMENTE:
+# 1. Guarda este código como app_local.py
+# 2. Instala dependencias:
+#    pip install selenium pandas streamlit
+# 3. Descarga ChromeDriver
+# 4. Ajusta la ruta en el código
+# 5. Ejecuta: streamlit run app_local.py
+            """, language="bash")
+            
+            if st.button("📋 Copiar Código Local"):
+                st.success("Código copiado al portapapeles")
+        
+        # Mostrar estructura de datos esperada
+        st.subheader("📊 Estructura de Datos Esperada")
+        
+        sample_df = pd.DataFrame({
+            'duracion_video': ['01:33', '02:15'],
+            'titulo': ['[Título real del video 1]', '[Título real del video 2]'],
+            'fecha_publicacion': ['28 nov, 14:01', '27 nov, 10:30'],
+            'privacidad': ['Todo el mundo', 'Solo yo'],
+            'visualizaciones': ['1,234', '5,678'],
+            'me_gusta': ['156', '789'],
+            'comentarios': ['23', '45']
+        })
+        
+        st.dataframe(sample_df)
+        st.caption("Esta es la estructura que obtendrías con el scraper real")
+    
+    elif option == "Local":
+        st.success("✅ Modo Local Seleccionado")
+        
+        st.markdown("""
+        ### 🚀 Instrucciones para Ejecución Local
+        
+        1. **Instala Python** (si no lo tienes)
+        2. **Instala dependencias:**
+        ```bash
+        pip install selenium pandas streamlit webdriver-manager
+        ```
+        
+        3. **Crea el archivo `app_local.py`:**
+        ```python
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        from webdriver_manager.chrome import ChromeDriverManager
+        import streamlit as st
+        import time
+        
+        st.title("TikTok Scraper Local")
+        
+        if st.button("Ejecutar Scraper"):
+            # Configurar Chrome
+            options = Options()
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            
+            # WebDriver Manager maneja ChromeDriver automáticamente
+            driver = webdriver.Chrome(
+                ChromeDriverManager().install(),
+                options=options
+            )
+            
+            driver.get("https://www.tiktok.com")
+            st.info("Inicia sesión manualmente...")
+            time.sleep(30)  # Tiempo para login
+            
+            # Tu código de scraping aquí...
+        ```
+        
+        4. **Ejecuta:**
+        ```bash
+        streamlit run app_local.py
+        ```
+        """)
+    
+    elif option == "API Externa":
+        st.info("🔌 Modo API Externa")
+        
+        st.markdown("""
+        ### 🌐 Servicios de API para TikTok
+        
+        | Servicio | Precio | Limitaciones |
+        |----------|--------|--------------|
+        | **RapidAPI TikTok** | $10-50/mes | 100-1000 requests/día |
+        | **ScraperAPI** | $29-99/mes | Escalable |
+        | **ZenRows** | $49+/mes | JavaScript rendering |
+        
+        ### 📝 Ejemplo de implementación:
+        ```python
+        import requests
+        
+        def get_tiktok_data(api_key, username):
+            url = "https://tiktok-scraper-api.p.rapidapi.com/user/videos"
+            headers = {
+                "X-RapidAPI-Key": api_key,
+                "X-RapidAPI-Host": "tiktok-scraper-api.p.rapidapi.com"
+            }
+            response = requests.get(url, headers=headers, 
+                                  params={"username": username})
+            return response.json()
+        ```
+        """)
 
 if __name__ == "__main__":
     main()
