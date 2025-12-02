@@ -11,11 +11,17 @@ st.set_page_config(
 
 st.title("TikTok Scraper · PythonAnywhere")
 
+cookies_input = st.text_area(
+    "Pega aquí el JSON de cookies de sesión de TikTok",
+    height=150,
+    placeholder='[{"name":"sessionid","value":"XXX","domain":".tiktok.com","path":"/"}]'
+)
+
 if st.button("Conectar y ejecutar scraper"):
-    with st.spinner("Abriendo login TikTok y ejecutando scraper (1–3 min)…"):
+    with st.spinner("Ejecutando scraper (1–3 min)…"):
 
         try:
-            payload = {"login": True}  # <<< modo login automático
+            payload = {"cookies_json": cookies_input}
             resp = requests.post(
                 API,
                 json=payload,
