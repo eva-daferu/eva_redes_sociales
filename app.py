@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 
-# BACKEND PythonAnywhere
+
 API = "https://pahubisas.pythonanywhere.com/scrape"
 
 
@@ -11,15 +11,19 @@ st.set_page_config(
     layout="wide"
 )
 
-
 st.title("TikTok Scraper · PythonAnywhere")
 
 
 if st.button("Conectar y ejecutar scraper"):
-    with st.spinner("Ejecutando scraper real..."):
+    with st.spinner("Ejecutando scraper real (1 a 3 min)..."):
 
         try:
-            resp = requests.post(API, timeout=900)
+            resp = requests.post(
+                API,
+                json={},               # <<< se envía JSON vacío
+                timeout=900,
+                headers={"Content-Type": "application/json"}
+            )
             data = resp.json()
         except Exception as e:
             st.error(str(e))
@@ -32,7 +36,7 @@ if st.button("Conectar y ejecutar scraper"):
 
         registros = data["data"]
         if not registros:
-            st.warning("Scraper terminó, pero no hay resultados.")
+            st.warning("Scraper terminó pero sin resultados.")
             st.json(data)
             st.stop()
 
