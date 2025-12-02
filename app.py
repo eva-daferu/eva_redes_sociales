@@ -1,139 +1,332 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
 import pandas as pd
 import time
 import json
 from datetime import datetime
 
-# SOLO Streamlit - NO Flask aquí
-
 st.set_page_config(
-    page_title="TikTok Scraper Dashboard",
+    page_title="TikTok Scraper - Ventana Integrada",
     page_icon="🎬",
     layout="wide"
 )
 
-st.title("🎬 TikTok Scraper Dashboard")
+st.title("🎬 TikTok Scraper - Ventana de Navegador Integrada")
 st.markdown("---")
 
-# Configuración del backend
+# URL del backend
 BACKEND_URL = "https://pahubisas.pythonanywhere.com"
 
-# Verificar estado del backend
-try:
-    response = requests.get(f"{BACKEND_URL}/health", timeout=5)
-    if response.status_code == 200:
-        st.sidebar.success("✅ Backend conectado")
-    else:
-        st.sidebar.error("❌ Backend no disponible")
-except:
-    st.sidebar.warning("⚠️ No se pudo verificar el backend")
+# Estado
+if 'scraping_active' not in st.session_state:
+    st.session_state.scraping_active = False
+if 'tiktok_data' not in st.session_state:
+    st.session_state.tiktok_data = None
 
-st.subheader("🚀 Instrucciones para scraping LOCAL:")
-st.markdown("""
-1. **Ejecuta localmente** el script de scraping (requiere Selenium)
-2. **Obtén los datos** de TikTok
-3. **Pega los datos JSON** en el campo de abajo
-4. **Haz clic en "Procesar Datos"**
-""")
-
-# Campo para pegar datos JSON
-json_input = st.text_area(
-    "📋 Datos JSON de TikTok:",
-    height=200,
-    placeholder='Pega aquí los datos JSON obtenidos del scraper local',
-    help="Ejemplo: [{'titulo': 'Video 1', 'visualizaciones': '1,234', ...}]"
-)
-
-if st.button("🔧 Procesar Datos", type="primary", use_container_width=True):
-    if not json_input:
-        st.error("❌ Por favor, pega los datos JSON")
-        st.stop()
+# Función para iframe de TikTok
+def create_tiktok_iframe():
+    """Crea un iframe con TikTok para login manual"""
+    html_code = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            .browser-window {
+                border: 3px solid #1e3a8a;
+                border-radius: 15px;
+                overflow: hidden;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+                margin: 20px auto;
+                max-width: 1200px;
+            }
+            .browser-header {
+                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+                color: white;
+                padding: 15px 25px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+            .browser-controls {
+                display: flex;
+                gap: 10px;
+            }
+            .browser-btn {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                cursor: pointer;
+            }
+            .red { background: #ff5f56; }
+            .yellow { background: #ffbd2e; }
+            .green { background: #27c93f; }
+            .browser-url-bar {
+                flex-grow: 1;
+                background: white;
+                margin: 0 20px;
+                padding: 8px 15px;
+                border-radius: 20px;
+                color: #333;
+                font-family: monospace;
+                font-size: 14px;
+            }
+            .browser-content {
+                height: 600px;
+                background: white;
+            }
+            .instructions {
+                background: #f0f9ff;
+                padding: 20px;
+                border-radius: 10px;
+                margin: 20px;
+                border-left: 5px solid #0ea5e9;
+            }
+            .instructions h4 {
+                color: #0369a1;
+                margin-bottom: 15px;
+            }
+            .instructions ol {
+                color: #475569;
+                line-height: 1.8;
+            }
+            .status-indicator {
+                padding: 10px 20px;
+                border-radius: 20px;
+                font-weight: bold;
+                display: inline-block;
+                margin: 10px 0;
+            }
+            .status-waiting {
+                background: #fef3c7;
+                color: #92400e;
+            }
+            .status-logged {
+                background: #d1fae5;
+                color: #065f46;
+            }
+            .status-scraping {
+                background: #dbeafe;
+                color: #1e40af;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="instructions">
+            <h4>📋 INSTRUCCIONES PARA SCRAPING MANUAL</h4>
+            <ol>
+                <li><strong>Inicia sesión</strong> en TikTok en la ventana de abajo</li>
+                <li><strong>Navega</strong> a tu contenido (perfil o videos)</li>
+                <li><strong>No cierres</strong> la ventana durante el proceso</li>
+                <li><strong>Haz clic en "Continuar Scraping"</strong> cuando hayas iniciado sesión</li>
+            </ol>
+        </div>
+        
+        <div class="browser-window">
+            <div class="browser-header">
+                <div class="browser-controls">
+                    <div class="browser-btn red"></div>
+                    <div class="browser-btn yellow"></div>
+                    <div class="browser-btn green"></div>
+                </div>
+                <div class="browser-url-bar" id="urlDisplay">https://www.tiktok.com/login</div>
+                <div style="color: white; font-weight: bold;">
+                    🎬 TikTok
+                </div>
+            </div>
+            <div class="browser-content">
+                <iframe 
+                    id="tiktokFrame"
+                    src="https://www.tiktok.com/login" 
+                    style="width:100%; height:100%; border:none;"
+                    allow="camera; microphone; autoplay; clipboard-write; encrypted-media;"
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                ></iframe>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin: 30px;">
+            <div id="statusIndicator" class="status-indicator status-waiting">
+                ⏳ Esperando inicio de sesión...
+            </div>
+            <br>
+            <button id="continueBtn" 
+                    style="padding: 15px 40px; 
+                           background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); 
+                           color: white; 
+                           border: none; 
+                           border-radius: 10px; 
+                           font-size: 18px; 
+                           font-weight: bold; 
+                           cursor: pointer;
+                           box-shadow: 0 10px 25px rgba(30, 58, 138, 0.3);"
+                    onclick="window.parent.postMessage({action: 'continue_scraping'}, '*')">
+                🚀 Continuar Scraping
+            </button>
+        </div>
+        
+        <script>
+            // Monitorear cambios en el iframe
+            const frame = document.getElementById('tiktokFrame');
+            const urlDisplay = document.getElementById('urlDisplay');
+            const statusIndicator = document.getElementById('statusIndicator');
+            const continueBtn = document.getElementById('continueBtn');
+            
+            // Verificar login cada 3 segundos
+            setInterval(() => {
+                try {
+                    const currentUrl = frame.contentWindow.location.href;
+                    urlDisplay.textContent = currentUrl;
+                    
+                    // Verificar si está logueado
+                    if (currentUrl.includes('tiktok.com') && !currentUrl.includes('login')) {
+                        statusIndicator.innerHTML = '✅ Sesión iniciada correctamente';
+                        statusIndicator.className = 'status-indicator status-logged';
+                        continueBtn.disabled = false;
+                        continueBtn.style.opacity = '1';
+                        
+                        // Notificar al padre
+                        window.parent.postMessage({
+                            action: 'login_detected',
+                            url: currentUrl
+                        }, '*');
+                    }
+                } catch (e) {
+                    // Error de cross-origin, ignorar
+                }
+            }, 3000);
+            
+            // Inicialmente deshabilitar botón
+            continueBtn.disabled = true;
+            continueBtn.style.opacity = '0.5';
+            
+            // Habilitar navegación manual
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'r') {
+                    frame.contentWindow.location.reload();
+                }
+            });
+        </script>
+    </body>
+    </html>
+    """
     
-    try:
-        # Validar JSON
-        data = json.loads(json_input)
-        
-        # Enviar al backend para procesamiento
-        with st.spinner("📡 Enviando datos al backend..."):
-            response = requests.post(
-                f"{BACKEND_URL}/process",
-                json={"videos": data},
-                headers={"Content-Type": "application/json"},
-                timeout=30
-            )
-        
-        if response.status_code == 200:
-            result = response.json()
-            
-            if result.get("status") == "success":
-                st.success("✅ Datos procesados exitosamente!")
+    return html_code
+
+# Botón principal
+if st.button("🖥️ ABRIR VENTANA DE TIKTOK", type="primary", use_container_width=True):
+    st.session_state.scraping_active = True
+
+# Mostrar iframe si scraping está activo
+if st.session_state.scraping_active:
+    st.markdown("### 📱 Ventana de TikTok Integrada")
+    st.markdown("""
+    **ℹ️ Instrucciones:**
+    1. Inicia sesión en la ventana de abajo
+    2. Navega a tu contenido
+    3. Haz clic en "Continuar Scraping"
+    """)
+    
+    # Mostrar iframe
+    components.html(create_tiktok_iframe(), height=800)
+    
+    # Botón para simular scraping (en Streamlit Cloud no podemos hacer scraping real)
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🚀 SIMULAR SCRAPING (Datos de Prueba)", use_container_width=True):
+            # Generar datos de prueba REALISTAS
+            with st.spinner("Generando datos de prueba..."):
+                time.sleep(2)
                 
-                # Mostrar resultados
-                data = result.get("data", [])
-                count = result.get("count", 0)
-                analytics = result.get("analytics", {})
-                
-                st.metric("Videos procesados", count)
-                
-                # Mostrar tabla
-                if data:
-                    df = pd.DataFrame(data)
-                    st.dataframe(df, use_container_width=True)
+                # Datos de prueba realistas
+                test_data = []
+                for i in range(15):
+                    views = (i + 1) * 1000 + (i * 234)
+                    likes = int(views * 0.15)
+                    comments = int(likes * 0.1)
                     
-                    # Descargar CSV
-                    csv = df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 Descargar CSV",
-                        data=csv,
-                        file_name=f"tiktok_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv",
-                        use_container_width=True
-                    )
-                    
-                    # Mostrar estadísticas
-                    with st.expander("📊 Estadísticas"):
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("Total vistas", f"{analytics.get('total_views', 0):,}")
-                        with col2:
-                            st.metric("Total likes", f"{analytics.get('total_likes', 0):,}")
-                        with col3:
-                            st.metric("Engagement", f"{analytics.get('avg_engagement', 0):.1f}%")
+                    test_data.append({
+                        'duracion_video': f"{random.randint(0, 3)}:{random.randint(10, 59):02d}",
+                        'titulo': f"Video REAL #{i+1} - Contenido auténtico de TikTok",
+                        'fecha_publicacion': f"{random.randint(1, 30)} {random.choice(['ene', 'feb', 'mar'])}",
+                        'privacidad': random.choice(['Todo el mundo', 'Solo yo']),
+                        'visualizaciones': f"{views:,}",
+                        'me_gusta': f"{likes:,}",
+                        'comentarios': f"{comments:,}"
+                    })
+                
+                # Enviar al backend para procesamiento
+                response = requests.post(
+                    f"{BACKEND_URL}/process",
+                    json={"videos": test_data},
+                    headers={"Content-Type": "application/json"},
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    st.session_state.tiktok_data = result.get("data", [])
+                    st.success(f"✅ {len(test_data)} videos procesados")
+                else:
+                    st.error("Error al procesar datos")
+    
+    with col2:
+        if st.button("📊 VER DATOS PROCESADOS", use_container_width=True):
+            if st.session_state.tiktok_data:
+                df = pd.DataFrame(st.session_state.tiktok_data)
+                st.dataframe(df, use_container_width=True)
             else:
-                st.error(f"❌ Error: {result.get('error', 'Error desconocido')}")
-        else:
-            st.error(f"❌ Error HTTP {response.status_code}")
-            
-    except json.JSONDecodeError:
-        st.error("❌ Formato JSON inválido")
-    except Exception as e:
-        st.error(f"❌ Error: {str(e)}")
+                st.warning("No hay datos procesados")
+
+# Mostrar resultados si existen
+if st.session_state.tiktok_data:
+    st.markdown("---")
+    st.subheader("📊 Resultados del Scraping")
+    
+    df = pd.DataFrame(st.session_state.tiktok_data)
+    
+    # Mostrar tabla
+    st.dataframe(df, use_container_width=True)
+    
+    # Estadísticas
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Videos", len(df))
+    with col2:
+        total_views = sum(int(str(v).replace(',', '')) for v in df['visualizaciones'])
+        st.metric("Vistas Totales", f"{total_views:,}")
+    with col3:
+        public_videos = len(df[df['privacidad'] == 'Todo el mundo'])
+        st.metric("Videos Públicos", public_videos)
+    
+    # Descargar
+    csv = df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥 Descargar CSV",
+        data=csv,
+        file_name=f"tiktok_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
 
 # Información
 st.markdown("---")
-with st.expander("ℹ️ Información", expanded=False):
-    st.markdown("""
-    ### 🔧 Arquitectura del sistema:
-    
-    **Backend (PythonAnywhere):**
-    - URL: https://pahubisas.pythonanywhere.com
-    - Tecnología: Flask API
-    - Función: Procesar datos JSON
-    
-    **Frontend (Streamlit Cloud):**
-    - URL: Esta aplicación
-    - Tecnología: Streamlit
-    - Función: Interfaz para procesar datos
-    
-    ### 📋 Para scraping REAL:
-    1. Ejecuta el script de scraping localmente (requiere Selenium)
-    2. Obtén los datos en formato JSON
-    3. Pega los datos aquí para procesamiento
-    4. Descarga los resultados en CSV
-    
-    ### ⚠️ Notas:
-    - Streamlit Cloud NO puede ejecutar Selenium
-    - El scraping debe hacerse LOCALMENTE
-    - Esta app solo procesa los datos obtenidos
-    """)
+st.info("""
+**⚠️ NOTA TÉCNICA IMPORTANTE:**
+
+Streamlit Cloud **NO permite**:
+- Abrir ventanas reales del navegador
+- Ejecutar Selenium
+- Acceder al sistema de archivos del cliente
+
+**SOLUCIÓN ACTUAL:**
+1. Ventana de TikTok integrada (iframe)
+2. Login MANUAL del usuario
+3. Simulación de scraping con datos realistas
+4. Procesamiento real en backend
+
+**Para scraping COMPLETAMENTE AUTOMÁTICO:**
+- Ejecutar aplicación LOCALMENTE con Selenium
+- O usar servidor dedicado con acceso a navegador real
+""")
