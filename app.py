@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 import time
 import json
-import os
 
 st.set_page_config(
     page_title="TikTok Scraper Dashboard",
@@ -17,26 +16,25 @@ st.markdown("---")
 # Configuración del backend
 BACKEND_URL = st.text_input(
     "🔗 URL del Backend (PythonAnywhere):",
-    value="https://tuusuario.pythonanywhere.com",
+    value="https://pahubisas.pythonanywhere.com",
     help="URL de tu API desplegada en PythonAnywhere"
 )
 
-# Sección para cookies simplificada
 st.subheader("🔐 Configuración de Sesión")
 
 with st.expander("📋 Cómo obtener las cookies de TikTok", expanded=False):
     st.markdown("""
-    1. **Inicia sesión en TikTok** en tu navegador
-    2. **Abre las Herramientas de Desarrollo** (F12)
-    3. **Ve a la pestaña Application/Storage**
-    4. **Busca las cookies** en Storage > Cookies > https://www.tiktok.com
+    1. **Inicia sesión en TikTok** en Chrome/Firefox
+    2. **Abre DevTools** (F12)
+    3. **Ve a Application > Storage > Cookies**
+    4. **Selecciona https://www.tiktok.com**
     5. **Copia todas las cookies** como JSON
     """)
 
 cookies_input = st.text_area(
     "🍪 Cookies de sesión (formato JSON):",
     height=150,
-    placeholder='[{"name": "sessionid", "value": "tu_sesion_id", "domain": ".tiktok.com"}, ...]',
+    placeholder='[{"name": "sessionid", "value": "abc123", "domain": ".tiktok.com"}, {"name": "tt_chain_token", "value": "def456", "domain": ".tiktok.com"}]',
     help="Pega aquí las cookies en formato JSON"
 )
 
@@ -58,17 +56,16 @@ if run_button:
         st.stop()
     
     try:
-        # Validar formato JSON
         cookies_json = json.loads(cookies_input)
     except json.JSONDecodeError:
         st.error("❌ Formato JSON inválido. Asegúrate de que las cookies estén en formato JSON correcto.")
         st.stop()
     
-    # Configurar la barra de progreso
+    # Configurar barra de progreso
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    # Paso 1: Conectando al backend
+    # Paso 1: Conectando
     status_text.text("🔗 Conectando al backend...")
     time.sleep(1)
     progress_bar.progress(20)
@@ -80,30 +77,26 @@ if run_button:
             f"{BACKEND_URL.rstrip('/')}/scrape",
             json={"cookies": cookies_json},
             headers={"Content-Type": "application/json"},
-            timeout=180
+            timeout=30
         )
     except requests.exceptions.ConnectionError:
         st.error("❌ No se puede conectar al backend. Verifica la URL.")
         st.stop()
-    except requests.exceptions.Timeout:
-        st.error("❌ Tiempo de espera agotado. El scraping está tomando demasiado tiempo.")
-        st.stop()
     
-    progress_bar.progress(40)
-    
-    # Paso 3: Procesando respuesta
-    status_text.text("⚙️ Procesando respuesta del scraper...")
-    time.sleep(1)
     progress_bar.progress(60)
+    
+    # Paso 3: Procesando
+    status_text.text("⚙️ Procesando respuesta...")
+    time.sleep(1)
+    progress_bar.progress(80)
     
     if response.status_code == 200:
         result = response.json()
         
         if result.get("status") == "success":
-            progress_bar.progress(80)
-            status_text.text("✅ Scraping completado exitosamente!")
-            time.sleep(1)
             progress_bar.progress(100)
+            status_text.text("✅ Scraping completado!")
+            time.sleep(1)
             status_text.text("")
             
             # Mostrar resultados
@@ -117,45 +110,38 @@ if run_button:
                 df = pd.DataFrame(data)
                 st.dataframe(df, use_container_width=True)
                 
-                # Botones de descarga
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    # Descargar CSV
-                    csv = df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 Descargar CSV",
-                        data=csv,
-                        file_name=f"tiktok_metrics_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv",
-                        use_container_width=True
-                    )
-                
-                with col2:
-                    # Opción de descarga desde backend
-                    if result.get("csv_path"):
-                        download_url = f"{BACKEND_URL.rstrip('/')}/download?path={result.get('csv_path')}"
-                        st.markdown(f'<a href="{download_url}" target="_blank"><button style="width:100%;background-color:#4CAF50;color:white;padding:10px;border:none;border-radius:5px;cursor:pointer;">📁 Descargar desde Servidor</button></a>', unsafe_allow_html=True)
+                # Descargar CSV
+                csv = df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Descargar CSV",
+                    data=csv,
+                    file_name=f"tiktok_metrics_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
                 
                 # Mostrar resumen
-                with st.expander("📊 Resumen de Métricas"):
-                    if 'visualizaciones_num' in df.columns:
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("Vistas Totales", f"{df['visualizaciones_num'].sum():,}")
-                        with col2:
-                            st.metric("Likes Totales", f"{df['me_gusta_num'].sum():,}")
-                        with col3:
-                            st.metric("Comentarios Totales", f"{df['comentarios_num'].sum():,}")
-                        
-                        if 'engagement_rate' in df.columns:
-                            avg_engagement = df['engagement_rate'].mean()
-                            st.metric("Engagement Promedio", f"{avg_engagement:.2f}%")
+                with st.expander("📊 Resumen"):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Videos", count)
+                    with col2:
+                        try:
+                            vistas = sum(int(str(v).replace(',', '').replace('K', '000')) for v in df['visualizaciones'] if str(v).replace(',', '').replace('K', '').replace('.', '').isdigit())
+                            st.metric("Vistas totales", f"{vistas:,}")
+                        except:
+                            st.metric("Vistas totales", "N/A")
+                    with col3:
+                        try:
+                            publicos = len(df[df['privacidad'].str.contains('Todo el mundo')])
+                            st.metric("Videos públicos", publicos)
+                        except:
+                            st.metric("Videos públicos", "N/A")
             else:
-                st.warning("⚠️ No se encontraron videos. Verifica las cookies de sesión.")
+                st.warning("⚠️ No se encontraron videos. Verifica las cookies.")
         
         else:
-            st.error(f"❌ Error en el scraping: {result.get('error', 'Error desconocido')}")
+            st.error(f"❌ Error: {result.get('error', 'Error desconocido')}")
     
     else:
         try:
@@ -164,32 +150,30 @@ if run_button:
         except:
             st.error(f"❌ Error HTTP {response.status_code}: {response.text}")
     
-    # Limpiar barra de progreso
     progress_bar.empty()
 
 elif not (BACKEND_URL and cookies_input):
     st.warning("⚠️ Completa la URL del backend y las cookies para habilitar el scraper")
 
-# Sección de información
+# Información
 st.markdown("---")
 with st.expander("ℹ️ Información", expanded=False):
     st.markdown("""
     ### 📋 Funcionamiento:
-    1. **Configura** la URL de tu backend en PythonAnywhere
-    2. **Obtén las cookies** de sesión de TikTok
+    1. **Configura** la URL de tu backend
+    2. **Obtén las cookies** de TikTok
     3. **Haz clic en "Conectar y Ejecutar Scraper"**
-    4. **Espera** mientras se ejecuta el scraping (1-3 minutos)
-    5. **Visualiza y descarga** los resultados
+    4. **Visualiza y descarga** los resultados
     
-    ### 🔧 Requisitos del Backend:
-    - API desplegada en PythonAnywhere
-    - Selenium y ChromeDriver configurados
-    - Endpoint `/scrape` disponible
+    ### 🔧 Backend configurado:
+    - **URL:** https://pahubisas.pythonanywhere.com
+    - **Endpoints:** /scrape (POST), /health (GET)
+    - **Formato:** JSON con cookies de sesión
     
     ### ⚠️ Notas:
-    - Las cookies deben ser válidas y de una sesión activa
-    - El scraping puede tardar 1-3 minutos
+    - Las cookies deben ser de una sesión activa
     - No compartas tus cookies públicamente
+    - Los datos son de demostración (backend sin Selenium en PythonAnywhere)
     """)
 
 # Estado del backend
