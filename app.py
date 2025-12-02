@@ -12,9 +12,10 @@ st.set_page_config(
 st.title("TikTok Scraper · PythonAnywhere")
 
 if st.button("Conectar y ejecutar scraper"):
-    with st.spinner("Ejecutando scraper (1–3 min)…"):
+    with st.spinner("Abriendo login TikTok y ejecutando scraper (1–3 min)…"):
+
         try:
-            payload = {"cookies": []}
+            payload = {"login": True}  # <<< modo login automático
             resp = requests.post(
                 API,
                 json=payload,
