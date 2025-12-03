@@ -5,7 +5,7 @@ import os
 st.set_page_config(page_title="Prueba Carga Excel", layout="wide")
 
 # Ruta del Excel
-EXCEL_PATH = r"C:\\Users\\diana\\OneDrive\\Documentos\\WasaFlete\\Eva\\descargas\\base_tiktok.xlsx"
+EXCEL_PATH = r"C:/Users/diana/OneDrive/Documentos/WasaFlete/Eva/descargas/base_tiktok.xlsx"
 
 st.title("🔍 PRUEBA CARGA EXCEL")
 st.markdown("---")
