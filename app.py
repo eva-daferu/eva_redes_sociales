@@ -1,50 +1,11 @@
-import subprocess
-import sys
-import os
-
-# =============================================
-# VERIFICAR E INSTALAR DEPENDENCIAS FALTANTES
-# =============================================
-def install_package(package):
-    """Instala un paquete usando pip"""
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package, "--quiet"])
-
-# Lista de paquetes requeridos
-required_packages = [
-    'streamlit',
-    'pandas',
-    'plotly',
-    'openpyxl'  # Para exportar Excel
-]
-
-# Verificar e instalar paquetes faltantes
-for package in required_packages:
-    try:
-        if package == 'streamlit':
-            import streamlit as st
-        elif package == 'pandas':
-            import pandas as pd
-        elif package == 'plotly':
-            import plotly.graph_objects as go
-        elif package == 'openpyxl':
-            import openpyxl
-    except ImportError:
-        install_package(package)
-
-# =============================================
-# IMPORTAR LIBRERÍAS DESPUÉS DE INSTALACIÓN
-# =============================================
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import time
 import random
 import json
-import re
 from io import BytesIO
-import os
 
 # Configuración de página
 st.set_page_config(
@@ -564,9 +525,6 @@ def run_tiktok_scraper():
     st.session_state.scraping_in_progress = True
     
     try:
-        # Simular el proceso de scraping con datos REALES (estructura)
-        # En producción, aquí ejecutarías el código de scraping real
-        
         # Datos REALES de ejemplo (simulando el output del scraper)
         real_tiktok_data = [
             {
@@ -926,55 +884,24 @@ def show_tiktok_dashboard():
         
         top_videos = data.nlargest(10, 'visualizaciones_num').copy()
         
-        fig1 = go.Figure()
-        fig1.add_trace(go.Bar(
-            x=top_videos['titulo'].str[:40] + '...',
-            y=top_videos['visualizaciones_num'],
-            name='Views',
-            marker_color='#1e3a8a',
-            hovertemplate='<b>%{x}</b><br>Views: %{y:,}<extra></extra>'
-        ))
+        st.bar_chart(top_videos.set_index(top_videos['titulo'].str[:40] + '...')['visualizaciones_num'])
         
-        fig1.update_layout(
-            title='Top 10 Videos by Views',
-            xaxis_title='Video Title',
-            yaxis_title='Views',
-            height=500,
-            template='plotly_white',
-            showlegend=False
-        )
+        # Métricas adicionales
+        st.subheader("📊 Video Performance Metrics")
         
-        st.plotly_chart(fig1, use_container_width=True)
+        metric_col1, metric_col2, metric_col3 = st.columns(3)
         
-        # Gráfico de dispersión - Engagement vs Views
-        st.subheader("📊 Engagement Analysis")
+        with metric_col1:
+            avg_views = data['visualizaciones_num'].mean()
+            st.metric("Average Views", f"{avg_views:,.0f}")
         
-        fig2 = go.Figure()
+        with metric_col2:
+            avg_likes = data['me_gusta_num'].mean()
+            st.metric("Average Likes", f"{avg_likes:,.0f}")
         
-        fig2.add_trace(go.Scatter(
-            x=data['visualizaciones_num'],
-            y=data['engagement_rate'],
-            mode='markers',
-            marker=dict(
-                size=data['me_gusta_num'] / 100,
-                color=data['me_gusta_num'],
-                colorscale='Viridis',
-                showscale=True,
-                colorbar=dict(title="Likes")
-            ),
-            text=data['titulo'].str[:50] + '...',
-            hovertemplate='<b>%{text}</b><br>Views: %{x:,}<br>Engagement: %{y:.1f}%<extra></extra>'
-        ))
-        
-        fig2.update_layout(
-            title='Engagement Rate vs Views',
-            xaxis_title='Views',
-            yaxis_title='Engagement Rate (%)',
-            height=500,
-            template='plotly_white'
-        )
-        
-        st.plotly_chart(fig2, use_container_width=True)
+        with metric_col3:
+            avg_comments = data['comentarios_num'].mean()
+            st.metric("Average Comments", f"{avg_comments:,.0f}")
     
     with tab2:
         # Análisis temporal
@@ -993,40 +920,25 @@ def show_tiktok_dashboard():
                 'engagement_rate': 'mean'
             }).reset_index()
             
-            fig3 = go.Figure()
+            st.line_chart(daily_data.set_index('fecha_dt')['visualizaciones_num'])
             
-            fig3.add_trace(go.Scatter(
-                x=daily_data['fecha_dt'],
-                y=daily_data['visualizaciones_num'],
-                mode='lines+markers',
-                name='Views',
-                line=dict(color='#1e3a8a', width=3)
-            ))
-            
-            fig3.add_trace(go.Scatter(
-                x=daily_data['fecha_dt'],
-                y=daily_data['me_gusta_num'],
-                mode='lines+markers',
-                name='Likes',
-                line=dict(color='#10b981', width=2),
-                yaxis='y2'
-            ))
-            
-            fig3.update_layout(
-                title='Daily Performance Trends',
-                xaxis_title='Date',
-                yaxis_title='Views',
-                yaxis2=dict(
-                    title='Likes',
-                    overlaying='y',
-                    side='right'
-                ),
-                height=500,
-                template='plotly_white',
-                hovermode='x unified'
+            # Selección de métrica
+            metric_option = st.selectbox(
+                "Select metric to view:",
+                ['visualizaciones_num', 'me_gusta_num', 'comentarios_num', 'engagement_rate'],
+                format_func=lambda x: {
+                    'visualizaciones_num': 'Views',
+                    'me_gusta_num': 'Likes',
+                    'comentarios_num': 'Comments',
+                    'engagement_rate': 'Engagement Rate'
+                }[x]
             )
             
-            st.plotly_chart(fig3, use_container_width=True)
+            if not daily_data.empty:
+                if metric_option == 'engagement_rate':
+                    st.line_chart(daily_data.set_index('fecha_dt')[metric_option])
+                else:
+                    st.line_chart(daily_data.set_index('fecha_dt')[metric_option])
             
         except Exception as e:
             st.error(f"Could not parse dates: {str(e)}")
@@ -1193,7 +1105,6 @@ def main():
                 show_tiktok_dashboard()
             else:
                 st.info(f"📊 Analytics dashboard for {current_config['name']} coming soon!")
-                # Aquí podrías agregar dashboards para otras redes
         else:
             st.warning(f"⚠️ Please authenticate with {current_config['name']} first to view analytics.")
     
