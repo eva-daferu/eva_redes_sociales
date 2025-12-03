@@ -3,10 +3,10 @@ import streamlit.components.v1 as components
 import pandas as pd
 from datetime import datetime, timedelta
 import time
-import random
 import json
 from io import BytesIO
 import os
+import sys
 
 # Configuración de página
 st.set_page_config(
@@ -441,7 +441,7 @@ if 'scraped_data' not in st.session_state:
     st.session_state.scraped_data = {}
 
 if 'current_network' not in st.session_state:
-    st.session_state.current_network = 'tiktok'  # Por defecto TikTok
+    st.session_state.current_network = 'tiktok'
 
 if 'scraping_in_progress' not in st.session_state:
     st.session_state.scraping_in_progress = False
@@ -548,23 +548,24 @@ def load_tiktok_data():
             return pd.DataFrame()
         
         # Limpiar y preparar datos
-        # Asegurarse de que las columnas numéricas sean numéricas
+        # Convertir columnas numéricas
         for col in ['visualizaciones', 'me_gusta', 'comentarios']:
             if df[col].dtype == 'object':
-                # Remover comas y convertir a numérico
-                df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
+                # Remover comas y caracteres no numéricos
+                df[col] = df[col].astype(str).str.replace(',', '').str.replace(' ', '')
+                # Convertir a numérico
+                df[col] = pd.to_numeric(df[col], errors='coerce')
         
         # Crear columnas numéricas adicionales
-        df['visualizaciones_num'] = df['visualizaciones'].astype(float)
-        df['me_gusta_num'] = df['me_gusta'].astype(float)
-        df['comentarios_num'] = df['comentarios'].astype(float)
+        df['visualizaciones_num'] = df['visualizaciones'].fillna(0).astype(float)
+        df['me_gusta_num'] = df['me_gusta'].fillna(0).astype(float)
+        df['comentarios_num'] = df['comentarios'].fillna(0).astype(float)
         
         # Calcular engagement rate
-        df['engagement_rate'] = ((df['me_gusta_num'] + df['comentarios_num']) / df['visualizaciones_num'] * 100).round(2)
-        
-        # Limpiar valores infinitos
-        df.replace([float('inf'), float('-inf')], pd.NA, inplace=True)
-        df['engagement_rate'] = df['engagement_rate'].fillna(0)
+        mask = df['visualizaciones_num'] > 0
+        df['engagement_rate'] = 0.0
+        df.loc[mask, 'engagement_rate'] = ((df.loc[mask, 'me_gusta_num'] + df.loc[mask, 'comentarios_num']) / 
+                                          df.loc[mask, 'visualizaciones_num'] * 100).round(2)
         
         st.success(f"✅ Datos cargados exitosamente: {len(df)} videos encontrados")
         return df
@@ -574,7 +575,7 @@ def load_tiktok_data():
         return pd.DataFrame()
 
 def run_tiktok_scraper():
-    """Función para cargar datos desde archivo en lugar de scraping"""
+    """Función para cargar datos desde archivo"""
     
     st.session_state.scraping_in_progress = True
     
@@ -583,39 +584,8 @@ def run_tiktok_scraper():
         df = load_tiktok_data()
         
         if df.empty:
-            st.warning("⚠️ No se pudieron cargar datos del archivo. Usando datos de ejemplo.")
-            
-            # Datos de ejemplo si no se puede cargar el archivo
-            example_data = [
-                {
-                    'duracion_video': '01:33',
-                    'titulo': 'Video de ejemplo 1',
-                    'fecha_publicacion': '28 nov, 14:01',
-                    'privacidad': 'Todo el mundo',
-                    'visualizaciones': '192',
-                    'me_gusta': '14',
-                    'comentarios': '1'
-                },
-                {
-                    'duracion_video': '01:29',
-                    'titulo': 'Video de ejemplo 2',
-                    'fecha_publicacion': '27 nov, 17:43',
-                    'privacidad': 'Todo el mundo',
-                    'visualizaciones': '108',
-                    'me_gusta': '3',
-                    'comentarios': '0'
-                }
-            ]
-            
-            df = pd.DataFrame(example_data)
-            
-            # Convertir columnas numéricas
-            df['visualizaciones_num'] = pd.to_numeric(df['visualizaciones'].str.replace(',', ''), errors='coerce')
-            df['me_gusta_num'] = pd.to_numeric(df['me_gusta'].str.replace(',', ''), errors='coerce')
-            df['comentarios_num'] = pd.to_numeric(df['comentarios'].str.replace(',', ''), errors='coerce')
-            
-            # Calcular engagement
-            df['engagement_rate'] = ((df['me_gusta_num'] + df['comentarios_num']) / df['visualizaciones_num'] * 100).round(2)
+            st.error("❌ No se pudieron cargar datos del archivo. Verifica la ruta y formato.")
+            return pd.DataFrame()
         
         return df
         
@@ -706,7 +676,7 @@ def show_auth_modal():
     # Determinar color del ícono
     icon_color = config['color']
     if network == 'tiktok':
-        icon_color = '#00f2ea'  # Color característico de TikTok
+        icon_color = '#00f2ea'
     
     st.markdown("""
     <div class="modal-container">
@@ -760,7 +730,7 @@ def show_auth_modal():
         
         with button_col2:
             if st.button(f"🔗 Connect", use_container_width=True, key="modal_connect", type="primary"):
-                # Para TikTok, cargar datos del archivo en lugar de autenticación
+                # Para TikTok, cargar datos del archivo
                 if network == 'tiktok':
                     with st.spinner("📂 Cargando datos de TikTok..."):
                         progress_bar = st.progress(0)
@@ -780,41 +750,13 @@ def show_auth_modal():
                         
                         st.rerun()
                 else:
-                    # Mostrar iframe de autenticación para otras redes
-                    st.markdown(f"""
-                    <div class="auth-instructions">
-                        <h4><i class="{config['icon']}"></i> Autenticación {config['name']}</h4>
-                        <p>Inicia sesión directamente en la ventana a continuación para continuar.</p>
-                        <p><strong>⚠️ IMPORTANTE:</strong> No cierres esta ventana durante el proceso de autenticación.</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Iframe de autenticación
-                    auth_html = f"""
-                    <div class="auth-container">
-                        <div class="auth-header">
-                            <i class="{config['icon']}"></i>
-                            {config['name']} Login
-                        </div>
-                        <iframe src="{config['auth_url']}" width="100%" height="500" 
-                        style="border: none;" title="{config['name']} Authentication"></iframe>
-                    </div>
-                    <p style="text-align: center; color: #666; font-size: 14px; margin-top: 10px;">
-                        Si la ventana no carga correctamente, 
-                        <a href="{config['auth_url']}" target="_blank">haz clic aquí para abrir en nueva pestaña</a>
-                    </p>
-                    """
-                    
-                    components.html(auth_html, height=600)
-                    
-                    # Simular autenticación
+                    # Para otras redes, simular autenticación
                     with st.spinner(f"Authenticating with {config['name']}..."):
                         progress_bar = st.progress(0)
                         for i in range(100):
                             time.sleep(0.03)
                             progress_bar.progress(i + 1)
                         
-                        # Marcar como autenticado
                         st.session_state.auth_status[network] = True
                         st.success(f"✅ Successfully connected to {config['name']}!")
                         st.rerun()
@@ -949,17 +891,21 @@ def show_tiktok_dashboard():
         # Intentar parsear fechas
         try:
             # Probar diferentes formatos de fecha
-            date_formats = ['%d %b, %H:%M', '%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y']
+            date_formats = ['%d %b, %H:%M', '%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%d %b %Y']
             
             data_with_dates = data.copy()
+            date_parsed = False
+            
             for fmt in date_formats:
                 try:
-                    data_with_dates['fecha_dt'] = pd.to_datetime(data_with_dates['fecha_publicacion'], format=fmt, errors='raise')
-                    break
+                    data_with_dates['fecha_dt'] = pd.to_datetime(data_with_dates['fecha_publicacion'], format=fmt, errors='coerce')
+                    if data_with_dates['fecha_dt'].notna().sum() > 0:
+                        date_parsed = True
+                        break
                 except:
                     continue
             
-            if 'fecha_dt' in data_with_dates.columns:
+            if date_parsed and 'fecha_dt' in data_with_dates.columns:
                 data_with_dates = data_with_dates.sort_values('fecha_dt')
                 
                 # Agrupar por fecha
@@ -1009,8 +955,7 @@ def show_tiktok_dashboard():
                 st.warning("⚠️ No se pudieron parsear las fechas correctamente")
                 
         except Exception as e:
-            st.warning(f"⚠️ No se pudieron analizar tendencias temporales: {str(e)}")
-            st.info("Los datos pueden no tener formato de fecha válido")
+            st.warning(f"⚠️ No se pudieron analizar tendencias temporales")
     
     with tab3:
         st.subheader("🔍 Filter and Analyze")
@@ -1084,7 +1029,9 @@ def show_tiktok_dashboard():
             # Convertir duración a segundos
             def duration_to_seconds(duration_str):
                 try:
-                    parts = duration_str.split(':')
+                    if pd.isna(duration_str):
+                        return 0
+                    parts = str(duration_str).split(':')
                     if len(parts) == 2:
                         minutes = int(parts[0])
                         seconds = int(parts[1])
@@ -1106,7 +1053,7 @@ def show_tiktok_dashboard():
             # Scatter plot de engagement vs views
             st.subheader("📈 Engagement vs Views Analysis")
             
-            scatter_data = filtered_data[['visualizaciones_num', 'engagement_rate', 'me_gusta_num', 'titulo']].copy()
+            scatter_data = filtered_data[['visualizaciones_num', 'engagement_rate', 'titulo']].copy()
             scatter_data['titulo_short'] = scatter_data['titulo'].str[:20] + '...'
             
             # Usar scatter_chart de Streamlit
@@ -1192,10 +1139,10 @@ def show_tiktok_dashboard():
             )
         
         with export_col2:
-            # Exportar a Excel usando pandas sin engine específico
+            # Exportar a Excel usando xlsxwriter
             try:
                 output = BytesIO()
-                # Usar el writer por defecto de pandas
+                # Usar xlsxwriter que viene con pandas
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     data[display_cols].to_excel(writer, index=False, sheet_name='TikTok Data')
                 excel_data = output.getvalue()
@@ -1209,7 +1156,7 @@ def show_tiktok_dashboard():
                     type="primary"
                 )
             except Exception as e:
-                st.error(f"No se pudo crear archivo Excel: {str(e)}")
+                st.error(f"No se pudo crear archivo Excel")
                 st.info("Se recomienda usar la opción CSV para exportar datos")
 
 # =============================================
@@ -1264,8 +1211,8 @@ def main():
                 
                 with col2:
                     if st.button("📊 View Dashboard", use_container_width=True):
-                        st.switch_page("?tab=analytics")
-                        st.rerun()
+                        # Ya estamos en analytics, solo mostrar mensaje
+                        st.info("Cambia a la pestaña 'Analytics' para ver el dashboard")
                 
                 with col3:
                     if st.button("🚪 Disconnect", use_container_width=True):
@@ -1335,8 +1282,9 @@ def main():
                         # Intentar cargar el archivo para verificar
                         test_df = pd.read_excel(file_path, nrows=5)
                         st.success(f"✅ File is readable. Columns: {', '.join(test_df.columns)}")
+                        st.success(f"✅ Sample data loaded: {len(test_df)} rows")
                     except Exception as e:
-                        st.error(f"❌ Error reading file: {str(e)}")
+                        st.error(f"❌ Error reading file")
                 else:
                     st.error(f"❌ File not found at: {file_path}")
         
@@ -1384,7 +1332,7 @@ def main():
             st.metric("Total Records", f"{total_records}")
         
         with info_col3:
-            st.metric("Python Version", f"{sys.version.split()[0]}")
+            st.metric("App Version", "1.0.0")
 
 # =============================================
 # EJECUCIÓN
