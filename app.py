@@ -9,16 +9,12 @@ import os
 import sys
 import requests
 
-# Configuración de página
 st.set_page_config(
     page_title="Social Dashboard - Panel Profesional",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# =============================================
-# CSS EXACTO DEL DISEÑO ORIGINAL
-# =============================================
 st.markdown("""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -30,14 +26,12 @@ st.markdown("""
         font-family: 'Inter', sans-serif !important;
     }
     
-    /* ===== TOP BAR ===== */
     .stApp header {
         background-color: #2d3748 !important;
         height: 70px !important;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
     }
     
-    /* ===== SIDEBAR PROFESIONAL ===== */
     section[data-testid="stSidebar"] {
         background: linear-gradient(180deg, #1e3a8a 0%, #0f172a 100%) !important;
         padding-top: 70px !important;
@@ -50,7 +44,6 @@ st.markdown("""
         background: transparent !important;
     }
     
-    /* Botones de redes sociales en sidebar */
     .social-sidebar-btn {
         width: 60px;
         height: 60px;
@@ -106,7 +99,6 @@ st.markdown("""
         text-shadow: 2px 2px 0 #ff0050;
     }
     
-    /* ===== MODAL FRAME PROFESIONAL (EXACTO) ===== */
     .modal-container {
         display: flex;
         justify-content: center;
@@ -256,7 +248,6 @@ st.markdown("""
         justify-content: center;
     }
     
-    /* ===== IFRAME DE AUTENTICACIÓN ===== */
     .auth-container {
         margin: 50px 0;
         border: 3px solid #1e3a8a;
@@ -301,7 +292,6 @@ st.markdown("""
         font-size: 16px;
     }
     
-    /* ===== TABLA DE DATOS PROFESIONAL ===== */
     .data-table-container {
         background: white;
         border-radius: 15px;
@@ -320,7 +310,6 @@ st.markdown("""
         border-bottom: 2px solid #f1f5f9;
     }
     
-    /* ===== METRICS CARDS ===== */
     .metric-card {
         background: white;
         border-radius: 15px;
@@ -355,7 +344,6 @@ st.markdown("""
         font-weight: 500;
     }
     
-    /* ===== RESPONSIVE ===== */
     @media (max-width: 768px) {
         .modal-frame {
             padding: 40px 25px;
@@ -386,13 +374,11 @@ st.markdown("""
         }
     }
     
-    /* ===== OCULTAR ELEMENTOS STREAMLIT ===== */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .stDeployButton {display:none;}
     
-    /* Botones de Streamlit mejorados */
     .stButton > button {
         border-radius: 12px !important;
         font-weight: 600 !important;
@@ -405,7 +391,6 @@ st.markdown("""
         transform: translateY(-2px);
     }
     
-    /* Tabs mejorados */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
         background-color: #f8fafc;
@@ -426,9 +411,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# =============================================
-# ESTADO DE LA SESIÓN
-# =============================================
 if 'auth_status' not in st.session_state:
     st.session_state.auth_status = {
         'facebook': False,
@@ -459,9 +441,6 @@ if 'backend_analytics' not in st.session_state:
 if 'last_backend_sync' not in st.session_state:
     st.session_state.last_backend_sync = None
 
-# =============================================
-# CONFIGURACIÓN DE REDES SOCIALES
-# =============================================
 NETWORK_CONFIG = {
     'facebook': {
         'name': 'Facebook',
@@ -530,21 +509,11 @@ NETWORK_CONFIG = {
     }
 }
 
-# =============================================
-# BACKEND API CONFIGURATION
-# =============================================
 BACKEND_URL = "https://pahubisas.pythonanywhere.com"
 
-# =============================================
-# FUNCIÓN PARA CARGAR DATOS REALES DESDE BACKEND
-# =============================================
 def load_tiktok_data_from_backend():
-    """Carga datos REALES desde el backend API"""
-    
     try:
         st.session_state.scraping_in_progress = True
-        
-        # Obtener datos del backend
         response = requests.get(f"{BACKEND_URL}/data", timeout=30)
         
         if response.status_code == 200:
@@ -553,20 +522,16 @@ def load_tiktok_data_from_backend():
             if result.get("status") == "success":
                 data = result.get("data", [])
                 analytics = result.get("analytics", {})
-                
-                # Convertir a DataFrame
                 df = pd.DataFrame(data)
                 
-                # Verificar columnas necesarias
                 required_columns = ['duracion_video', 'titulo', 'fecha_publicacion', 
                                   'privacidad', 'visualizaciones', 'me_gusta', 'comentarios']
                 
                 missing_columns = [col for col in required_columns if col not in df.columns]
                 if missing_columns:
-                    st.error(f"❌ Columnas faltantes en los datos del backend: {missing_columns}")
+                    st.error(f"❌ Columnas faltantes: {missing_columns}")
                     return pd.DataFrame(), {}
                 
-                # Preparar columnas numéricas
                 for col in ['visualizaciones', 'me_gusta', 'comentarios']:
                     if col in df.columns and df[col].dtype == 'object':
                         df[col] = df[col].astype(str).str.replace(',', '').str.replace(' ', '')
@@ -579,14 +544,12 @@ def load_tiktok_data_from_backend():
                 if 'comentarios' in df.columns:
                     df['comentarios_num'] = df['comentarios'].fillna(0).astype(float)
                 
-                # Calcular engagement rate si no existe
                 if 'engagement_rate' not in df.columns:
                     mask = df['visualizaciones_num'] > 0
                     df['engagement_rate'] = 0.0
                     df.loc[mask, 'engagement_rate'] = ((df.loc[mask, 'me_gusta_num'] + df.loc[mask, 'comentarios_num']) / 
                                                       df.loc[mask, 'visualizaciones_num'] * 100).round(2)
                 
-                # Guardar en estado de sesión
                 st.session_state.backend_data = df
                 st.session_state.backend_analytics = analytics
                 st.session_state.last_backend_sync = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -596,7 +559,7 @@ def load_tiktok_data_from_backend():
                 st.error(f"❌ Error del backend: {result.get('message', 'Error desconocido')}")
                 return pd.DataFrame(), {}
         else:
-            st.error(f"❌ Error HTTP {response.status_code} al conectar con el backend")
+            st.error(f"❌ Error HTTP {response.status_code}")
             return pd.DataFrame(), {}
             
     except requests.exceptions.ConnectionError:
@@ -612,7 +575,6 @@ def load_tiktok_data_from_backend():
         st.session_state.scraping_in_progress = False
 
 def refresh_backend_data():
-    """Refrescar datos desde el backend"""
     try:
         response = requests.get(f"{BACKEND_URL}/refresh", timeout=30)
         
@@ -626,30 +588,22 @@ def refresh_backend_data():
         return False, f"Error al refrescar: {str(e)}"
 
 def run_tiktok_scraper():
-    """Función para cargar datos REALES desde backend"""
-    
     try:
-        # Cargar datos desde el backend
         df, analytics = load_tiktok_data_from_backend()
         
         if df.empty:
-            st.error("❌ No se pudieron cargar datos del backend. Verifica la conexión.")
+            st.error("❌ No se pudieron cargar datos del backend.")
             return pd.DataFrame()
         
-        st.success(f"✅ Datos cargados exitosamente desde backend: {len(df)} videos encontrados")
+        st.success(f"✅ Datos cargados: {len(df)} videos")
         return df
         
     except Exception as e:
         st.error(f"Error: {str(e)}")
         return pd.DataFrame()
 
-# =============================================
-# COMPONENTES DE INTERFAZ
-# =============================================
 def create_sidebar():
-    """Crea la sidebar profesional"""
     with st.sidebar:
-        # Logo y título
         st.markdown("""
         <div style="text-align: center; padding: 20px 0 40px 0;">
             <h2 style="color: white; margin: 0; font-weight: 700;">🌐 DASHBOARD</h2>
@@ -657,7 +611,6 @@ def create_sidebar():
         </div>
         """, unsafe_allow_html=True)
         
-        # Botones de redes sociales
         networks = [
             ('facebook', 'Facebook', 'fab fa-facebook-f'),
             ('twitter', 'Twitter', 'fab fa-twitter'),
@@ -670,7 +623,6 @@ def create_sidebar():
             config = NETWORK_CONFIG[network_id]
             status = "✅" if st.session_state.auth_status[network_id] else "🔒"
             
-            # Botón de selección
             if st.button(
                 f"{network_name} {status}",
                 key=f"sidebar_{network_id}",
@@ -680,10 +632,8 @@ def create_sidebar():
                 st.session_state.current_network = network_id
                 st.rerun()
         
-        # Separador
         st.markdown("---")
         
-        # Estado de conexiones
         st.markdown("""
         <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin: 20px 0;">
             <h4 style="color: white; margin: 0 0 15px 0;">🔗 Estado Conexiones</h4>
@@ -700,7 +650,6 @@ def create_sidebar():
         
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # Información de datos
         if st.session_state.data_loaded and 'tiktok' in st.session_state.scraped_data:
             data = st.session_state.scraped_data['tiktok']
             st.markdown(f"""
@@ -731,11 +680,9 @@ def create_sidebar():
             """, unsafe_allow_html=True)
 
 def show_auth_modal():
-    """Muestra el modal de autenticación profesional"""
     network = st.session_state.current_network
     config = NETWORK_CONFIG[network]
     
-    # Determinar color del ícono
     icon_color = config['color']
     if network == 'tiktok':
         icon_color = '#00f2ea'
@@ -745,19 +692,16 @@ def show_auth_modal():
         <div class="modal-frame">
     """, unsafe_allow_html=True)
     
-    # Icono grande
     st.markdown(f"""
     <div class="network-icon-large">
         <i class="{config['icon']}" style="color: {icon_color}; font-size: 90px;"></i>
     </div>
     """, unsafe_allow_html=True)
     
-    # Título
     st.markdown(f"""
     <h1 class="modal-title">Connect to <span class="social-network-name">{config['name']}</span>?</h1>
     """, unsafe_allow_html=True)
     
-    # Subtítulo
     st.markdown(f"""
     <p class="modal-subtitle">
         This will allow the dashboard to access your {config['name']} account data 
@@ -765,7 +709,6 @@ def show_auth_modal():
     </p>
     """, unsafe_allow_html=True)
     
-    # Permisos
     st.markdown("""
     <div class="permissions-list">
         <h3><i class="fas fa-shield-alt"></i> Permissions requested:</h3>
@@ -780,7 +723,6 @@ def show_auth_modal():
     </div>
     """, unsafe_allow_html=True)
     
-    # Botones
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
@@ -791,29 +733,35 @@ def show_auth_modal():
                 st.warning(f"Connection to {config['name']} cancelled")
         
         with button_col2:
-            if st.button(f"🔗 Connect", use_container_width=True, key="modal_connect", type="primary"):
-                # Para TikTok, cargar datos REALES desde backend
+            connect_key = f"modal_connect_{network}_{int(time.time())}"
+            if st.button(f"🔗 Connect", use_container_width=True, key=connect_key, type="primary"):
                 if network == 'tiktok':
-                    with st.spinner("📂 Cargando datos REALES desde Excel..."):
+                    st.session_state.scraping_in_progress = True
+                    
+                    with st.spinner("📂 Loading REAL data from Excel..."):
                         progress_bar = st.progress(0)
+                        
+                        df, analytics = load_tiktok_data_from_backend()
+                        
                         for i in range(100):
-                            time.sleep(0.02)
+                            time.sleep(0.01)
                             progress_bar.progress(i + 1)
                         
-                        # Cargar datos REALES desde backend
-                        data = run_tiktok_scraper()
-                        
-                        if not data.empty:
+                        if not df.empty:
                             st.session_state.auth_status[network] = True
-                            st.session_state.scraped_data[network] = data
+                            st.session_state.scraped_data[network] = df
                             st.session_state.data_loaded = True
-                            st.success(f"✅ Datos REALES cargados exitosamente: {len(data)} videos")
+                            st.session_state.backend_analytics = analytics
+                            st.session_state.last_backend_sync = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            
+                            st.success(f"✅ REAL data loaded: {len(df)} videos")
+                            time.sleep(1)
+                            st.rerun()
                         else:
-                            st.error("❌ No se pudieron cargar los datos REALES")
-                        
-                        st.rerun()
+                            st.error("❌ Could not load REAL data")
+                            st.session_state.scraping_in_progress = False
+                
                 else:
-                    # Para otras redes, simular autenticación
                     with st.spinner(f"Authenticating with {config['name']}..."):
                         progress_bar = st.progress(0)
                         for i in range(100):
@@ -821,13 +769,13 @@ def show_auth_modal():
                             progress_bar.progress(i + 1)
                         
                         st.session_state.auth_status[network] = True
-                        st.success(f"✅ Successfully connected to {config['name']}!")
+                        st.success(f"✅ Connected to {config['name']}!")
+                        time.sleep(1)
                         st.rerun()
     
     st.markdown("</div></div>", unsafe_allow_html=True)
 
 def show_tiktok_dashboard():
-    """Dashboard específico para TikTok con datos REALES"""
     if 'tiktok' not in st.session_state.scraped_data:
         st.info("ℹ️ First authenticate with TikTok to view analytics")
         return
@@ -835,7 +783,6 @@ def show_tiktok_dashboard():
     data = st.session_state.scraped_data['tiktok']
     config = NETWORK_CONFIG['tiktok']
     
-    # Header del dashboard
     st.markdown(f"""
     <div style="background: linear-gradient(135deg, {config['color']} 0%, #333333 100%); 
                 padding: 30px; border-radius: 20px; color: white; margin-bottom: 40px; 
@@ -853,26 +800,23 @@ def show_tiktok_dashboard():
     </div>
     """, unsafe_allow_html=True)
     
-    # Botón de refresco
     refresh_col1, refresh_col2, refresh_col3 = st.columns([1, 2, 1])
     with refresh_col2:
         if st.button("🔄 REFRESCAR DATOS REALES", use_container_width=True, type="primary"):
-            with st.spinner("Refrescando datos REALES desde Excel..."):
+            with st.spinner("Refrescando datos REALES..."):
                 success, message = refresh_backend_data()
                 if success:
-                    # Volver a cargar datos
                     df, analytics = load_tiktok_data_from_backend()
                     if not df.empty:
                         st.session_state.scraped_data['tiktok'] = df
                         st.session_state.backend_analytics = analytics
-                        st.success("✅ Datos REALES refrescados exitosamente!")
+                        st.success("✅ Datos REALES refrescados!")
                         st.rerun()
                     else:
-                        st.error("❌ No se pudieron cargar los datos refrescados")
+                        st.error("❌ No se pudieron cargar los datos")
                 else:
                     st.error(f"❌ {message}")
     
-    # Métricas principales
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -915,13 +859,11 @@ def show_tiktok_dashboard():
         </div>
         """, unsafe_allow_html=True)
     
-    # Tabs de análisis
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Performance", "📈 Trends", "🔍 Filters", "📋 Raw Data"])
     
     with tab1:
         st.subheader("🎯 Top Performing Videos REALES")
         
-        # Filtros para el top
         top_col1, top_col2 = st.columns(2)
         with top_col1:
             top_n = st.slider("Number of top videos", 5, 20, 10, key="top_n_slider")
@@ -939,10 +881,8 @@ def show_tiktok_dashboard():
                 key="metric_select"
             )
         
-        # Obtener top videos
         top_videos = data.nlargest(top_n, metric_option).copy()
         
-        # Gráfico de barras interactivo
         if metric_option == 'engagement_rate':
             chart_data = top_videos[['titulo', metric_option]]
             chart_data['titulo_short'] = chart_data['titulo'].str[:30] + '...'
@@ -952,7 +892,6 @@ def show_tiktok_dashboard():
             chart_data['titulo_short'] = chart_data['titulo'].str[:30] + '...'
             st.bar_chart(chart_data.set_index('titulo_short')[metric_option])
         
-        # Mostrar tabla de top videos
         st.subheader(f"📋 Top {top_n} Videos Details")
         display_cols = ['titulo', 'fecha_publicacion', 'visualizaciones', 
                        'me_gusta', 'comentarios', 'engagement_rate']
@@ -973,9 +912,7 @@ def show_tiktok_dashboard():
     with tab2:
         st.subheader("📅 Performance Over Time")
         
-        # Intentar parsear fechas
         try:
-            # Probar diferentes formatos de fecha
             date_formats = ['%d %b, %H:%M', '%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%d %b %Y']
             
             data_with_dates = data.copy()
@@ -993,7 +930,6 @@ def show_tiktok_dashboard():
             if date_parsed and 'fecha_dt' in data_with_dates.columns:
                 data_with_dates = data_with_dates.sort_values('fecha_dt')
                 
-                # Agrupar por fecha
                 if len(data_with_dates['fecha_dt'].dt.date.unique()) > 1:
                     daily_data = data_with_dates.groupby(data_with_dates['fecha_dt'].dt.date).agg({
                         'visualizaciones_num': 'sum',
@@ -1004,20 +940,17 @@ def show_tiktok_dashboard():
                     
                     daily_data.columns = ['Fecha', 'Vistas', 'Likes', 'Comentarios', 'Engagement']
                     
-                    # Selección de métrica para gráfico
                     metric_trend = st.selectbox(
                         "Select metric for trend:",
                         ['Vistas', 'Likes', 'Comentarios', 'Engagement'],
                         key="trend_metric"
                     )
                     
-                    # Gráfico de líneas
                     if metric_trend == 'Engagement':
                         st.line_chart(daily_data.set_index('Fecha')['Engagement'])
                     else:
                         st.line_chart(daily_data.set_index('Fecha')[metric_trend])
                     
-                    # Estadísticas de tendencia
                     if len(daily_data) > 1:
                         st.subheader("📈 Trend Analysis")
                         trend_col1, trend_col2, trend_col3 = st.columns(3)
@@ -1035,17 +968,16 @@ def show_tiktok_dashboard():
                             best_day = daily_data.loc[daily_data[metric_trend].idxmax(), 'Fecha']
                             st.metric(f"Mejor día {metric_trend}", str(best_day))
                 else:
-                    st.info("ℹ️ No hay suficientes fechas diferentes para mostrar tendencias temporales")
+                    st.info("ℹ️ No hay suficientes fechas diferentes")
             else:
-                st.warning("⚠️ No se pudieron parsear las fechas correctamente")
+                st.warning("⚠️ No se pudieron parsear las fechas")
                 
         except Exception as e:
-            st.warning(f"⚠️ No se pudieron analizar tendencias temporales")
+            st.warning(f"⚠️ No se pudieron analizar tendencias")
     
     with tab3:
         st.subheader("🔍 Filter and Analyze")
         
-        # Filtros interactivos
         filter_col1, filter_col2, filter_col3 = st.columns(3)
         
         with filter_col1:
@@ -1075,7 +1007,6 @@ def show_tiktok_dashboard():
                 key="privacy_filter"
             )
         
-        # Aplicar filtros
         filtered_data = data[
             (data['visualizaciones_num'] >= views_range[0]) &
             (data['visualizaciones_num'] <= views_range[1]) &
@@ -1084,11 +1015,9 @@ def show_tiktok_dashboard():
             (data['privacidad'].isin(selected_privacy))
         ]
         
-        # Mostrar resultados filtrados
         st.subheader(f"📊 Filtered Results: {len(filtered_data)} videos")
         
         if not filtered_data.empty:
-            # Métricas de los videos filtrados
             metric_f1, metric_f2, metric_f3 = st.columns(3)
             
             with metric_f1:
@@ -1103,15 +1032,12 @@ def show_tiktok_dashboard():
                 total_comments_filtered = filtered_data['comentarios_num'].sum()
                 st.metric("Total Comments (filtered)", f"{total_comments_filtered:,.0f}")
             
-            # Distribución por privacidad
             st.subheader("📊 Distribution by Privacy")
             privacy_dist = filtered_data['privacidad'].value_counts()
             st.bar_chart(privacy_dist)
             
-            # Duración promedio
             st.subheader("⏱️ Average Video Duration")
             
-            # Convertir duración a segundos
             def duration_to_seconds(duration_str):
                 try:
                     if pd.isna(duration_str):
@@ -1135,24 +1061,21 @@ def show_tiktok_dashboard():
             with col_d2:
                 st.metric("Average Duration", f"{avg_duration/60:.1f} minutes")
             
-            # Scatter plot de engagement vs views
             st.subheader("📈 Engagement vs Views Analysis")
             
             scatter_data = filtered_data[['visualizaciones_num', 'engagement_rate', 'titulo']].copy()
             scatter_data['titulo_short'] = scatter_data['titulo'].str[:20] + '...'
             
-            # Usar scatter_chart de Streamlit
             scatter_chart_data = scatter_data[['visualizaciones_num', 'engagement_rate']].copy()
             scatter_chart_data.columns = ['Views', 'Engagement Rate %']
             st.scatter_chart(scatter_chart_data)
             
         else:
-            st.warning("⚠️ No hay videos que coincidan con los filtros seleccionados")
+            st.warning("⚠️ No hay videos que coincidan con los filtros")
     
     with tab4:
         st.subheader("📋 Complete TikTok Data REALES")
         
-        # Opciones de visualización
         view_col1, view_col2 = st.columns(2)
         
         with view_col1:
@@ -1161,14 +1084,12 @@ def show_tiktok_dashboard():
         with view_col2:
             rows_per_page = st.selectbox("Rows per page", [10, 25, 50, 100], index=1)
         
-        # Seleccionar columnas para mostrar
         if show_all:
             display_cols = data.columns.tolist()
         else:
             display_cols = ['duracion_video', 'titulo', 'fecha_publicacion', 'privacidad', 
                            'visualizaciones', 'me_gusta', 'comentarios', 'engagement_rate']
         
-        # Mostrar datos
         st.dataframe(
             data[display_cols],
             use_container_width=True,
@@ -1185,7 +1106,6 @@ def show_tiktok_dashboard():
             }
         )
         
-        # Estadísticas adicionales
         st.subheader("📊 Data Statistics")
         
         stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
@@ -1206,13 +1126,11 @@ def show_tiktok_dashboard():
             std_engagement = data['engagement_rate'].std()
             st.metric("Std Dev Engagement", f"{std_engagement:.2f}%")
         
-        # Exportar datos
         st.subheader("💾 Export Data REALES")
         
         export_col1, export_col2 = st.columns(2)
         
         with export_col1:
-            # Exportar a CSV
             csv_data = data[display_cols].to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 Download CSV",
@@ -1224,10 +1142,8 @@ def show_tiktok_dashboard():
             )
         
         with export_col2:
-            # Exportar a Excel usando xlsxwriter
             try:
                 output = BytesIO()
-                # Usar xlsxwriter que viene con pandas
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     data[display_cols].to_excel(writer, index=False, sheet_name='TikTok Data REALES')
                 excel_data = output.getvalue()
@@ -1242,16 +1158,10 @@ def show_tiktok_dashboard():
                 )
             except Exception as e:
                 st.error(f"No se pudo crear archivo Excel")
-                st.info("Se recomienda usar la opción CSV para exportar datos")
 
-# =============================================
-# APLICACIÓN PRINCIPAL
-# =============================================
 def main():
-    # Sidebar
     create_sidebar()
     
-    # Header principal
     current_config = NETWORK_CONFIG[st.session_state.current_network]
     
     st.markdown(f"""
@@ -1277,14 +1187,12 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # Tabs principales
     auth_tab, analytics_tab, settings_tab = st.tabs(["🔐 Authentication", "📊 Analytics", "⚙️ Settings"])
     
     with auth_tab:
         if st.session_state.auth_status[st.session_state.current_network]:
             st.success(f"✅ You are connected to {current_config['name']}")
             
-            # Para TikTok, opción de re-cargar datos REALES
             if st.session_state.current_network == 'tiktok':
                 col1, col2, col3 = st.columns(3)
                 
@@ -1294,7 +1202,7 @@ def main():
                             data = run_tiktok_scraper()
                             if not data.empty:
                                 st.session_state.scraped_data['tiktok'] = data
-                                st.success(f"✅ Successfully reloaded {len(data)} TikTok videos REALES!")
+                                st.success(f"✅ Reloaded {len(data)} TikTok videos REALES!")
                                 st.rerun()
                 
                 with col2:
@@ -1308,11 +1216,9 @@ def main():
                         st.session_state.data_loaded = False
                         st.rerun()
                 
-                # Mostrar resumen de datos REALES
                 if 'tiktok' in st.session_state.scraped_data:
                     data = st.session_state.scraped_data['tiktok']
                     
-                    # Información del backend
                     backend_status = "🟢 Conectado" if st.session_state.last_backend_sync else "🔴 Desconectado"
                     
                     st.info(f"""
@@ -1325,7 +1231,6 @@ def main():
                     - **Last Updated:** {st.session_state.last_backend_sync or 'N/A'}
                     """)
                     
-                    # Botón de refresco del backend
                     if st.button("🔄 REFRESCAR DESDE BACKEND", use_container_width=True):
                         with st.spinner("Refrescando desde backend..."):
                             success, message = refresh_backend_data()
@@ -1337,7 +1242,7 @@ def main():
                                     st.success("✅ Datos REALES refrescados desde backend!")
                                     st.rerun()
                                 else:
-                                    st.error("❌ No se pudieron cargar los datos refrescados")
+                                    st.error("❌ No se pudieron cargar los datos")
                             else:
                                 st.error(f"❌ {message}")
             
@@ -1366,14 +1271,12 @@ def main():
         with col1:
             st.markdown("### 🔧 Backend Settings")
             
-            # Estado del backend
             backend_status = "🟢 Conectado" if st.session_state.last_backend_sync else "🔴 Desconectado"
             st.metric("Backend Status", backend_status)
             
             if st.session_state.last_backend_sync:
                 st.metric("Last Sync", st.session_state.last_backend_sync)
             
-            # Probar conexión
             if st.button("🔍 Test Backend Connection", use_container_width=True):
                 try:
                     response = requests.get(f"{BACKEND_URL}/health", timeout=10)
@@ -1384,7 +1287,6 @@ def main():
                 except Exception as e:
                     st.error(f"❌ Cannot connect to backend: {str(e)}")
             
-            # Refrescar desde backend
             if st.button("🔄 Force Backend Refresh", use_container_width=True):
                 with st.spinner("Forcing backend refresh..."):
                     success, message = refresh_backend_data()
@@ -1397,7 +1299,6 @@ def main():
             st.markdown("### 💾 Data Management")
             
             if st.button("💾 Backup Data to JSON", use_container_width=True):
-                # Crear backup de datos
                 backup_data = {
                     'auth_status': st.session_state.auth_status,
                     'scraped_data': {}
@@ -1448,8 +1349,5 @@ def main():
         st.code(f"Status: {'🟢 Online' if st.session_state.last_backend_sync else '🔴 Offline'}")
         st.code(f"Last Sync: {st.session_state.last_backend_sync or 'Never'}")
 
-# =============================================
-# EJECUCIÓN
-# =============================================
 if __name__ == "__main__":
     main()
