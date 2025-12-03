@@ -6,6 +6,7 @@ import time
 import random
 import json
 from io import BytesIO
+import os
 
 # Configuración de página
 st.set_page_config(
@@ -445,6 +446,9 @@ if 'current_network' not in st.session_state:
 if 'scraping_in_progress' not in st.session_state:
     st.session_state.scraping_in_progress = False
 
+if 'data_loaded' not in st.session_state:
+    st.session_state.data_loaded = False
+
 # =============================================
 # CONFIGURACIÓN DE REDES SOCIALES
 # =============================================
@@ -517,125 +521,110 @@ NETWORK_CONFIG = {
 }
 
 # =============================================
-# FUNCIÓN DE SCRAPING REAL DE TIKTOK
+# FUNCIÓN PARA CARGAR DATOS DE TIKTOK DESDE EXCEL
 # =============================================
+def load_tiktok_data():
+    """Carga datos de TikTok desde el archivo Excel"""
+    
+    try:
+        # Ruta del archivo
+        file_path = r"C:\Users\diana\OneDrive\Documentos\WasaFlete\Eva\descargas\base_tiktok.xlsx"
+        
+        # Verificar si el archivo existe
+        if not os.path.exists(file_path):
+            st.error(f"❌ Archivo no encontrado: {file_path}")
+            return pd.DataFrame()
+        
+        # Cargar datos desde Excel
+        df = pd.read_excel(file_path)
+        
+        # Verificar columnas necesarias
+        required_columns = ['duracion_video', 'titulo', 'fecha_publicacion', 
+                          'privacidad', 'visualizaciones', 'me_gusta', 'comentarios']
+        
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            st.error(f"❌ Columnas faltantes en el archivo: {missing_columns}")
+            return pd.DataFrame()
+        
+        # Limpiar y preparar datos
+        # Asegurarse de que las columnas numéricas sean numéricas
+        for col in ['visualizaciones', 'me_gusta', 'comentarios']:
+            if df[col].dtype == 'object':
+                # Remover comas y convertir a numérico
+                df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
+        
+        # Crear columnas numéricas adicionales
+        df['visualizaciones_num'] = df['visualizaciones'].astype(float)
+        df['me_gusta_num'] = df['me_gusta'].astype(float)
+        df['comentarios_num'] = df['comentarios'].astype(float)
+        
+        # Calcular engagement rate
+        df['engagement_rate'] = ((df['me_gusta_num'] + df['comentarios_num']) / df['visualizaciones_num'] * 100).round(2)
+        
+        # Limpiar valores infinitos
+        df.replace([float('inf'), float('-inf')], pd.NA, inplace=True)
+        df['engagement_rate'] = df['engagement_rate'].fillna(0)
+        
+        st.success(f"✅ Datos cargados exitosamente: {len(df)} videos encontrados")
+        return df
+        
+    except Exception as e:
+        st.error(f"❌ Error al cargar datos: {str(e)}")
+        return pd.DataFrame()
+
 def run_tiktok_scraper():
-    """Ejecuta el scraper real de TikTok"""
+    """Función para cargar datos desde archivo en lugar de scraping"""
     
     st.session_state.scraping_in_progress = True
     
     try:
-        # Datos REALES de ejemplo (simulando el output del scraper)
-        real_tiktok_data = [
-            {
-                'duracion_video': '01:33',
-                'titulo': 'Una peli que te volará la mente y te hará pensar diferente: La Llegada. Una historia profunda sobre comunicación, tiempo y humanidad. Imperdible. #peliculasrecomendadas #peliculas #películas #scifi #scifi🎬 #LaLlegada #Arrival #cine #pelis',
-                'fecha_publicacion': '28 nov, 14:01',
-                'privacidad': 'Todo el mundo',
-                'visualizaciones': '192',
-                'me_gusta': '14',
-                'comentarios': '1'
-            },
-            {
-                'duracion_video': '01:29',
-                'titulo': 'El Cambio Climático y la Geoingeniería. ¿son lo mismo? . . . . #cambioclimatico #geoingegneria #sabiasque #diferencias #calentamiento',
-                'fecha_publicacion': '27 nov, 17:43',
-                'privacidad': 'Todo el mundo',
-                'visualizaciones': '108',
-                'me_gusta': '3',
-                'comentarios': '0'
-            },
-            {
-                'duracion_video': '01:29',
-                'titulo': 'Ya tienes a tu pareja perfecta? para ti qué se debería tener en cuenta al momento de entablar una relación sentimental? . . . . . #parejas #amor #ia #cachorros #relacionestoxicas',
-                'fecha_publicacion': '26 nov, 21:06',
-                'privacidad': 'Todo el mundo',
-                'visualizaciones': '176',
-                'me_gusta': '12',
-                'comentarios': '0'
-            },
-            {
-                'duracion_video': '00:48',
-                'titulo': 'La transición energética y los centros de datos, una pieza central en el mundo digital. Que involucra? . . . . #tecnologia #transition #transicionenergetica #cambioclimatico #energia',
-                'fecha_publicacion': '25 nov, 22:15',
-                'privacidad': 'Todo el mundo',
-                'visualizaciones': '118',
-                'me_gusta': '3',
-                'comentarios': '0'
-            },
-            {
-                'duracion_video': '02:15',
-                'titulo': 'Cómo crear contenido viral en TikTok: 5 secretos que nadie te dice #contenidoviral #tiktoktips #creaciondecontenido',
-                'fecha_publicacion': '24 nov, 10:30',
-                'privacidad': 'Todo el mundo',
-                'visualizaciones': '5,842',
-                'me_gusta': '347',
-                'comentarios': '42'
-            },
-            {
-                'duracion_video': '03:22',
-                'titulo': 'Tutorial completo de edición en CapCut para principiantes #capcut #ediciondevideo #tutorial',
-                'fecha_publicacion': '23 nov, 15:45',
-                'privacidad': 'Todo el mundo',
-                'visualizaciones': '12,459',
-                'me_gusta': '892',
-                'comentarios': '67'
-            },
-            {
-                'duracion_video': '01:05',
-                'titulo': 'Reacción a tendencias virales del momento #reaccion #viral #tendencias',
-                'fecha_publicacion': '22 nov, 20:15',
-                'privacidad': 'Todo el mundo',
-                'visualizaciones': '23,784',
-                'me_gusta': '1,245',
-                'comentarios': '89'
-            },
-            {
-                'duracion_video': '04:30',
-                'titulo': 'Análisis profundo del algoritmo de TikTok 2024 #algoritmo #tiktokalgorithm #analisis',
-                'fecha_publicacion': '21 nov, 11:20',
-                'privacidad': 'Todo el mundo',
-                'visualizaciones': '8,923',
-                'me_gusta': '567',
-                'comentarios': '123'
-            }
-        ]
+        # Cargar datos desde el archivo Excel
+        df = load_tiktok_data()
         
-        # Añadir más datos realistas
-        for i in range(20):
-            days_ago = random.randint(1, 60)
-            fecha = (datetime.now() - timedelta(days=days_ago)).strftime("%d %b, %H:%M")
-            views = random.randint(100, 50000)
-            likes = int(views * random.uniform(0.02, 0.1))
-            comments = int(likes * random.uniform(0.05, 0.3))
+        if df.empty:
+            st.warning("⚠️ No se pudieron cargar datos del archivo. Usando datos de ejemplo.")
             
-            real_tiktok_data.append({
-                'duracion_video': f"{random.randint(0, 3)}:{random.randint(10, 59):02d}",
-                'titulo': f"Video #{i+9}: Contenido sobre {random.choice(['tecnología', 'educación', 'entretenimiento', 'cocina', 'fitness'])} #{random.choice(['viral', 'tendencia', 'fyp'])}",
-                'fecha_publicacion': fecha,
-                'privacidad': random.choice(['Todo el mundo', 'Solo yo', 'Amigos']),
-                'visualizaciones': f"{views:,}",
-                'me_gusta': f"{likes:,}",
-                'comentarios': f"{comments:,}"
-            })
-        
-        df = pd.DataFrame(real_tiktok_data)
-        
-        # Convertir columnas numéricas
-        df['visualizaciones_num'] = df['visualizaciones'].str.replace(',', '').astype(int)
-        df['me_gusta_num'] = df['me_gusta'].str.replace(',', '').astype(int)
-        df['comentarios_num'] = df['comentarios'].str.replace(',', '').astype(int)
-        
-        # Calcular engagement
-        df['engagement_rate'] = ((df['me_gusta_num'] + df['comentarios_num']) / df['visualizaciones_num'] * 100).round(2)
+            # Datos de ejemplo si no se puede cargar el archivo
+            example_data = [
+                {
+                    'duracion_video': '01:33',
+                    'titulo': 'Video de ejemplo 1',
+                    'fecha_publicacion': '28 nov, 14:01',
+                    'privacidad': 'Todo el mundo',
+                    'visualizaciones': '192',
+                    'me_gusta': '14',
+                    'comentarios': '1'
+                },
+                {
+                    'duracion_video': '01:29',
+                    'titulo': 'Video de ejemplo 2',
+                    'fecha_publicacion': '27 nov, 17:43',
+                    'privacidad': 'Todo el mundo',
+                    'visualizaciones': '108',
+                    'me_gusta': '3',
+                    'comentarios': '0'
+                }
+            ]
+            
+            df = pd.DataFrame(example_data)
+            
+            # Convertir columnas numéricas
+            df['visualizaciones_num'] = pd.to_numeric(df['visualizaciones'].str.replace(',', ''), errors='coerce')
+            df['me_gusta_num'] = pd.to_numeric(df['me_gusta'].str.replace(',', ''), errors='coerce')
+            df['comentarios_num'] = pd.to_numeric(df['comentarios'].str.replace(',', ''), errors='coerce')
+            
+            # Calcular engagement
+            df['engagement_rate'] = ((df['me_gusta_num'] + df['comentarios_num']) / df['visualizaciones_num'] * 100).round(2)
         
         return df
         
     except Exception as e:
-        st.error(f"Error en scraping: {str(e)}")
+        st.error(f"Error: {str(e)}")
         return pd.DataFrame()
     finally:
         st.session_state.scraping_in_progress = False
+        st.session_state.data_loaded = True
 
 # =============================================
 # COMPONENTES DE INTERFAZ
@@ -693,6 +682,21 @@ def create_sidebar():
             """, unsafe_allow_html=True)
         
         st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Información de datos
+        if st.session_state.data_loaded and 'tiktok' in st.session_state.scraped_data:
+            data = st.session_state.scraped_data['tiktok']
+            st.markdown(f"""
+            <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin: 20px 0;">
+                <h4 style="color: white; margin: 0 0 15px 0;">📊 Datos Cargados</h4>
+                <p style="color: rgba(255,255,255,0.8); margin: 8px 0; font-size: 14px;">
+                    <strong>Videos:</strong> {len(data)}
+                </p>
+                <p style="color: rgba(255,255,255,0.8); margin: 8px 0; font-size: 14px;">
+                    <strong>Vistas totales:</strong> {data['visualizaciones_num'].sum():,}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
 
 def show_auth_modal():
     """Muestra el modal de autenticación profesional"""
@@ -756,55 +760,64 @@ def show_auth_modal():
         
         with button_col2:
             if st.button(f"🔗 Connect", use_container_width=True, key="modal_connect", type="primary"):
-                # Mostrar iframe de autenticación
-                st.markdown(f"""
-                <div class="auth-instructions">
-                    <h4><i class="{config['icon']}"></i> Autenticación {config['name']}</h4>
-                    <p>Inicia sesión directamente en la ventana a continuación para continuar.</p>
-                    <p><strong>⚠️ IMPORTANTE:</strong> No cierres esta ventana durante el proceso de autenticación.</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Iframe de autenticación
-                auth_html = f"""
-                <div class="auth-container">
-                    <div class="auth-header">
-                        <i class="{config['icon']}"></i>
-                        {config['name']} Login
+                # Para TikTok, cargar datos del archivo en lugar de autenticación
+                if network == 'tiktok':
+                    with st.spinner("📂 Cargando datos de TikTok..."):
+                        progress_bar = st.progress(0)
+                        for i in range(100):
+                            time.sleep(0.02)
+                            progress_bar.progress(i + 1)
+                        
+                        # Cargar datos desde archivo
+                        data = run_tiktok_scraper()
+                        
+                        if not data.empty:
+                            st.session_state.auth_status[network] = True
+                            st.session_state.scraped_data[network] = data
+                            st.success(f"✅ Datos de TikTok cargados exitosamente: {len(data)} videos")
+                        else:
+                            st.error("❌ No se pudieron cargar los datos")
+                        
+                        st.rerun()
+                else:
+                    # Mostrar iframe de autenticación para otras redes
+                    st.markdown(f"""
+                    <div class="auth-instructions">
+                        <h4><i class="{config['icon']}"></i> Autenticación {config['name']}</h4>
+                        <p>Inicia sesión directamente en la ventana a continuación para continuar.</p>
+                        <p><strong>⚠️ IMPORTANTE:</strong> No cierres esta ventana durante el proceso de autenticación.</p>
                     </div>
-                    <iframe src="{config['auth_url']}" width="100%" height="500" 
-                    style="border: none;" title="{config['name']} Authentication"></iframe>
-                </div>
-                <p style="text-align: center; color: #666; font-size: 14px; margin-top: 10px;">
-                    Si la ventana no carga correctamente, 
-                    <a href="{config['auth_url']}" target="_blank">haz clic aquí para abrir en nueva pestaña</a>
-                </p>
-                """
-                
-                components.html(auth_html, height=600)
-                
-                # Simular autenticación
-                with st.spinner(f"Authenticating with {config['name']}..."):
-                    progress_bar = st.progress(0)
-                    for i in range(100):
-                        time.sleep(0.03)
-                        progress_bar.progress(i + 1)
+                    """, unsafe_allow_html=True)
                     
-                    # Marcar como autenticado
-                    st.session_state.auth_status[network] = True
-                    st.success(f"✅ Successfully connected to {config['name']}!")
+                    # Iframe de autenticación
+                    auth_html = f"""
+                    <div class="auth-container">
+                        <div class="auth-header">
+                            <i class="{config['icon']}"></i>
+                            {config['name']} Login
+                        </div>
+                        <iframe src="{config['auth_url']}" width="100%" height="500" 
+                        style="border: none;" title="{config['name']} Authentication"></iframe>
+                    </div>
+                    <p style="text-align: center; color: #666; font-size: 14px; margin-top: 10px;">
+                        Si la ventana no carga correctamente, 
+                        <a href="{config['auth_url']}" target="_blank">haz clic aquí para abrir en nueva pestaña</a>
+                    </p>
+                    """
                     
-                    # Si es TikTok, ejecutar scraper real
-                    if network == 'tiktok':
-                        with st.spinner("🚀 Running TikTok scraper..."):
-                            data = run_tiktok_scraper()
-                            if not data.empty:
-                                st.session_state.scraped_data[network] = data
-                                st.success(f"📊 Successfully scraped {len(data)} TikTok videos!")
-                            else:
-                                st.error("Failed to scrape TikTok data")
+                    components.html(auth_html, height=600)
                     
-                    st.rerun()
+                    # Simular autenticación
+                    with st.spinner(f"Authenticating with {config['name']}..."):
+                        progress_bar = st.progress(0)
+                        for i in range(100):
+                            time.sleep(0.03)
+                            progress_bar.progress(i + 1)
+                        
+                        # Marcar como autenticado
+                        st.session_state.auth_status[network] = True
+                        st.success(f"✅ Successfully connected to {config['name']}!")
+                        st.rerun()
     
     st.markdown("</div></div>", unsafe_allow_html=True)
 
@@ -827,7 +840,7 @@ def show_tiktok_dashboard():
             TikTok Analytics Dashboard
         </h1>
         <p style="color: rgba(255,255,255,0.9); margin: 15px 0 0 0; font-size: 18px;">
-            Real-time metrics and performance analysis from your TikTok account
+            Análisis de métricas y rendimiento de tus videos de TikTok
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -846,7 +859,7 @@ def show_tiktok_dashboard():
         """, unsafe_allow_html=True)
     
     with col2:
-        total_views = data['visualizaciones_num'].sum()
+        total_views = int(data['visualizaciones_num'].sum())
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-icon"><i class="fas fa-eye"></i></div>
@@ -856,7 +869,7 @@ def show_tiktok_dashboard():
         """, unsafe_allow_html=True)
     
     with col3:
-        total_likes = data['me_gusta_num'].sum()
+        total_likes = int(data['me_gusta_num'].sum())
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-icon"><i class="fas fa-heart"></i></div>
@@ -876,86 +889,256 @@ def show_tiktok_dashboard():
         """, unsafe_allow_html=True)
     
     # Tabs de análisis
-    tab1, tab2, tab3 = st.tabs(["📊 Performance Metrics", "📈 Trends Analysis", "📋 Raw Data"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Performance", "📈 Trends", "🔍 Filters", "📋 Raw Data"])
     
     with tab1:
-        # Gráfico de barras - Top videos por visualizaciones
         st.subheader("🎯 Top Performing Videos")
         
-        top_videos = data.nlargest(10, 'visualizaciones_num').copy()
+        # Filtros para el top
+        top_col1, top_col2 = st.columns(2)
+        with top_col1:
+            top_n = st.slider("Number of top videos", 5, 20, 10, key="top_n_slider")
         
-        st.bar_chart(top_videos.set_index(top_videos['titulo'].str[:40] + '...')['visualizaciones_num'])
-        
-        # Métricas adicionales
-        st.subheader("📊 Video Performance Metrics")
-        
-        metric_col1, metric_col2, metric_col3 = st.columns(3)
-        
-        with metric_col1:
-            avg_views = data['visualizaciones_num'].mean()
-            st.metric("Average Views", f"{avg_views:,.0f}")
-        
-        with metric_col2:
-            avg_likes = data['me_gusta_num'].mean()
-            st.metric("Average Likes", f"{avg_likes:,.0f}")
-        
-        with metric_col3:
-            avg_comments = data['comentarios_num'].mean()
-            st.metric("Average Comments", f"{avg_comments:,.0f}")
-    
-    with tab2:
-        # Análisis temporal
-        st.subheader("📅 Performance Over Time")
-        
-        # Convertir fechas
-        try:
-            data['fecha_dt'] = pd.to_datetime(data['fecha_publicacion'], format='%d %b, %H:%M', errors='coerce')
-            data_time = data.sort_values('fecha_dt')
-            
-            # Agrupar por día
-            daily_data = data_time.groupby(data_time['fecha_dt'].dt.date).agg({
-                'visualizaciones_num': 'sum',
-                'me_gusta_num': 'sum',
-                'comentarios_num': 'sum',
-                'engagement_rate': 'mean'
-            }).reset_index()
-            
-            st.line_chart(daily_data.set_index('fecha_dt')['visualizaciones_num'])
-            
-            # Selección de métrica
+        with top_col2:
             metric_option = st.selectbox(
-                "Select metric to view:",
+                "Rank by metric:",
                 ['visualizaciones_num', 'me_gusta_num', 'comentarios_num', 'engagement_rate'],
                 format_func=lambda x: {
                     'visualizaciones_num': 'Views',
                     'me_gusta_num': 'Likes',
                     'comentarios_num': 'Comments',
                     'engagement_rate': 'Engagement Rate'
-                }[x]
+                }[x],
+                key="metric_select"
             )
+        
+        # Obtener top videos
+        top_videos = data.nlargest(top_n, metric_option).copy()
+        
+        # Gráfico de barras interactivo
+        if metric_option == 'engagement_rate':
+            chart_data = top_videos[['titulo', metric_option]]
+            chart_data['titulo_short'] = chart_data['titulo'].str[:30] + '...'
+            st.bar_chart(chart_data.set_index('titulo_short')[metric_option])
+        else:
+            chart_data = top_videos[['titulo', metric_option]]
+            chart_data['titulo_short'] = chart_data['titulo'].str[:30] + '...'
+            st.bar_chart(chart_data.set_index('titulo_short')[metric_option])
+        
+        # Mostrar tabla de top videos
+        st.subheader(f"📋 Top {top_n} Videos Details")
+        display_cols = ['titulo', 'fecha_publicacion', 'visualizaciones', 
+                       'me_gusta', 'comentarios', 'engagement_rate']
+        st.dataframe(
+            top_videos[display_cols],
+            use_container_width=True,
+            height=400,
+            column_config={
+                "titulo": "Title",
+                "fecha_publicacion": "Date",
+                "visualizaciones": st.column_config.NumberColumn("Views", format="%d"),
+                "me_gusta": st.column_config.NumberColumn("Likes", format="%d"),
+                "comentarios": st.column_config.NumberColumn("Comments", format="%d"),
+                "engagement_rate": st.column_config.NumberColumn("Engagement %", format="%.2f")
+            }
+        )
+    
+    with tab2:
+        st.subheader("📅 Performance Over Time")
+        
+        # Intentar parsear fechas
+        try:
+            # Probar diferentes formatos de fecha
+            date_formats = ['%d %b, %H:%M', '%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y']
             
-            if not daily_data.empty:
-                if metric_option == 'engagement_rate':
-                    st.line_chart(daily_data.set_index('fecha_dt')[metric_option])
+            data_with_dates = data.copy()
+            for fmt in date_formats:
+                try:
+                    data_with_dates['fecha_dt'] = pd.to_datetime(data_with_dates['fecha_publicacion'], format=fmt, errors='raise')
+                    break
+                except:
+                    continue
+            
+            if 'fecha_dt' in data_with_dates.columns:
+                data_with_dates = data_with_dates.sort_values('fecha_dt')
+                
+                # Agrupar por fecha
+                if len(data_with_dates['fecha_dt'].dt.date.unique()) > 1:
+                    daily_data = data_with_dates.groupby(data_with_dates['fecha_dt'].dt.date).agg({
+                        'visualizaciones_num': 'sum',
+                        'me_gusta_num': 'sum',
+                        'comentarios_num': 'sum',
+                        'engagement_rate': 'mean'
+                    }).reset_index()
+                    
+                    daily_data.columns = ['Fecha', 'Vistas', 'Likes', 'Comentarios', 'Engagement']
+                    
+                    # Selección de métrica para gráfico
+                    metric_trend = st.selectbox(
+                        "Select metric for trend:",
+                        ['Vistas', 'Likes', 'Comentarios', 'Engagement'],
+                        key="trend_metric"
+                    )
+                    
+                    # Gráfico de líneas
+                    if metric_trend == 'Engagement':
+                        st.line_chart(daily_data.set_index('Fecha')['Engagement'])
+                    else:
+                        st.line_chart(daily_data.set_index('Fecha')[metric_trend])
+                    
+                    # Estadísticas de tendencia
+                    if len(daily_data) > 1:
+                        st.subheader("📈 Trend Analysis")
+                        trend_col1, trend_col2, trend_col3 = st.columns(3)
+                        
+                        with trend_col1:
+                            growth = ((daily_data[metric_trend].iloc[-1] - daily_data[metric_trend].iloc[0]) / 
+                                     daily_data[metric_trend].iloc[0] * 100)
+                            st.metric(f"Crecimiento {metric_trend}", f"{growth:.1f}%")
+                        
+                        with trend_col2:
+                            avg_daily = daily_data[metric_trend].mean()
+                            st.metric(f"Promedio diario {metric_trend}", f"{avg_daily:,.0f}")
+                        
+                        with trend_col3:
+                            best_day = daily_data.loc[daily_data[metric_trend].idxmax(), 'Fecha']
+                            st.metric(f"Mejor día {metric_trend}", str(best_day))
                 else:
-                    st.line_chart(daily_data.set_index('fecha_dt')[metric_option])
-            
+                    st.info("ℹ️ No hay suficientes fechas diferentes para mostrar tendencias temporales")
+            else:
+                st.warning("⚠️ No se pudieron parsear las fechas correctamente")
+                
         except Exception as e:
-            st.error(f"Could not parse dates: {str(e)}")
+            st.warning(f"⚠️ No se pudieron analizar tendencias temporales: {str(e)}")
+            st.info("Los datos pueden no tener formato de fecha válido")
     
     with tab3:
-        # Tabla de datos completa
+        st.subheader("🔍 Filter and Analyze")
+        
+        # Filtros interactivos
+        filter_col1, filter_col2, filter_col3 = st.columns(3)
+        
+        with filter_col1:
+            min_views = int(data['visualizaciones_num'].min())
+            max_views = int(data['visualizaciones_num'].max())
+            views_range = st.slider(
+                "Views Range",
+                min_views, max_views, (min_views, max_views),
+                key="views_filter"
+            )
+        
+        with filter_col2:
+            min_likes = int(data['me_gusta_num'].min())
+            max_likes = int(data['me_gusta_num'].max())
+            likes_range = st.slider(
+                "Likes Range",
+                min_likes, max_likes, (min_likes, max_likes),
+                key="likes_filter"
+            )
+        
+        with filter_col3:
+            privacy_options = data['privacidad'].unique()
+            selected_privacy = st.multiselect(
+                "Privacy Settings",
+                privacy_options,
+                default=privacy_options,
+                key="privacy_filter"
+            )
+        
+        # Aplicar filtros
+        filtered_data = data[
+            (data['visualizaciones_num'] >= views_range[0]) &
+            (data['visualizaciones_num'] <= views_range[1]) &
+            (data['me_gusta_num'] >= likes_range[0]) &
+            (data['me_gusta_num'] <= likes_range[1]) &
+            (data['privacidad'].isin(selected_privacy))
+        ]
+        
+        # Mostrar resultados filtrados
+        st.subheader(f"📊 Filtered Results: {len(filtered_data)} videos")
+        
+        if not filtered_data.empty:
+            # Métricas de los videos filtrados
+            metric_f1, metric_f2, metric_f3 = st.columns(3)
+            
+            with metric_f1:
+                avg_views_filtered = filtered_data['visualizaciones_num'].mean()
+                st.metric("Avg Views (filtered)", f"{avg_views_filtered:,.0f}")
+            
+            with metric_f2:
+                avg_engagement_filtered = filtered_data['engagement_rate'].mean()
+                st.metric("Avg Engagement (filtered)", f"{avg_engagement_filtered:.1f}%")
+            
+            with metric_f3:
+                total_comments_filtered = filtered_data['comentarios_num'].sum()
+                st.metric("Total Comments (filtered)", f"{total_comments_filtered:,.0f}")
+            
+            # Distribución por privacidad
+            st.subheader("📊 Distribution by Privacy")
+            privacy_dist = filtered_data['privacidad'].value_counts()
+            st.bar_chart(privacy_dist)
+            
+            # Duración promedio
+            st.subheader("⏱️ Average Video Duration")
+            
+            # Convertir duración a segundos
+            def duration_to_seconds(duration_str):
+                try:
+                    parts = duration_str.split(':')
+                    if len(parts) == 2:
+                        minutes = int(parts[0])
+                        seconds = int(parts[1])
+                        return minutes * 60 + seconds
+                    return 0
+                except:
+                    return 0
+            
+            filtered_data['duracion_segundos'] = filtered_data['duracion_video'].apply(duration_to_seconds)
+            avg_duration = filtered_data['duracion_segundos'].mean()
+            
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                st.metric("Average Duration", f"{avg_duration:.0f} seconds")
+            
+            with col_d2:
+                st.metric("Average Duration", f"{avg_duration/60:.1f} minutes")
+            
+            # Scatter plot de engagement vs views
+            st.subheader("📈 Engagement vs Views Analysis")
+            
+            scatter_data = filtered_data[['visualizaciones_num', 'engagement_rate', 'me_gusta_num', 'titulo']].copy()
+            scatter_data['titulo_short'] = scatter_data['titulo'].str[:20] + '...'
+            
+            # Usar scatter_chart de Streamlit
+            scatter_chart_data = scatter_data[['visualizaciones_num', 'engagement_rate']].copy()
+            scatter_chart_data.columns = ['Views', 'Engagement Rate %']
+            st.scatter_chart(scatter_chart_data)
+            
+        else:
+            st.warning("⚠️ No hay videos que coincidan con los filtros seleccionados")
+    
+    with tab4:
         st.subheader("📋 Complete TikTok Data")
         
+        # Opciones de visualización
+        view_col1, view_col2 = st.columns(2)
+        
+        with view_col1:
+            show_all = st.checkbox("Show all columns", value=False)
+        
+        with view_col2:
+            rows_per_page = st.selectbox("Rows per page", [10, 25, 50, 100], index=1)
+        
         # Seleccionar columnas para mostrar
-        display_cols = ['duracion_video', 'titulo', 'fecha_publicacion', 'privacidad', 
-                       'visualizaciones', 'me_gusta', 'comentarios', 'engagement_rate']
+        if show_all:
+            display_cols = data.columns.tolist()
+        else:
+            display_cols = ['duracion_video', 'titulo', 'fecha_publicacion', 'privacidad', 
+                           'visualizaciones', 'me_gusta', 'comentarios', 'engagement_rate']
         
-        display_data = data[display_cols].copy()
-        
-        # Formatear números
+        # Mostrar datos
         st.dataframe(
-            display_data,
+            data[display_cols],
             use_container_width=True,
             height=600,
             column_config={
@@ -963,38 +1146,33 @@ def show_tiktok_dashboard():
                 "titulo": "Title",
                 "fecha_publicacion": "Date",
                 "privacidad": "Privacy",
-                "visualizaciones": st.column_config.NumberColumn(
-                    "Views",
-                    format="%d"
-                ),
-                "me_gusta": st.column_config.NumberColumn(
-                    "Likes",
-                    format="%d"
-                ),
-                "comentarios": st.column_config.NumberColumn(
-                    "Comments",
-                    format="%d"
-                ),
-                "engagement_rate": st.column_config.NumberColumn(
-                    "Engagement %",
-                    format="%.2f"
-                )
+                "visualizaciones": st.column_config.NumberColumn("Views", format="%d"),
+                "me_gusta": st.column_config.NumberColumn("Likes", format="%d"),
+                "comentarios": st.column_config.NumberColumn("Comments", format="%d"),
+                "engagement_rate": st.column_config.NumberColumn("Engagement %", format="%.2f")
             }
         )
         
         # Estadísticas adicionales
         st.subheader("📊 Data Statistics")
         
-        stat_col1, stat_col2, stat_col3 = st.columns(3)
+        stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
         
         with stat_col1:
-            st.metric("Max Views", f"{data['visualizaciones_num'].max():,}")
+            max_views = data['visualizaciones_num'].max()
+            st.metric("Max Views", f"{max_views:,}")
         
         with stat_col2:
-            st.metric("Avg Views per Video", f"{data['visualizaciones_num'].mean():,.0f}")
+            min_views = data['visualizaciones_num'].min()
+            st.metric("Min Views", f"{min_views:,}")
         
         with stat_col3:
-            st.metric("Total Comments", f"{data['comentarios_num'].sum():,}")
+            total_comments = data['comentarios_num'].sum()
+            st.metric("Total Comments", f"{total_comments:,}")
+        
+        with stat_col4:
+            std_engagement = data['engagement_rate'].std()
+            st.metric("Std Dev Engagement", f"{std_engagement:.2f}%")
         
         # Exportar datos
         st.subheader("💾 Export Data")
@@ -1002,28 +1180,37 @@ def show_tiktok_dashboard():
         export_col1, export_col2 = st.columns(2)
         
         with export_col1:
-            csv = data[display_cols].to_csv(index=False).encode('utf-8')
+            # Exportar a CSV
+            csv_data = data[display_cols].to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 Download CSV",
-                data=csv,
+                data=csv_data,
                 file_name="tiktok_analytics.csv",
                 mime="text/csv",
-                use_container_width=True
+                use_container_width=True,
+                type="primary"
             )
         
         with export_col2:
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                data[display_cols].to_excel(writer, index=False, sheet_name='TikTok Data')
-            excel_data = output.getvalue()
-            
-            st.download_button(
-                label="📥 Download Excel",
-                data=excel_data,
-                file_name="tiktok_analytics.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
+            # Exportar a Excel usando pandas sin engine específico
+            try:
+                output = BytesIO()
+                # Usar el writer por defecto de pandas
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    data[display_cols].to_excel(writer, index=False, sheet_name='TikTok Data')
+                excel_data = output.getvalue()
+                
+                st.download_button(
+                    label="📥 Download Excel",
+                    data=excel_data,
+                    file_name="tiktok_analytics.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    type="primary"
+                )
+            except Exception as e:
+                st.error(f"No se pudo crear archivo Excel: {str(e)}")
+                st.info("Se recomienda usar la opción CSV para exportar datos")
 
 # =============================================
 # APLICACIÓN PRINCIPAL
@@ -1062,20 +1249,25 @@ def main():
         if st.session_state.auth_status[st.session_state.current_network]:
             st.success(f"✅ You are connected to {current_config['name']}")
             
-            # Para TikTok, opción de re-scraping
+            # Para TikTok, opción de re-cargar datos
             if st.session_state.current_network == 'tiktok':
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    if st.button("🔄 Re-scrape TikTok Data", use_container_width=True, type="primary"):
-                        with st.spinner("Running TikTok scraper..."):
+                    if st.button("🔄 Reload Data", use_container_width=True, type="primary"):
+                        with st.spinner("Reloading TikTok data..."):
                             data = run_tiktok_scraper()
                             if not data.empty:
                                 st.session_state.scraped_data['tiktok'] = data
-                                st.success(f"✅ Successfully updated {len(data)} TikTok videos!")
+                                st.success(f"✅ Successfully reloaded {len(data)} TikTok videos!")
                                 st.rerun()
                 
                 with col2:
+                    if st.button("📊 View Dashboard", use_container_width=True):
+                        st.switch_page("?tab=analytics")
+                        st.rerun()
+                
+                with col3:
                     if st.button("🚪 Disconnect", use_container_width=True):
                         st.session_state.auth_status['tiktok'] = False
                         st.rerun()
@@ -1083,11 +1275,18 @@ def main():
                 # Mostrar resumen de datos
                 if 'tiktok' in st.session_state.scraped_data:
                     data = st.session_state.scraped_data['tiktok']
+                    
+                    # Información del archivo fuente
+                    file_path = r"C:\Users\diana\OneDrive\Documentos\WasaFlete\Eva\descargas\base_tiktok.xlsx"
+                    file_exists = os.path.exists(file_path)
+                    
                     st.info(f"""
                     **📊 Data Summary:**
-                    - **Videos:** {len(data)}
+                    - **Videos Loaded:** {len(data)}
                     - **Total Views:** {data['visualizaciones_num'].sum():,}
                     - **Total Likes:** {data['me_gusta_num'].sum():,}
+                    - **Average Engagement:** {data['engagement_rate'].mean():.1f}%
+                    - **Data Source:** {'✅ File found' if file_exists else '❌ File not found'}
                     - **Last Updated:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
                     """)
             
@@ -1114,28 +1313,37 @@ def main():
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("### 🔧 Scraping Settings")
+            st.markdown("### 🔧 Data Settings")
             
-            delay = st.slider(
-                "Request Delay (seconds)",
-                min_value=2,
-                max_value=10,
-                value=3,
-                help="Delay between requests to avoid rate limiting"
-            )
+            # Ruta del archivo
+            file_path = r"C:\Users\diana\OneDrive\Documentos\WasaFlete\Eva\descargas\base_tiktok.xlsx"
+            file_exists = os.path.exists(file_path)
             
-            max_items = st.slider(
-                "Maximum Items to Scrape",
-                min_value=10,
-                max_value=100,
-                value=50,
-                help="Maximum number of items to scrape per session"
-            )
+            st.metric("Data File Status", "✅ Found" if file_exists else "❌ Not Found")
+            
+            if file_exists:
+                try:
+                    file_size = os.path.getsize(file_path) / 1024 / 1024  # MB
+                    st.metric("File Size", f"{file_size:.2f} MB")
+                except:
+                    st.metric("File Size", "Unknown")
+            
+            if st.button("📂 Check Data File", use_container_width=True):
+                if file_exists:
+                    st.success(f"✅ File found at: {file_path}")
+                    try:
+                        # Intentar cargar el archivo para verificar
+                        test_df = pd.read_excel(file_path, nrows=5)
+                        st.success(f"✅ File is readable. Columns: {', '.join(test_df.columns)}")
+                    except Exception as e:
+                        st.error(f"❌ Error reading file: {str(e)}")
+                else:
+                    st.error(f"❌ File not found at: {file_path}")
         
         with col2:
             st.markdown("### 💾 Data Management")
             
-            if st.button("💾 Backup All Data", use_container_width=True):
+            if st.button("💾 Backup Data to JSON", use_container_width=True):
                 # Crear backup de datos
                 backup_data = {
                     'auth_status': st.session_state.auth_status,
@@ -1157,22 +1365,26 @@ def main():
                 for network in st.session_state.auth_status:
                     st.session_state.auth_status[network] = False
                 st.session_state.scraped_data = {}
+                st.session_state.data_loaded = False
                 st.success("All data cleared successfully!")
                 st.rerun()
         
         st.markdown("---")
         st.markdown("### 📋 System Information")
         
-        info_col1, info_col2 = st.columns(2)
+        info_col1, info_col2, info_col3 = st.columns(3)
         
         with info_col1:
-            st.metric("Connected Networks", 
-                     f"{sum(st.session_state.auth_status.values())}/5")
+            connected_count = sum(st.session_state.auth_status.values())
+            st.metric("Connected Networks", f"{connected_count}/5")
         
         with info_col2:
             total_records = sum([len(data) for data in st.session_state.scraped_data.values() 
                                if isinstance(data, pd.DataFrame)])
             st.metric("Total Records", f"{total_records}")
+        
+        with info_col3:
+            st.metric("Python Version", f"{sys.version.split()[0]}")
 
 # =============================================
 # EJECUCIÓN
