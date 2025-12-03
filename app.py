@@ -1,103 +1,112 @@
 import streamlit as st
-import pandas as pd
 import os
+import glob
 
-st.set_page_config(page_title="Prueba Carga Excel", layout="wide")
+st.set_page_config(page_title="Buscar Archivo", layout="wide")
 
-# Ruta del Excel
-EXCEL_PATH = r"C:\Users\diana\OneDrive\Documentos\WasaFlete\Eva\descargas\base_tiktok.xlsx"
-
-st.title("🔍 PRUEBA CARGA EXCEL")
+st.title("🔍 BUSCAR ARCHIVO base_tiktok.xlsx")
 st.markdown("---")
 
-# Mostrar información del archivo
-st.subheader("📁 Información del Archivo")
-st.write(f"**Ruta:** `{EXCEL_PATH}`")
+# Posibles rutas a verificar
+possible_paths = [
+    r"C:\Users\diana\OneDrive\Documentos\WasaFlete\Eva\descargas\base_tiktok.xlsx",
+    r"C:\Users\diana\Documents\WasaFlete\Eva\descargas\base_tiktok.xlsx",
+    r"C:\Users\diana\OneDrive\Documentos\WasaFlete\base_tiktok.xlsx",
+    r"C:\Users\diana\Downloads\base_tiktok.xlsx",
+    r"C:\Users\diana\Desktop\base_tiktok.xlsx",
+    r"D:\base_tiktok.xlsx",
+    r"E:\base_tiktok.xlsx",
+]
 
-# Verificar si el archivo existe
-file_exists = os.path.exists(EXCEL_PATH)
-st.write(f"**¿Existe el archivo?:** {'✅ SÍ' if file_exists else '❌ NO'}")
+st.subheader("📁 Buscando archivo en rutas posibles:")
 
-if not file_exists:
-    st.error("❌ EL ARCHIVO NO EXISTE EN ESA RUTA")
-    st.info("""
-    **Posibles problemas:**
-    1. La ruta está mal escrita
-    2. El archivo fue movido
-    3. OneDrive no está sincronizado
-    """)
-    st.stop()
+found_path = None
+for path in possible_paths:
+    exists = os.path.exists(path)
+    status = "✅ EXISTE" if exists else "❌ NO EXISTE"
+    st.write(f"`{path}` → {status}")
+    
+    if exists:
+        found_path = path
+        break
 
-# Intentar cargar el archivo
-st.subheader("📊 Intentando cargar datos...")
-
-try:
-    # Leer el Excel
-    df = pd.read_excel(EXCEL_PATH)
+if found_path:
+    st.success(f"🎯 ARCHIVO ENCONTRADO EN: `{found_path}`")
     
-    # Mostrar información básica
-    st.success(f"✅ Archivo cargado correctamente!")
-    st.write(f"**Filas:** {len(df)}")
-    st.write(f"**Columnas:** {len(df.columns)}")
+    # Mostrar información del archivo
+    file_size = os.path.getsize(found_path) / 1024 / 1024  # MB
+    st.write(f"**Tamaño:** {file_size:.2f} MB")
     
-    # Mostrar nombres de columnas
-    st.subheader("📋 Columnas encontradas:")
-    for i, col in enumerate(df.columns, 1):
-        st.write(f"{i}. `{col}`")
-    
-    # Verificar columnas requeridas
-    required_columns = ['duracion_video', 'titulo', 'fecha_publicacion', 
-                       'privacidad', 'visualizaciones', 'me_gusta', 'comentarios']
-    
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    
-    if missing_columns:
-        st.warning(f"⚠️ Columnas faltantes: {missing_columns}")
-    else:
-        st.success("✅ Todas las columnas requeridas están presentes")
-    
-    # Mostrar primeras filas
-    st.subheader("👀 Primeras 5 filas del Excel:")
-    st.dataframe(df.head(), use_container_width=True)
-    
-    # Mostrar tipos de datos
-    st.subheader("🔧 Tipos de datos:")
-    st.write(df.dtypes)
-    
-    # Botón para mostrar más datos
-    if st.button("📈 MOSTRAR TODOS LOS DATOS"):
-        st.subheader("📊 Todos los datos del Excel:")
-        st.dataframe(df, use_container_width=True, height=400)
+    # Intentar cargar
+    try:
+        import pandas as pd
+        df = pd.read_excel(found_path, nrows=5)
+        st.success("✅ Archivo se puede leer correctamente")
+        st.write(f"**Filas (muestra):** {len(df)}")
+        st.write(f"**Columnas:** {list(df.columns)}")
+        st.dataframe(df, use_container_width=True)
+    except Exception as e:
+        st.error(f"❌ Error al leer: {str(e)}")
         
-        # Estadísticas simples
-        st.subheader("📊 Estadísticas:")
-        if 'visualizaciones' in df.columns:
-            try:
-                # Intentar convertir a numérico
-                df['visualizaciones_num'] = pd.to_numeric(df['visualizaciones'].astype(str).str.replace(',', ''), errors='coerce')
-                total_views = df['visualizaciones_num'].sum()
-                st.metric("Total Visualizaciones", f"{total_views:,.0f}")
-            except:
-                st.write("No se pudieron calcular visualizaciones")
+else:
+    st.error("❌ ARCHIVO NO ENCONTRADO EN NINGUNA RUTA")
+    
+    st.subheader("🔍 Búsqueda en todo el sistema (puede tardar):")
+    
+    if st.button("🔎 BUSCAR ARCHIVO EN TODO EL SISTEMA"):
+        import subprocess
+        st.info("Buscando... esto puede tomar varios minutos")
         
-except Exception as e:
-    st.error(f"❌ ERROR al cargar el archivo: {str(e)}")
-    st.info("""
-    **Posibles soluciones:**
-    1. Verifica que el archivo no esté abierto en otro programa
-    2. Revisa que sea un archivo Excel válido (.xlsx)
-    3. Prueba a guardar una copia y cargar esa copia
-    """)
+        # Buscar en disco C:
+        try:
+            result = subprocess.run(
+                ['cmd', '/c', 'dir', '/s', '/b', 'C:\\*base_tiktok*.xlsx'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.stdout:
+                st.success("📂 ARCHIVOS ENCONTRADOS:")
+                files = result.stdout.strip().split('\n')
+                for file in files[:10]:  # Mostrar primeros 10
+                    if file:
+                        st.write(f"`{file}`")
+            else:
+                st.warning("No se encontraron archivos con ese nombre")
+                
+        except Exception as e:
+            st.error(f"Error en búsqueda: {str(e)}")
+
+st.markdown("---")
+st.subheader("📋 Instrucciones para encontrar la ruta:")
+st.info("""
+1. **Abre el Explorador de Archivos**
+2. **Navega hasta base_tiktok.xlsx**
+3. **Haz clic en la barra de direcciones**
+4. **Copia la ruta COMPLETA**
+5. **Pégala aquí:** (usando `r"TU_RUTA_COMPLETA"`)
+
+Ejemplo: `r"C:\\Users\\diana\\Documentos\\mi_archivo.xlsx"`
+""")
+
+# Entrada manual de ruta
+st.subheader("✏️ Ingresar ruta MANUALMENTE:")
+user_path = st.text_input("Pega la ruta COMPLETA aquí:", value=r"C:\")
+
+if user_path and os.path.exists(user_path):
+    st.success(f"✅ Ruta válida: `{user_path}`")
+    st.session_state.excel_path = user_path
+    st.write("**Ahora usa esta ruta en el código principal:**")
+    st.code(f'EXCEL_PATH = r"{user_path}"', language='python')
+else:
+    st.warning("❌ La ruta no existe o no es válida")
 
 st.markdown("---")
 st.info("""
-**Para probar en consola:**
-```python
-import pandas as pd
-import os
-
-path = r"C:\\Users\\diana\\OneDrive\\Documentos\\WasaFlete\\Eva\\descargas\\base_tiktok.xlsx"
-print(f"Existe: {os.path.exists(path)}")
-df = pd.read_excel(path)
-print(f"Filas: {len(df)}")
-print(f"Columnas: {list(df.columns)}")""")
+**Resumen:**
+1. Encuentra la ruta REAL con este código
+2. Copia la ruta que funcione
+3. Usa esa ruta en el código principal
+4. El archivo DEBE existir físicamente en tu computadora
+""")
