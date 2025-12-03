@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from datetime import datetime, timedelta
+from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -84,11 +84,6 @@ st.markdown("""
     .social-btn.active {
         background: rgba(59, 130, 246, 0.3);
         border-color: #3B82F6;
-    }
-    
-    .social-icon {
-        margin-right: 12px;
-        font-size: 20px;
     }
     
     /* Metrics cards */
@@ -224,25 +219,6 @@ st.markdown("""
         color: #0A66C2;
     }
     
-    /* Custom scrollbar */
-    ::-webkit-scrollbar {
-        width: 8px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
-        border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: #a1a1a1;
-    }
-    
     /* Sidebar titles */
     .sidebar-title {
         color: white !important;
@@ -252,12 +228,6 @@ st.markdown("""
         margin-top: 25px;
     }
     
-    .sidebar-subtitle {
-        color: #94a3b8;
-        font-size: 14px;
-        margin-bottom: 5px;
-    }
-    
     /* Status containers */
     .status-container {
         background: rgba(255, 255, 255, 0.1);
@@ -265,6 +235,30 @@ st.markdown("""
         border-radius: 10px;
         margin-bottom: 8px;
         border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Table styling without matplotlib */
+    .custom-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .custom-table th {
+        background: #f8fafc;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #374151;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .custom-table td {
+        padding: 12px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .custom-table tr:hover {
+        background: #f9fafb;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -470,8 +464,9 @@ try:
         
         views_data = []
         for date in dates:
-            if date in views_by_date.index:
-                views_data.append(views_by_date[date])
+            date_key = pd.Timestamp(date)
+            if date_key in views_by_date.index:
+                views_data.append(views_by_date[date_key])
             else:
                 views_data.append(0)
     else:
@@ -508,8 +503,17 @@ try:
     st.plotly_chart(fig, use_container_width=True)
     
 except Exception as e:
-    st.warning(f"Error al generar gráfica: {str(e)}")
-    st.info("Mostrando datos en formato alternativo...")
+    st.warning("Error al generar gráfica. Mostrando datos básicos.")
+    
+    simple_data = pd.DataFrame({
+        'Date': ['Oct 7', 'Oct 14', 'Oct 21', 'Oct 28', 'Nov 4', 'Nov 11', 'Nov 18', 'Nov 25'],
+        'Views': [max(views_data[i*4:(i+1)*4]) if i*4 < len(views_data) else 0 for i in range(8)]
+    })
+    
+    fig_simple = go.Figure(data=[go.Bar(x=simple_data['Date'], y=simple_data['Views'], 
+                                       marker_color=platform_color)])
+    fig_simple.update_layout(title="Weekly Views Trend", height=400)
+    st.plotly_chart(fig_simple, use_container_width=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -521,33 +525,45 @@ st.markdown("""
 if selected_platform in ["YouTube", "TikTok"]:
     top_videos = df.nlargest(10, 'visualizaciones')[['titulo', 'fecha_publicacion', 'visualizaciones', 'me_gusta', 'comentarios', 'rendimiento_por_dia']]
     top_videos['fecha_publicacion'] = top_videos['fecha_publicacion'].dt.strftime('%Y-%m-%d')
-    top_videos = top_videos.rename(columns={
-        'titulo': 'Title',
-        'fecha_publicacion': 'Publish Date',
-        'visualizaciones': 'Views',
-        'me_gusta': 'Likes',
-        'comentarios': 'Comments',
-        'rendimiento_por_dia': 'Daily Perf.'
+    
+    # Formatear números manualmente SIN usar .style
+    display_df = pd.DataFrame({
+        'Title': top_videos['titulo'].str[:50] + '...',
+        'Publish Date': top_videos['fecha_publicacion'],
+        'Views': top_videos['visualizaciones'].apply(lambda x: f"{x:,}"),
+        'Likes': top_videos['me_gusta'],
+        'Comments': top_videos['comentarios'],
+        'Daily Perf.': top_videos['rendimiento_por_dia'].apply(lambda x: f"{x:.1f}")
     })
     
-    st.dataframe(top_videos.style.format({
-        'Views': '{:,}',
-        'Daily Perf.': '{:.1f}'
-    }).background_gradient(subset=['Views', 'Daily Perf.'], cmap='Reds' if selected_platform == "YouTube" else 'Blues'), 
-    height=400, use_container_width=True)
+    # Mostrar tabla con colores manuales SIN .style
+    st.table(display_df)
+    
+    st.markdown("""
+        <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 10px;">
+            <h4 style="margin-top: 0; color: #374151;">Top Performing Video:</h4>
+            <p style="margin: 5px 0; color: #6b7280;"><strong>{}</strong></p>
+            <p style="margin: 5px 0; color: #6b7280;">Views: {:,} | Daily Performance: {:.1f}</p>
+        </div>
+    """.format(
+        top_videos.iloc[0]['titulo'][:100] + '...' if len(top_videos.iloc[0]['titulo']) > 100 else top_videos.iloc[0]['titulo'],
+        top_videos.iloc[0]['visualizaciones'],
+        top_videos.iloc[0]['rendimiento_por_dia']
+    ), unsafe_allow_html=True)
+    
 else:
     st.info(f"🔒 {platform_name} analytics require platform connection")
     st.markdown("""
         <div style="text-align: center; padding: 40px; background: #f8fafc; border-radius: 10px;">
-            <div style="font-size: 48px; margin-bottom: 20px; color: #cbd5e1;">{icon}</div>
-            <h3 style="color: #64748b;">Connect to {platform_name}</h3>
+            <div style="font-size: 48px; margin-bottom: 20px; color: #cbd5e1;">{}</div>
+            <h3 style="color: #64748b;">Connect to {}</h3>
             <p style="color: #94a3b8;">Grant permissions to access your public profile and posts.</p>
             <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
                 <button style="background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Cancel</button>
-                <button style="background: {platform_color}; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Connect</button>
+                <button style="background: {}; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Connect</button>
             </div>
         </div>
-    """.format(icon=icon, platform_name=platform_name, platform_color=platform_color), unsafe_allow_html=True)
+    """.format(icon, platform_name, platform_color), unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -565,10 +581,12 @@ with col_analysis1:
                             (df['rendimiento_por_dia'] <= df['rendimiento_por_dia'].quantile(0.75))])
         low_perf = len(df[df['rendimiento_por_dia'] < df['rendimiento_por_dia'].quantile(0.25)])
         
-        fig_pie = go.Figure(data=[go.Pie(labels=['High Performers', 'Medium', 'Low'],
-                                        values=[high_perf, medium_perf, low_perf],
-                                        hole=0.4,
-                                        marker=dict(colors=['#10b981', '#3B82F6', '#6b7280']))])
+        labels = ['High Performers', 'Medium', 'Low']
+        values = [high_perf, medium_perf, low_perf]
+        colors = ['#10b981', '#3B82F6', '#6b7280']
+        
+        fig_pie = go.Figure(data=[go.Pie(labels=labels, values=values, hole=0.4,
+                                        marker=dict(colors=colors))])
         
         fig_pie.update_layout(height=300, showlegend=True, template='plotly_white',
                              margin=dict(l=20, r=20, t=30, b=20))
@@ -586,23 +604,22 @@ with col_analysis2:
     """, unsafe_allow_html=True)
     
     if selected_platform in ["YouTube", "TikTok"]:
-        metrics_data = {
-            'Metric': ['Avg. Views/Video', 'Avg. Likes/Video', 'Avg. Comments/Video', 
-                      'Max Daily Performance', 'Content Age (days)', 'Engagement Rate'],
-            'Value': [f"{df['visualizaciones'].mean():.0f}", 
-                     f"{df['me_gusta'].mean():.1f}", 
-                     f"{df['comentarios'].mean():.1f}",
-                     f"{df['rendimiento_por_dia'].max():.1f}",
-                     f"{df['dias_desde_publicacion'].mean():.0f}",
-                     f"{engagement_rate:.2f}%"]
-        }
+        metrics = [
+            ('Avg. Views/Video', f"{df['visualizaciones'].mean():.0f}"),
+            ('Avg. Likes/Video', f"{df['me_gusta'].mean():.1f}"),
+            ('Avg. Comments/Video', f"{df['comentarios'].mean():.1f}"),
+            ('Max Daily Performance', f"{df['rendimiento_por_dia'].max():.1f}"),
+            ('Content Age (days)', f"{df['dias_desde_publicacion'].mean():.0f}"),
+            ('Engagement Rate', f"{engagement_rate:.2f}%")
+        ]
         
-        for i, (metric, value) in enumerate(zip(metrics_data['Metric'], metrics_data['Value'])):
+        for i, (metric, value) in enumerate(metrics):
+            color_class = "trend-up" if i % 2 == 0 else ""
             st.markdown(f"""
                 <div style="display: flex; justify-content: space-between; align-items: center; 
-                           padding: 12px 0; border-bottom: {'1px solid #e5e7eb' if i < len(metrics_data['Metric'])-1 else 'none'};">
+                           padding: 12px 0; border-bottom: {'1px solid #e5e7eb' if i < len(metrics)-1 else 'none'};">
                     <span style="color: #4b5563; font-size: 14px;">{metric}</span>
-                    <span style="font-weight: 600; color: #1f2937; font-size: 16px;">{value}</span>
+                    <span style="font-weight: 600; color: #1f2937; font-size: 16px;" class="{color_class}">{value}</span>
                 </div>
             """, unsafe_allow_html=True)
     else:
@@ -612,6 +629,6 @@ with col_analysis2:
 
 st.markdown("""
     <div style="text-align: center; color: #6b7280; font-size: 14px; padding: 30px; border-top: 1px solid #e5e7eb; margin-top: 40px;">
-        Social Media Dashboard v2.0 • Data updated in real-time • {selected_platform} Analytics
+        Social Media Dashboard v2.0 • Data updated in real-time • {} Analytics
     </div>
-""".format(selected_platform=selected_platform), unsafe_allow_html=True)
+""".format(selected_platform), unsafe_allow_html=True)
