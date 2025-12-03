@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -31,6 +32,10 @@ def cargar_datos():
     
     for df in [youtobe_data, tiktok_data]:
         df['fecha_publicacion'] = pd.to_datetime(df['fecha_publicacion'], dayfirst=True, errors='coerce')
+        hoy = pd.Timestamp.now()
+        df['dias_desde_publicacion'] = (hoy - df['fecha_publicacion']).dt.days
+        df['dias_desde_publicacion'] = df['dias_desde_publicacion'].apply(lambda x: max(x, 1))
+        df['rendimiento_por_dia'] = df['visualizaciones'] / df['dias_desde_publicacion']
     
     return youtobe_data, tiktok_data
 
@@ -42,133 +47,560 @@ st.markdown("""
         width: 100%;
         font-size: 18px;
         font-weight: bold;
-        padding: 15px;
-        border-radius: 10px;
+        padding: 20px;
+        border-radius: 15px;
+        border: none;
         transition: all 0.3s;
+        margin: 5px 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
     .stButton > button:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    }
-    .css-1d391kg {padding: 2rem 1rem;}
-    h1 {
-        text-align: center;
-        color: #1E3A8A;
-        margin-bottom: 2rem;
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
     }
     .metric-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
+        padding: 25px;
+        border-radius: 20px;
         color: white;
         text-align: center;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        margin: 10px 0;
+        border: 2px solid rgba(255,255,255,0.1);
+    }
+    .metric-value {
+        font-size: 32px;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    .metric-label {
+        font-size: 16px;
+        opacity: 0.9;
+    }
+    .header {
+        background: linear-gradient(90deg, #1E3A8A, #3B82F6);
+        padding: 25px;
+        border-radius: 20px;
+        color: white;
+        text-align: center;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .data-table {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        margin: 20px 0;
+    }
+    .tab-container {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        margin: 20px 0;
+    }
+    .css-1d391kg {padding: 2rem 1rem;}
+    h1, h2, h3 {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 10px 10px 0 0;
+        padding: 10px 20px;
+        background-color: #f0f2f6;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #3B82F6;
+        color: white;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Dashboard de Redes Sociales")
+st.markdown('<div class="header"><h1>📊 DASHBOARD DE REDES SOCIALES</h1><p>Análisis de rendimiento de contenido en YouTube y TikTok</p></div>', unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    youtube_btn = st.button("🎬 YouTube", key="youtube", use_container_width=True)
+    youtube_btn = st.button("🎬 YOUTUBE ANALYTICS", key="youtube", use_container_width=True)
 with col2:
-    tiktok_btn = st.button("📱 TikTok", key="tiktok", use_container_width=True)
+    tiktok_btn = st.button("📱 TIKTOK ANALYTICS", key="tiktok", use_container_width=True)
 with col3:
-    dashboard_btn = st.button("📈 Dashboard", key="dashboard", use_container_width=True)
+    dashboard_btn = st.button("📈 DASHBOARD COMPARATIVO", key="dashboard", use_container_width=True)
 
 if youtube_btn or (not youtube_btn and not tiktok_btn and not dashboard_btn):
-    st.subheader("📊 Análisis de YouTube")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Videos", len(youtobe_df))
-    with col2:
-        st.metric("Total Visualizaciones", youtobe_df['visualizaciones'].sum())
-    with col3:
-        st.metric("Promedio Visualizaciones", f"{youtobe_df['visualizaciones'].mean():.0f}")
-    
-    fig = make_subplots(rows=2, cols=2, subplot_titles=('Visualizaciones por Fecha', 'Me Gusta vs Visualizaciones', 'Distribución de Visualizaciones', 'Top 5 Videos Más Vistos'))
-    
-    fig.add_trace(go.Scatter(x=youtobe_df['fecha_publicacion'], y=youtobe_df['visualizaciones'], mode='lines+markers', name='Visualizaciones', line=dict(color='red')), row=1, col=1)
-    fig.add_trace(go.Scatter(x=youtobe_df['fecha_publicacion'], y=youtobe_df['me_gusta'], mode='lines+markers', name='Me Gusta', line=dict(color='orange')), row=1, col=1)
-    
-    fig.add_trace(go.Scatter(x=youtobe_df['visualizaciones'], y=youtobe_df['me_gusta'], mode='markers', marker=dict(size=10, color='green'), name='Relación'), row=1, col=2)
-    
-    fig.add_trace(go.Histogram(x=youtobe_df['visualizaciones'], nbinsx=20, name='Distribución', marker_color='purple'), row=2, col=1)
-    
-    top_videos = youtobe_df.nlargest(5, 'visualizaciones')
-    fig.add_trace(go.Bar(x=top_videos['titulo'].str[:30] + '...', y=top_videos['visualizaciones'], name='Top Videos', marker_color='blue'), row=2, col=2)
-    
-    fig.update_layout(height=800, showlegend=True, title_text="Métricas de YouTube")
-    st.plotly_chart(fig, use_container_width=True)
-    
-    with st.expander("📋 Ver Datos de YouTube"):
-        st.dataframe(youtobe_df)
-
-elif tiktok_btn:
-    st.subheader("📊 Análisis de TikTok")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Videos", len(tiktok_df))
-    with col2:
-        st.metric("Total Visualizaciones", tiktok_df['visualizaciones'].sum())
-    with col3:
-        st.metric("Promedio Me Gusta", f"{tiktok_df['me_gusta'].mean():.0f}")
-    
-    fig = make_subplots(rows=2, cols=2, subplot_titles=('Engagement por Fecha', 'Visualizaciones vs Me Gusta', 'Heatmap de Interacción', 'Top 5 Videos TikTok'))
-    
-    fig.add_trace(go.Scatter(x=tiktok_df['fecha_publicacion'], y=tiktok_df['visualizaciones'], mode='lines+markers', name='Visualizaciones', line=dict(color='cyan')), row=1, col=1)
-    fig.add_trace(go.Scatter(x=tiktok_df['fecha_publicacion'], y=tiktok_df['me_gusta'], mode='lines+markers', name='Me Gusta', line=dict(color='magenta')), row=1, col=1)
-    
-    fig.add_trace(go.Scatter(x=tiktok_df['visualizaciones'], y=tiktok_df['me_gusta'], mode='markers', marker=dict(size=tiktok_df['comentarios']*5, color=tiktok_df['comentarios'], colorscale='Viridis', showscale=True), name='Engagement'), row=1, col=2)
-    
-    engagement = tiktok_df[['visualizaciones', 'me_gusta', 'comentarios']].corr()
-    fig.add_trace(go.Heatmap(z=engagement.values, x=engagement.columns, y=engagement.columns, colorscale='RdBu'), row=2, col=1)
-    
-    top_tiktok = tiktok_df.nlargest(5, 'visualizaciones')
-    fig.add_trace(go.Bar(x=top_tiktok['titulo'].str[:30] + '...', y=top_tiktok['visualizaciones'], name='Top Videos', marker_color='lightgreen'), row=2, col=2)
-    
-    fig.update_layout(height=800, showlegend=True, title_text="Métricas de TikTok")
-    st.plotly_chart(fig, use_container_width=True)
-    
-    with st.expander("📋 Ver Datos de TikTok"):
-        st.dataframe(tiktok_df)
-
-elif dashboard_btn:
-    st.subheader("📈 Dashboard Comparativo")
+    st.markdown('<h2>📊 ANÁLISIS DE YOUTUBE</h2>', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Videos YouTube", len(youtobe_df))
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">TOTAL VIDEOS</div>
+                <div class="metric-value">{len(youtobe_df)}</div>
+            </div>
+        """, unsafe_allow_html=True)
     with col2:
-        st.metric("Videos TikTok", len(tiktok_df))
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">VISUALIZACIONES TOTALES</div>
+                <div class="metric-value">{youtobe_df['visualizaciones'].sum():,}</div>
+            </div>
+        """, unsafe_allow_html=True)
     with col3:
-        st.metric("Total Visualizaciones", f"{youtobe_df['visualizaciones'].sum() + tiktok_df['visualizaciones'].sum():,}")
+        rendimiento_promedio = youtobe_df['rendimiento_por_dia'].mean()
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">RENDIMIENTO/DÍA</div>
+                <div class="metric-value">{rendimiento_promedio:.1f}</div>
+                <div class="metric-label">visualizaciones por día</div>
+            </div>
+        """, unsafe_allow_html=True)
     with col4:
-        st.metric("Total Me Gusta", f"{youtobe_df['me_gusta'].sum() + tiktok_df['me_gusta'].sum():,}")
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">ENGAGEMENT RATE</div>
+                <div class="metric-value">{((youtobe_df['me_gusta'].sum() + youtobe_df['comentarios'].sum()) / youtobe_df['visualizaciones'].sum() * 100):.2f}%</div>
+            </div>
+        """, unsafe_allow_html=True)
     
-    fig = make_subplots(rows=2, cols=2, subplot_titles=('Comparativa Visualizaciones', 'Comparativa Me Gusta', 'Comparativa Engagement', 'Evolución Combinada'))
+    tab1, tab2, tab3 = st.tabs(["📈 GRÁFICAS", "📊 MÉTRICAS DETALLADAS", "🏆 TOP CONTENIDO"])
     
-    fig.add_trace(go.Bar(x=['YouTube', 'TikTok'], y=[youtobe_df['visualizaciones'].mean(), tiktok_df['visualizaciones'].mean()], name='Promedio Visualizaciones', marker_color=['red', 'cyan']), row=1, col=1)
-    fig.add_trace(go.Bar(x=['YouTube', 'TikTok'], y=[youtobe_df['me_gusta'].mean(), tiktok_df['me_gusta'].mean()], name='Promedio Me Gusta', marker_color=['orange', 'magenta']), row=1, col=2)
+    with tab1:
+        fig = make_subplots(rows=2, cols=2, 
+                           subplot_titles=('📈 Visualizaciones por Fecha', '❤️ Me Gusta vs Visualizaciones', 
+                                         '📊 Distribución de Visualizaciones', '🏅 Top 5 Videos Más Vistos'),
+                           specs=[[{'secondary_y': True}, {}], [{}, {}]])
+        
+        fig.add_trace(go.Scatter(x=youtobe_df['fecha_publicacion'], y=youtobe_df['visualizaciones'], 
+                               mode='lines+markers', name='Visualizaciones', line=dict(color='#FF0000', width=3)),
+                     row=1, col=1)
+        fig.add_trace(go.Scatter(x=youtobe_df['fecha_publicacion'], y=youtobe_df['me_gusta'], 
+                               mode='lines+markers', name='Me Gusta', line=dict(color='#FF6B35', width=2)),
+                     row=1, col=1, secondary_y=True)
+        
+        fig.add_trace(go.Scatter(x=youtobe_df['visualizaciones'], y=youtobe_df['me_gusta'], 
+                               mode='markers', marker=dict(size=12, color='#00C851', opacity=0.7),
+                               text=youtobe_df['titulo'].str[:50], name='Relación'),
+                     row=1, col=2)
+        
+        fig.add_trace(go.Histogram(x=youtobe_df['visualizaciones'], nbinsx=20, 
+                                  name='Distribución', marker_color='#9C27B0', opacity=0.7),
+                     row=2, col=1)
+        
+        top_videos = youtobe_df.nlargest(5, 'visualizaciones')
+        fig.add_trace(go.Bar(x=top_videos['titulo'].str[:30] + '...', 
+                            y=top_videos['visualizaciones'], 
+                            name='Top Videos', 
+                            marker_color=['#FF5252', '#FF4081', '#E040FB', '#7C4DFF', '#536DFE']),
+                     row=2, col=2)
+        
+        fig.update_layout(height=700, showlegend=True, template='plotly_white',
+                         plot_bgcolor='rgba(240,242,246,0.8)')
+        fig.update_xaxes(title_text="Fecha", row=1, col=1)
+        fig.update_yaxes(title_text="Visualizaciones", row=1, col=1)
+        fig.update_yaxes(title_text="Me Gusta", secondary_y=True, row=1, col=1)
+        fig.update_xaxes(title_text="Visualizaciones", row=1, col=2)
+        fig.update_yaxes(title_text="Me Gusta", row=1, col=2)
+        
+        st.plotly_chart(fig, use_container_width=True)
     
-    youtube_engagement = youtobe_df['me_gusta'].sum() + youtobe_df['comentarios'].sum()
-    tiktok_engagement = tiktok_df['me_gusta'].sum() + tiktok_df['comentarios'].sum()
-    fig.add_trace(go.Pie(labels=['YouTube', 'TikTok'], values=[youtube_engagement, tiktok_engagement], hole=0.4), row=2, col=1)
+    with tab2:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### 📅 Rendimiento por Días desde Publicación")
+            rendimiento_dias = youtobe_df.groupby('dias_desde_publicacion')['rendimiento_por_dia'].mean().reset_index()
+            fig_dias = go.Figure(data=go.Scatter(x=rendimiento_dias['dias_desde_publicacion'], 
+                                                y=rendimiento_dias['rendimiento_por_dia'],
+                                                mode='lines+markers',
+                                                line=dict(color='#00BCD4', width=3),
+                                                marker=dict(size=10)))
+            fig_dias.update_layout(title="Rendimiento vs Días desde Publicación",
+                                  xaxis_title="Días desde Publicación",
+                                  yaxis_title="Rendimiento por Día (visualizaciones/día)",
+                                  template='plotly_white')
+            st.plotly_chart(fig_dias, use_container_width=True)
+        
+        with col2:
+            st.markdown("### 🔥 Top 10 Videos por Rendimiento/Día")
+            top_rendimiento = youtobe_df.nlargest(10, 'rendimiento_por_dia')[['titulo', 'rendimiento_por_dia', 'dias_desde_publicacion', 'visualizaciones']]
+            fig_top = go.Figure(data=[go.Bar(x=top_rendimiento['titulo'].str[:30] + '...',
+                                            y=top_rendimiento['rendimiento_por_dia'],
+                                            text=top_rendimiento['rendimiento_por_dia'].round(1),
+                                            textposition='auto',
+                                            marker_color='#4CAF50')])
+            fig_top.update_layout(title="Top 10 Videos por Rendimiento Diario",
+                                 xaxis_title="Video",
+                                 yaxis_title="Rendimiento por Día",
+                                 xaxis_tickangle=-45,
+                                 template='plotly_white')
+            st.plotly_chart(fig_top, use_container_width=True)
     
-    fig.add_trace(go.Scatter(x=youtobe_df['fecha_publicacion'], y=youtobe_df['visualizaciones'], mode='lines', name='YouTube', line=dict(color='red')), row=2, col=2)
-    fig.add_trace(go.Scatter(x=tiktok_df['fecha_publicacion'], y=tiktok_df['visualizaciones'], mode='lines', name='TikTok', line=dict(color='cyan')), row=2, col=2)
+    with tab3:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### 🥇 Top Videos por Visualizaciones")
+            top_visualizaciones = youtobe_df.nlargest(10, 'visualizaciones')[['titulo', 'visualizaciones', 'me_gusta', 'comentarios', 'rendimiento_por_dia']]
+            st.dataframe(top_visualizaciones.style.background_gradient(subset=['visualizaciones'], cmap='Reds'), height=400)
+        
+        with col2:
+            st.markdown("### 📈 Métricas de Rendimiento")
+            st.metric("Video con Mayor Rendimiento/Día", 
+                     f"{youtobe_df.loc[youtobe_df['rendimiento_por_dia'].idxmax(), 'rendimiento_por_dia']:.1f}",
+                     delta=f"{youtobe_df['rendimiento_por_dia'].max() - youtobe_df['rendimiento_por_dia'].mean():.1f}")
+            st.metric("Video Más Reciente", 
+                     youtobe_df.loc[youtobe_df['fecha_publicacion'].idxmax(), 'titulo'][:50] + "...")
+            st.metric("Visualizaciones Promedio por Video", f"{youtobe_df['visualizaciones'].mean():.0f}")
     
-    fig.update_layout(height=800, showlegend=True, title_text="Dashboard Comparativo")
-    st.plotly_chart(fig, use_container_width=True)
+    with st.expander("📋 VER TODOS LOS DATOS DE YOUTUBE", expanded=False):
+        st.dataframe(youtobe_df, use_container_width=True)
+
+elif tiktok_btn:
+    st.markdown('<h2>📊 ANÁLISIS DE TIKTOK</h2>', unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.markdown("### Top YouTube")
-        st.dataframe(youtobe_df.nlargest(5, 'visualizaciones')[['titulo', 'visualizaciones', 'me_gusta']])
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">TOTAL VIDEOS</div>
+                <div class="metric-value">{len(tiktok_df)}</div>
+            </div>
+        """, unsafe_allow_html=True)
     with col2:
-        st.markdown("### Top TikTok")
-        st.dataframe(tiktok_df.nlargest(5, 'visualizaciones')[['titulo', 'visualizaciones', 'me_gusta']])
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">VISUALIZACIONES TOTALES</div>
+                <div class="metric-value">{tiktok_df['visualizaciones'].sum():,}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with col3:
+        rendimiento_promedio = tiktok_df['rendimiento_por_dia'].mean()
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">RENDIMIENTO/DÍA</div>
+                <div class="metric-value">{rendimiento_promedio:.1f}</div>
+                <div class="metric-label">visualizaciones por día</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with col4:
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">ENGAGEMENT RATE</div>
+                <div class="metric-value">{((tiktok_df['me_gusta'].sum() + tiktok_df['comentarios'].sum()) / tiktok_df['visualizaciones'].sum() * 100):.2f}%</div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    tab1, tab2, tab3 = st.tabs(["📈 GRÁFICAS", "🔥 MÉTRICAS TIKTOK", "🏆 TOP VIRALES"])
+    
+    with tab1:
+        fig = make_subplots(rows=2, cols=2, 
+                           subplot_titles=('📈 Engagement por Fecha', '❤️ Visualizaciones vs Me Gusta', 
+                                         '🎭 Heatmap de Interacción', '🏅 Top 5 Videos TikTok'),
+                           specs=[[{'secondary_y': True}, {}], [{}, {}]])
+        
+        fig.add_trace(go.Scatter(x=tiktok_df['fecha_publicacion'], y=tiktok_df['visualizaciones'], 
+                               mode='lines+markers', name='Visualizaciones', line=dict(color='#00F5FF', width=3)),
+                     row=1, col=1)
+        fig.add_trace(go.Scatter(x=tiktok_df['fecha_publicacion'], y=tiktok_df['me_gusta'], 
+                               mode='lines+markers', name='Me Gusta', line=dict(color='#FF00FF', width=2)),
+                     row=1, col=1, secondary_y=True)
+        
+        fig.add_trace(go.Scatter(x=tiktok_df['visualizaciones'], y=tiktok_df['me_gusta'], 
+                               mode='markers', 
+                               marker=dict(size=tiktok_df['comentarios']*5 + 10, 
+                                         color=tiktok_df['comentarios'], 
+                                         colorscale='Viridis',
+                                         showscale=True,
+                                         colorbar=dict(title="Comentarios")),
+                               text=tiktok_df['titulo'].str[:50],
+                               name='Engagement'),
+                     row=1, col=2)
+        
+        engagement = tiktok_df[['visualizaciones', 'me_gusta', 'comentarios']].corr()
+        fig.add_trace(go.Heatmap(z=engagement.values, 
+                                x=engagement.columns, 
+                                y=engagement.columns, 
+                                colorscale='RdBu',
+                                text=engagement.values.round(2),
+                                texttemplate='%{text}',
+                                textfont={"size": 12}),
+                     row=2, col=1)
+        
+        top_tiktok = tiktok_df.nlargest(5, 'visualizaciones')
+        fig.add_trace(go.Bar(x=top_tiktok['titulo'].str[:30] + '...', 
+                            y=top_tiktok['visualizaciones'], 
+                            name='Top Videos',
+                            marker_color=['#00E5FF', '#18FFFF', '#64FFDA', '#69F0AE', '#B2FF59']),
+                     row=2, col=2)
+        
+        fig.update_layout(height=700, showlegend=True, template='plotly_dark',
+                         plot_bgcolor='rgba(0,0,0,0)')
+        fig.update_xaxes(title_text="Fecha", row=1, col=1)
+        fig.update_yaxes(title_text="Visualizaciones", row=1, col=1)
+        fig.update_yaxes(title_text="Me Gusta", secondary_y=True, row=1, col=1)
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with tab2:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### 📊 Rendimiento por Días desde Publicación")
+            rendimiento_dias = tiktok_df.groupby('dias_desde_publicacion')['rendimiento_por_dia'].mean().reset_index()
+            fig_dias = go.Figure(data=go.Scatter(x=rendimiento_dias['dias_desde_publicacion'], 
+                                                y=rendimiento_dias['rendimiento_por_dia'],
+                                                mode='lines+markers',
+                                                line=dict(color='#FF4081', width=3),
+                                                marker=dict(size=10, symbol='diamond')))
+            fig_dias.update_layout(title="Rendimiento vs Días desde Publicación",
+                                  xaxis_title="Días desde Publicación",
+                                  yaxis_title="Rendimiento por Día",
+                                  template='plotly_white')
+            st.plotly_chart(fig_dias, use_container_width=True)
+        
+        with col2:
+            st.markdown("### 🚀 Top 10 Videos por Rendimiento/Día")
+            top_rendimiento = tiktok_df.nlargest(10, 'rendimiento_por_dia')[['titulo', 'rendimiento_por_dia', 'dias_desde_publicacion', 'visualizaciones']]
+            fig_top = go.Figure(data=[go.Bar(x=top_rendimiento['titulo'].str[:30] + '...',
+                                            y=top_rendimiento['rendimiento_por_dia'],
+                                            text=top_rendimiento['rendimiento_por_dia'].round(1),
+                                            textposition='auto',
+                                            marker_color='linear-gradient(90deg, #FF4081, #F50057)')])
+            fig_top.update_layout(title="Top 10 Videos por Rendimiento Diario",
+                                 xaxis_title="Video",
+                                 yaxis_title="Rendimiento por Día",
+                                 xaxis_tickangle=-45,
+                                 template='plotly_white')
+            st.plotly_chart(fig_top, use_container_width=True)
+    
+    with tab3:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### 🥇 Top Videos por Visualizaciones")
+            top_visualizaciones = tiktok_df.nlargest(10, 'visualizaciones')[['titulo', 'visualizaciones', 'me_gusta', 'comentarios', 'rendimiento_por_dia']]
+            st.dataframe(top_visualizaciones.style.background_gradient(subset=['visualizaciones'], cmap='Blues'), height=400)
+        
+        with col2:
+            st.markdown("### 📈 Métricas de Rendimiento TikTok")
+            st.metric("Video con Mayor Rendimiento/Día", 
+                     f"{tiktok_df.loc[tiktok_df['rendimiento_por_dia'].idxmax(), 'rendimiento_por_dia']:.1f}",
+                     delta=f"{tiktok_df['rendimiento_por_dia'].max() - tiktok_df['rendimiento_por_dia'].mean():.1f}")
+            st.metric("Video Más Viral", 
+                     tiktok_df.loc[tiktok_df['visualizaciones'].idxmax(), 'titulo'][:50] + "...")
+            st.metric("Tasa de Engagement Promedio", f"{tiktok_df['me_gusta'].mean() / tiktok_df['visualizaciones'].mean() * 100:.2f}%")
+    
+    with st.expander("📋 VER TODOS LOS DATOS DE TIKTOK", expanded=False):
+        st.dataframe(tiktok_df, use_container_width=True)
+
+elif dashboard_btn:
+    st.markdown('<h2>📈 DASHBOARD COMPARATIVO</h2>', unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">VIDEOS YOUTUBE</div>
+                <div class="metric-value">{len(youtobe_df)}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">VIDEOS TIKTOK</div>
+                <div class="metric-value">{len(tiktok_df)}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with col3:
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">TOTAL VISUALIZACIONES</div>
+                <div class="metric-value">{youtobe_df['visualizaciones'].sum() + tiktok_df['visualizaciones'].sum():,}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with col4:
+        rendimiento_total = (youtobe_df['rendimiento_por_dia'].mean() + tiktok_df['rendimiento_por_dia'].mean()) / 2
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">RENDIMIENTO PROMEDIO/DÍA</div>
+                <div class="metric-value">{rendimiento_total:.1f}</div>
+                <div class="metric-label">ambas plataformas</div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    tab1, tab2, tab3 = st.tabs(["📊 COMPARATIVA GRÁFICA", "📈 MÉTRICAS COMPARATIVAS", "🏆 TOP GLOBAL"])
+    
+    with tab1:
+        fig = make_subplots(rows=2, cols=2, 
+                           subplot_titles=('📊 Comparativa Visualizaciones', '❤️ Comparativa Me Gusta', 
+                                         '📈 Distribución Engagement', '🚀 Evolución Combinada'),
+                           specs=[[{}, {}], [{}, {}]])
+        
+        fig.add_trace(go.Bar(x=['YouTube', 'TikTok'], 
+                            y=[youtobe_df['visualizaciones'].mean(), tiktok_df['visualizaciones'].mean()], 
+                            name='Promedio Visualizaciones', 
+                            marker_color=['#FF0000', '#00F5FF'],
+                            text=[f"{youtobe_df['visualizaciones'].mean():.0f}", f"{tiktok_df['visualizaciones'].mean():.0f}"],
+                            textposition='auto'),
+                     row=1, col=1)
+        
+        fig.add_trace(go.Bar(x=['YouTube', 'TikTok'], 
+                            y=[youtobe_df['me_gusta'].mean(), tiktok_df['me_gusta'].mean()], 
+                            name='Promedio Me Gusta', 
+                            marker_color=['#FF6B35', '#FF00FF'],
+                            text=[f"{youtobe_df['me_gusta'].mean():.0f}", f"{tiktok_df['me_gusta'].mean():.0f}"],
+                            textposition='auto'),
+                     row=1, col=2)
+        
+        youtube_engagement = youtobe_df['me_gusta'].sum() + youtobe_df['comentarios'].sum()
+        tiktok_engagement = tiktok_df['me_gusta'].sum() + tiktok_df['comentarios'].sum()
+        fig.add_trace(go.Pie(labels=['YouTube', 'TikTok'], 
+                            values=[youtube_engagement, tiktok_engagement], 
+                            hole=0.4,
+                            marker=dict(colors=['#FF0000', '#00F5FF']),
+                            textinfo='label+percent'),
+                     row=2, col=1)
+        
+        fig.add_trace(go.Scatter(x=youtobe_df['fecha_publicacion'], 
+                                y=youtobe_df['rendimiento_por_dia'], 
+                                mode='lines', 
+                                name='YouTube', 
+                                line=dict(color='#FF0000', width=3)),
+                     row=2, col=2)
+        fig.add_trace(go.Scatter(x=tiktok_df['fecha_publicacion'], 
+                                y=tiktok_df['rendimiento_por_dia'], 
+                                mode='lines', 
+                                name='TikTok', 
+                                line=dict(color='#00F5FF', width=3)),
+                     row=2, col=2)
+        
+        fig.update_layout(height=700, showlegend=True, template='plotly_white')
+        fig.update_yaxes(title_text="Promedio", row=1, col=1)
+        fig.update_yaxes(title_text="Promedio", row=1, col=2)
+        fig.update_yaxes(title_text="Rendimiento por Día", row=2, col=2)
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with tab2:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 📊 Métricas Comparativas")
+            comparativa_data = pd.DataFrame({
+                'Métrica': ['Total Videos', 'Total Visualizaciones', 'Promedio Visualizaciones', 
+                          'Promedio Me Gusta', 'Promedio Comentarios', 'Rendimiento/Día'],
+                'YouTube': [len(youtobe_df), youtobe_df['visualizaciones'].sum(), 
+                          youtobe_df['visualizaciones'].mean(), youtobe_df['me_gusta'].mean(),
+                          youtobe_df['comentarios'].mean(), youtobe_df['rendimiento_por_dia'].mean()],
+                'TikTok': [len(tiktok_df), tiktok_df['visualizaciones'].sum(), 
+                          tiktok_df['visualizaciones'].mean(), tiktok_df['me_gusta'].mean(),
+                          tiktok_df['comentarios'].mean(), tiktok_df['rendimiento_por_dia'].mean()]
+            })
+            
+            st.dataframe(comparativa_data.style.format({
+                'YouTube': '{:,.1f}',
+                'TikTok': '{:,.1f}'
+            }).background_gradient(subset=['YouTube', 'TikTok'], cmap='YlOrRd'))
+        
+        with col2:
+            st.markdown("### 📈 Análisis de Rendimiento")
+            
+            mejor_rendimiento_youtube = youtobe_df.loc[youtobe_df['rendimiento_por_dia'].idxmax()]
+            mejor_rendimiento_tiktok = tiktok_df.loc[tiktok_df['rendimiento_por_dia'].idxmax()]
+            
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.metric("🎬 Mejor YouTube", 
+                         f"{mejor_rendimiento_youtube['rendimiento_por_dia']:.1f}",
+                         delta="rendimiento/día")
+                st.caption(f"Video: {mejor_rendimiento_youtube['titulo'][:40]}...")
+            
+            with col_b:
+                st.metric("📱 Mejor TikTok", 
+                         f"{mejor_rendimiento_tiktok['rendimiento_por_dia']:.1f}",
+                         delta="rendimiento/día")
+                st.caption(f"Video: {mejor_rendimiento_tiktok['titulo'][:40]}...")
+            
+            st.markdown("---")
+            
+            total_visualizaciones = youtobe_df['visualizaciones'].sum() + tiktok_df['visualizaciones'].sum()
+            youtube_percent = (youtobe_df['visualizaciones'].sum() / total_visualizaciones) * 100
+            tiktok_percent = (tiktok_df['visualizaciones'].sum() / total_visualizaciones) * 100
+            
+            st.markdown(f"### 📊 Distribución de Visualizaciones")
+            st.markdown(f"**YouTube:** {youtube_percent:.1f}% ({youtobe_df['visualizaciones'].sum():,})")
+            st.progress(youtube_percent / 100)
+            st.markdown(f"**TikTok:** {tiktok_percent:.1f}% ({tiktok_df['visualizaciones'].sum():,})")
+            st.progress(tiktok_percent / 100)
+    
+    with tab3:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 🥇 Top 5 YouTube")
+            top_youtube = youtobe_df.nlargest(5, 'visualizaciones')[['titulo', 'visualizaciones', 'me_gusta', 'comentarios', 'rendimiento_por_dia']]
+            for i, row in top_youtube.iterrows():
+                with st.container():
+                    st.markdown(f"""
+                        <div style="background: linear-gradient(135deg, #FFE0E0, #FFFFFF); padding: 15px; border-radius: 10px; margin: 10px 0; border-left: 5px solid #FF0000;">
+                            <strong>#{top_youtube.index.get_loc(i)+1} {row['titulo'][:50]}...</strong><br>
+                            👁️ {row['visualizaciones']:,} | ❤️ {row['me_gusta']} | 💬 {row['comentarios']}<br>
+                            ⚡ Rendimiento/día: {row['rendimiento_por_dia']:.1f}
+                        </div>
+                    """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("### 🥇 Top 5 TikTok")
+            top_tiktok = tiktok_df.nlargest(5, 'visualizaciones')[['titulo', 'visualizaciones', 'me_gusta', 'comentarios', 'rendimiento_por_dia']]
+            for i, row in top_tiktok.iterrows():
+                with st.container():
+                    st.markdown(f"""
+                        <div style="background: linear-gradient(135deg, #E0F7FF, #FFFFFF); padding: 15px; border-radius: 10px; margin: 10px 0; border-left: 5px solid #00F5FF;">
+                            <strong>#{top_tiktok.index.get_loc(i)+1} {row['titulo'][:50]}...</strong><br>
+                            👁️ {row['visualizaciones']:,} | ❤️ {row['me_gusta']} | 💬 {row['comentarios']}<br>
+                            ⚡ Rendimiento/día: {row['rendimiento_por_dia']:.1f}
+                        </div>
+                    """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        st.markdown("### 🏆 Video con Mayor Rendimiento Global")
+        max_rendimiento_global = max(youtobe_df['rendimiento_por_dia'].max(), tiktok_df['rendimiento_por_dia'].max())
+        
+        if youtobe_df['rendimiento_por_dia'].max() > tiktok_df['rendimiento_por_dia'].max():
+            mejor_video = youtobe_df.loc[youtobe_df['rendimiento_por_dia'].idxmax()]
+            plataforma = "🎬 YouTube"
+            color = "#FF0000"
+        else:
+            mejor_video = tiktok_df.loc[tiktok_df['rendimiento_por_dia'].idxmax()]
+            plataforma = "📱 TikTok"
+            color = "#00F5FF"
+        
+        st.markdown(f"""
+            <div style="background: linear-gradient(135deg, {color}20, #FFFFFF); padding: 25px; border-radius: 15px; margin: 20px 0; border: 3px solid {color}; text-align: center;">
+                <h3>🏆 CAMPEÓN DE RENDIMIENTO</h3>
+                <h4>{plataforma}</h4>
+                <p><strong>{mejor_video['titulo'][:100]}...</strong></p>
+                <div style="display: flex; justify-content: center; gap: 30px; margin: 20px 0;">
+                    <div>
+                        <div style="font-size: 24px; font-weight: bold; color: {color};">{mejor_video['rendimiento_por_dia']:.1f}</div>
+                        <div>Rendimiento/día</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 24px; font-weight: bold; color: {color};">{mejor_video['visualizaciones']:,}</div>
+                        <div>Visualizaciones</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 24px; font-weight: bold; color: {color};">{mejor_video['me_gusta']}</div>
+                        <div>Me Gusta</div>
+                    </div>
+                </div>
+                <p>Publicado hace {mejor_video['dias_desde_publicacion']} días</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+st.markdown("---")
+st.markdown("<div style='text-align: center; color: #666; padding: 20px;'>📊 Dashboard de Análisis de Redes Sociales | Actualizado automáticamente</div>", unsafe_allow_html=True)
