@@ -30,12 +30,12 @@ def cargar_datos():
         'comentarios': [2, 5, 0, 0, 0, 1, 1, 0, 0, 4, 3, 0, 4, 1, 22, 1, 16, 0, 0, 6, 2, 1, 0, 2, 2, 2, 1, 1, 2, 0, 0, 5, 3, 1, 1, 0, 4, 2, 0, 9]
     })
     
-    for df in [youtobe_data, tiktok_data]:
-        df['fecha_publicacion'] = pd.to_datetime(df['fecha_publicacion'], dayfirst=True, errors='coerce')
+    for df_data in [youtobe_data, tiktok_data]:
+        df_data['fecha_publicacion'] = pd.to_datetime(df_data['fecha_publicacion'], dayfirst=True, errors='coerce')
         hoy = pd.Timestamp.now()
-        df['dias_desde_publicacion'] = (hoy - df['fecha_publicacion']).dt.days
-        df['dias_desde_publicacion'] = df['dias_desde_publicacion'].apply(lambda x: max(x, 1))
-        df['rendimiento_por_dia'] = df['visualizaciones'] / df['dias_desde_publicacion']
+        df_data['dias_desde_publicacion'] = (hoy - df_data['fecha_publicacion']).dt.days
+        df_data['dias_desde_publicacion'] = df_data['dias_desde_publicacion'].apply(lambda x: max(x, 1))
+        df_data['rendimiento_por_dia'] = df_data['visualizaciones'] / df_data['dias_desde_publicacion']
     
     return youtobe_data, tiktok_data
 
@@ -48,10 +48,14 @@ st.markdown("""
         padding: 0;
     }
     
-    /* Sidebar styling */
-    .sidebar .sidebar-content {
+    /* Sidebar styling - AZUL como la imagen */
+    [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
-        color: white;
+    }
+    
+    [data-testid="stSidebar"] > div:first-child {
+        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+        padding-top: 2rem;
     }
     
     /* Social media buttons */
@@ -238,79 +242,99 @@ st.markdown("""
     ::-webkit-scrollbar-thumb:hover {
         background: #a1a1a1;
     }
+    
+    /* Sidebar titles */
+    .sidebar-title {
+        color: white !important;
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        margin-top: 25px;
+    }
+    
+    .sidebar-subtitle {
+        color: #94a3b8;
+        font-size: 14px;
+        margin-bottom: 5px;
+    }
+    
+    /* Status containers */
+    .status-container {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 12px 15px;
+        border-radius: 10px;
+        margin-bottom: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
     </style>
 """, unsafe_allow_html=True)
 
 with st.sidebar:
     st.markdown("""
-        <div style="text-align: center; margin-bottom: 40px;">
-            <h2 style="color: white; margin-bottom: 5px;">📊 DASHBOARD</h2>
-            <p style="color: #94a3b8; font-size: 14px;">Social Media Analytics</p>
+        <div style="text-align: center; margin-bottom: 40px; padding: 0 10px;">
+            <h2 style="color: white; margin-bottom: 5px; font-size: 24px;">📊 DASHBOARD</h2>
+            <p style="color: #94a3b8; font-size: 14px; margin: 0;">Social Media Analytics</p>
         </div>
     """, unsafe_allow_html=True)
     
-    st.markdown('<h3 style="color: white; margin-bottom: 20px;">🔗 Panel Professional</h3>', unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-title">🔗 Panel Professional</p>', unsafe_allow_html=True)
     
-    col_socials = st.columns(1)
-    with col_socials[0]:
-        facebook_selected = st.button("📘 Facebook", key="facebook_btn", use_container_width=True)
-        twitter_selected = st.button("🐦 Twitter", key="twitter_btn", use_container_width=True)
-        instagram_selected = st.button("📷 Instagram", key="instagram_btn", use_container_width=True)
-        linkedin_selected = st.button("💼 LinkedIn", key="linkedin_btn", use_container_width=True)
+    facebook_selected = st.button("📘 Facebook", key="facebook_btn", use_container_width=True)
+    twitter_selected = st.button("🐦 Twitter", key="twitter_btn", use_container_width=True)
+    instagram_selected = st.button("📷 Instagram", key="instagram_btn", use_container_width=True)
+    linkedin_selected = st.button("💼 LinkedIn", key="linkedin_btn", use_container_width=True)
     
-    st.markdown('<div style="height: 30px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
     
-    st.markdown('<h3 style="color: white; margin-bottom: 20px;">🎬 Video Platforms</h3>', unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-title">🎬 Video Platforms</p>', unsafe_allow_html=True)
     
-    col_video = st.columns(1)
-    with col_video[0]:
-        youtube_selected = st.button("▶️ YouTube", key="youtube_btn", use_container_width=True)
-        tiktok_selected = st.button("🎵 TikTok", key="tiktok_btn", use_container_width=True)
+    youtube_selected = st.button("▶️ YouTube", key="youtube_btn", use_container_width=True)
+    tiktok_selected = st.button("🎵 TikTok", key="tiktok_btn", use_container_width=True)
     
-    st.markdown('<div style="height: 30px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
     
-    st.markdown('<h3 style="color: white; margin-bottom: 20px;">📈 Status</h3>', unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-title">📈 Status</p>', unsafe_allow_html=True)
     
     st.markdown("""
-        <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+        <div class="status-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Facebook</span>
+                <span style="color: #e2e8f0;">Facebook</span>
                 <span class="status-disconnected">No conectado</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
     
     st.markdown("""
-        <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+        <div class="status-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Twitter</span>
+                <span style="color: #e2e8f0;">Twitter</span>
                 <span class="status-disconnected">No conectado</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
     
     st.markdown("""
-        <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+        <div class="status-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Instagram</span>
+                <span style="color: #e2e8f0;">Instagram</span>
                 <span class="status-disconnected">No conectado</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
     
     st.markdown("""
-        <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+        <div class="status-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>LinkedIn</span>
+                <span style="color: #e2e8f0;">LinkedIn</span>
                 <span class="status-disconnected">No conectado</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
     
     st.markdown("""
-        <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+        <div class="status-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>TikTok</span>
+                <span style="color: #e2e8f0;">TikTok</span>
                 <span class="status-disconnected">Cancelado</span>
             </div>
         </div>
@@ -325,26 +349,54 @@ st.markdown("""
 
 if youtube_selected:
     selected_platform = "YouTube"
-elif tiktok_selected:
-    selected_platform = "TikTok"
-else:
-    selected_platform = "YouTube"
-
-if selected_platform == "YouTube":
     df = youtobe_df
     platform_color = "#FF0000"
     platform_name = "YouTube"
     icon = "▶️"
-else:
+elif tiktok_selected:
+    selected_platform = "TikTok"
     df = tiktok_df
     platform_color = "#000000"
     platform_name = "TikTok"
     icon = "🎵"
+elif facebook_selected:
+    selected_platform = "Facebook"
+    df = youtobe_df
+    platform_color = "#1877F2"
+    platform_name = "Facebook"
+    icon = "📘"
+elif twitter_selected:
+    selected_platform = "Twitter"
+    df = youtobe_df
+    platform_color = "#1DA1F2"
+    platform_name = "Twitter"
+    icon = "🐦"
+elif instagram_selected:
+    selected_platform = "Instagram"
+    df = youtobe_df
+    platform_color = "#E4405F"
+    platform_name = "Instagram"
+    icon = "📷"
+elif linkedin_selected:
+    selected_platform = "LinkedIn"
+    df = youtobe_df
+    platform_color = "#0A66C2"
+    platform_name = "LinkedIn"
+    icon = "💼"
+else:
+    selected_platform = "YouTube"
+    df = youtobe_df
+    platform_color = "#FF0000"
+    platform_name = "YouTube"
+    icon = "▶️"
 
 st.markdown(f"""
     <div style="display: flex; align-items: center; margin-bottom: 30px;">
-        <div style="font-size: 28px; margin-right: 15px;">{icon}</div>
+        <div style="font-size: 28px; margin-right: 15px; color: {platform_color};">{icon}</div>
         <h2 style="margin: 0; color: {platform_color};">{platform_name} ANALYTICS</h2>
+        <div style="margin-left: auto; background: {platform_color}10; color: {platform_color}; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 600;">
+            {len(df)} Videos
+        </div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -387,7 +439,10 @@ with col3:
     """, unsafe_allow_html=True)
 
 with col4:
-    engagement_rate = ((df['me_gusta'].sum() + df['comentarios'].sum()) / df['visualizaciones'].sum() * 100) if df['visualizaciones'].sum() > 0 else 0
+    if df['visualizaciones'].sum() > 0:
+        engagement_rate = ((df['me_gusta'].sum() + df['comentarios'].sum()) / df['visualizaciones'].sum() * 100)
+    else:
+        engagement_rate = 0
     st.markdown(f"""
         <div class="metric-card">
             <div class="metric-label">ENGAGEMENT RATE</div>
@@ -400,69 +455,99 @@ with col4:
 
 st.markdown("""
     <div class="performance-chart">
-        <h3 style="margin-top: 0; margin-bottom: 25px;">📈 PERFORMANCE OVER TIME</h3>
-        <p style="color: #6b7280; margin-bottom: 20px;">Daily Performance Trends</p>
+        <h3 style="margin-top: 0; margin-bottom: 25px; color: #1f2937;">📈 PERFORMANCE OVER TIME</h3>
+        <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px;">Daily Performance Trends</p>
 """, unsafe_allow_html=True)
 
-fig = make_subplots(rows=1, cols=2, 
-                   subplot_titles=('Daily Views Trend', 'Engagement Metrics'),
-                   specs=[[{'type': 'scatter'}, {'type': 'bar'}]])
+try:
+    dates = pd.date_range(start=datetime(2025, 10, 1), end=datetime(2025, 11, 30), freq='D')
+    
+    if selected_platform in ["YouTube", "TikTok"]:
+        if selected_platform == "YouTube":
+            views_by_date = youtobe_df.groupby('fecha_publicacion')['visualizaciones'].sum()
+        else:
+            views_by_date = tiktok_df.groupby('fecha_publicacion')['visualizaciones'].sum()
+        
+        views_data = []
+        for date in dates:
+            if date in views_by_date.index:
+                views_data.append(views_by_date[date])
+            else:
+                views_data.append(0)
+    else:
+        views_data = [0] * len(dates)
+    
+    fig = make_subplots(rows=1, cols=2, 
+                       subplot_titles=('Daily Views Trend', 'Engagement Metrics'),
+                       specs=[[{'type': 'scatter'}, {'type': 'bar'}]])
+    
+    fig.add_trace(go.Scatter(x=dates, y=views_data, mode='lines', name='Views',
+                            line=dict(color=platform_color, width=3)),
+                  row=1, col=1)
+    
+    dates_ticks = ['Oct 7', 'Oct 14', 'Oct 21', 'Oct 28', 'Nov 4', 'Nov 11', 'Nov 18', 'Nov 25']
+    tick_positions = [datetime(2025, 10, 7), datetime(2025, 10, 14), datetime(2025, 10, 21), 
+                      datetime(2025, 10, 28), datetime(2025, 11, 4), datetime(2025, 11, 11),
+                      datetime(2025, 11, 18), datetime(2025, 11, 25)]
+    
+    fig.add_trace(go.Bar(x=['Likes', 'Comments', 'Engagement'], 
+                        y=[df['me_gusta'].sum(), df['comentarios'].sum(), engagement_rate],
+                        marker_color=[platform_color, '#6b7280', '#10b981'],
+                        name='Engagement'),
+                  row=1, col=2)
+    
+    fig.update_layout(height=400, showlegend=False, template='plotly_white',
+                     plot_bgcolor='white', paper_bgcolor='white',
+                     margin=dict(l=20, r=20, t=40, b=20))
+    
+    fig.update_xaxes(title_text="Date", row=1, col=1, ticktext=dates_ticks, tickvals=tick_positions)
+    fig.update_yaxes(title_text="Views", row=1, col=1)
+    fig.update_xaxes(title_text="Metrics", row=1, col=2)
+    fig.update_yaxes(title_text="Count", row=1, col=2)
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+except Exception as e:
+    st.warning(f"Error al generar gráfica: {str(e)}")
+    st.info("Mostrando datos en formato alternativo...")
 
-dates = pd.date_range(start=datetime(2025, 10, 1), end=datetime(2025, 11, 30), freq='D')
-if selected_platform == "YouTube":
-    views_data = youtobe_df.groupby('fecha_publicacion')['visualizaciones'].sum().reindex(dates, fill_value=0)
-else:
-    views_data = tiktok_df.groupby('fecha_publicacion')['visualizaciones'].sum().reindex(dates, fill_value=0)
-
-fig.add_trace(go.Scatter(x=dates, y=views_data, mode='lines', name='Views',
-                        line=dict(color=platform_color, width=3),
-                        fill='tozeroy', fillcolor=f'{platform_color}20'),
-              row=1, col=1)
-
-dates_ticks = ['Oct 7', 'Oct 14', 'Oct 21', 'Oct 28', 'Nov 4', 'Nov 11', 'Nov 18', 'Nov 25']
-tick_positions = [datetime(2025, 10, 7), datetime(2025, 10, 14), datetime(2025, 10, 21), 
-                  datetime(2025, 10, 28), datetime(2025, 11, 4), datetime(2025, 11, 11),
-                  datetime(2025, 11, 18), datetime(2025, 11, 25)]
-
-fig.add_trace(go.Bar(x=['Likes', 'Comments', 'Engagement Rate'], 
-                    y=[df['me_gusta'].sum(), df['comentarios'].sum(), engagement_rate],
-                    marker_color=[platform_color, '#6b7280', '#10b981'],
-                    name='Engagement'),
-              row=1, col=2)
-
-fig.update_layout(height=400, showlegend=True, template='plotly_white',
-                 plot_bgcolor='white', paper_bgcolor='white',
-                 margin=dict(l=20, r=20, t=40, b=20))
-
-fig.update_xaxes(title_text="Date", row=1, col=1, ticktext=dates_ticks, tickvals=tick_positions)
-fig.update_yaxes(title_text="Views", row=1, col=1)
-fig.update_xaxes(title_text="Metrics", row=1, col=2)
-fig.update_yaxes(title_text="Count", row=1, col=2)
-
-st.plotly_chart(fig, use_container_width=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown("""
     <div class="data-table-container">
-        <h3 style="margin-top: 0; margin-bottom: 25px;">📊 CONTENT PERFORMANCE DATA</h3>
+        <h3 style="margin-top: 0; margin-bottom: 25px; color: #1f2937;">📊 CONTENT PERFORMANCE DATA</h3>
 """, unsafe_allow_html=True)
 
-top_videos = df.nlargest(10, 'visualizaciones')[['titulo', 'fecha_publicacion', 'visualizaciones', 'me_gusta', 'comentarios', 'rendimiento_por_dia']]
-top_videos['fecha_publicacion'] = top_videos['fecha_publicacion'].dt.strftime('%Y-%m-%d')
-top_videos = top_videos.rename(columns={
-    'titulo': 'Title',
-    'fecha_publicacion': 'Publish Date',
-    'visualizaciones': 'Views',
-    'me_gusta': 'Likes',
-    'comentarios': 'Comments',
-    'rendimiento_por_dia': 'Daily Perf.'
-})
-
-st.dataframe(top_videos.style.format({
-    'Views': '{:,}',
-    'Daily Perf.': '{:.1f}'
-}).background_gradient(subset=['Views', 'Daily Perf.'], cmap='YlOrRd' if selected_platform == "YouTube" else 'Blues'), 
-height=400, use_container_width=True)
+if selected_platform in ["YouTube", "TikTok"]:
+    top_videos = df.nlargest(10, 'visualizaciones')[['titulo', 'fecha_publicacion', 'visualizaciones', 'me_gusta', 'comentarios', 'rendimiento_por_dia']]
+    top_videos['fecha_publicacion'] = top_videos['fecha_publicacion'].dt.strftime('%Y-%m-%d')
+    top_videos = top_videos.rename(columns={
+        'titulo': 'Title',
+        'fecha_publicacion': 'Publish Date',
+        'visualizaciones': 'Views',
+        'me_gusta': 'Likes',
+        'comentarios': 'Comments',
+        'rendimiento_por_dia': 'Daily Perf.'
+    })
+    
+    st.dataframe(top_videos.style.format({
+        'Views': '{:,}',
+        'Daily Perf.': '{:.1f}'
+    }).background_gradient(subset=['Views', 'Daily Perf.'], cmap='Reds' if selected_platform == "YouTube" else 'Blues'), 
+    height=400, use_container_width=True)
+else:
+    st.info(f"🔒 {platform_name} analytics require platform connection")
+    st.markdown("""
+        <div style="text-align: center; padding: 40px; background: #f8fafc; border-radius: 10px;">
+            <div style="font-size: 48px; margin-bottom: 20px; color: #cbd5e1;">{icon}</div>
+            <h3 style="color: #64748b;">Connect to {platform_name}</h3>
+            <p style="color: #94a3b8;">Grant permissions to access your public profile and posts.</p>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                <button style="background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Cancel</button>
+                <button style="background: {platform_color}; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Connect</button>
+            </div>
+        </div>
+    """.format(icon=icon, platform_name=platform_name, platform_color=platform_color), unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -471,48 +556,57 @@ col_analysis1, col_analysis2 = st.columns(2)
 with col_analysis1:
     st.markdown("""
         <div class="performance-chart" style="height: 100%;">
-            <h3 style="margin-top: 0; margin-bottom: 20px;">📊 PERFORMANCE ANALYTICS</h3>
+            <h3 style="margin-top: 0; margin-bottom: 20px; color: #1f2937;">📊 PERFORMANCE ANALYTICS</h3>
     """, unsafe_allow_html=True)
     
-    fig_pie = go.Figure(data=[go.Pie(labels=['High Performers', 'Medium', 'Low'],
-                                    values=[len(df[df['rendimiento_por_dia'] > df['rendimiento_por_dia'].quantile(0.75)]),
-                                           len(df[(df['rendimiento_por_dia'] >= df['rendimiento_por_dia'].quantile(0.25)) & 
-                                                 (df['rendimiento_por_dia'] <= df['rendimiento_por_dia'].quantile(0.75))]),
-                                           len(df[df['rendimiento_por_dia'] < df['rendimiento_por_dia'].quantile(0.25)])],
-                                    hole=0.4,
-                                    marker=dict(colors=['#10b981', '#3B82F6', '#6b7280']))])
+    if selected_platform in ["YouTube", "TikTok"]:
+        high_perf = len(df[df['rendimiento_por_dia'] > df['rendimiento_por_dia'].quantile(0.75)])
+        medium_perf = len(df[(df['rendimiento_por_dia'] >= df['rendimiento_por_dia'].quantile(0.25)) & 
+                            (df['rendimiento_por_dia'] <= df['rendimiento_por_dia'].quantile(0.75))])
+        low_perf = len(df[df['rendimiento_por_dia'] < df['rendimiento_por_dia'].quantile(0.25)])
+        
+        fig_pie = go.Figure(data=[go.Pie(labels=['High Performers', 'Medium', 'Low'],
+                                        values=[high_perf, medium_perf, low_perf],
+                                        hole=0.4,
+                                        marker=dict(colors=['#10b981', '#3B82F6', '#6b7280']))])
+        
+        fig_pie.update_layout(height=300, showlegend=True, template='plotly_white',
+                             margin=dict(l=20, r=20, t=30, b=20))
+        
+        st.plotly_chart(fig_pie, use_container_width=True)
+    else:
+        st.info("Performance data requires platform connection")
     
-    fig_pie.update_layout(height=300, showlegend=True, template='plotly_white',
-                         margin=dict(l=20, r=20, t=30, b=20))
-    
-    st.plotly_chart(fig_pie, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col_analysis2:
     st.markdown("""
         <div class="performance-chart" style="height: 100%;">
-            <h3 style="margin-top: 0; margin-bottom: 20px;">📈 KEY METRICS</h3>
+            <h3 style="margin-top: 0; margin-bottom: 20px; color: #1f2937;">📈 KEY METRICS</h3>
     """, unsafe_allow_html=True)
     
-    metrics_data = {
-        'Metric': ['Avg. Views/Video', 'Avg. Likes/Video', 'Avg. Comments/Video', 
-                  'Max Daily Performance', 'Content Age (days)', 'Engagement Rate'],
-        'Value': [f"{df['visualizaciones'].mean():.0f}", 
-                 f"{df['me_gusta'].mean():.1f}", 
-                 f"{df['comentarios'].mean():.1f}",
-                 f"{df['rendimiento_por_dia'].max():.1f}",
-                 f"{df['dias_desde_publicacion'].mean():.0f}",
-                 f"{engagement_rate:.2f}%"]
-    }
-    
-    for i, (metric, value) in enumerate(zip(metrics_data['Metric'], metrics_data['Value'])):
-        st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; align-items: center; 
-                       padding: 12px 0; border-bottom: {'1px solid #e5e7eb' if i < len(metrics_data['Metric'])-1 else 'none'};">
-                <span style="color: #4b5563; font-size: 14px;">{metric}</span>
-                <span style="font-weight: 600; color: #1f2937; font-size: 16px;">{value}</span>
-            </div>
-        """, unsafe_allow_html=True)
+    if selected_platform in ["YouTube", "TikTok"]:
+        metrics_data = {
+            'Metric': ['Avg. Views/Video', 'Avg. Likes/Video', 'Avg. Comments/Video', 
+                      'Max Daily Performance', 'Content Age (days)', 'Engagement Rate'],
+            'Value': [f"{df['visualizaciones'].mean():.0f}", 
+                     f"{df['me_gusta'].mean():.1f}", 
+                     f"{df['comentarios'].mean():.1f}",
+                     f"{df['rendimiento_por_dia'].max():.1f}",
+                     f"{df['dias_desde_publicacion'].mean():.0f}",
+                     f"{engagement_rate:.2f}%"]
+        }
+        
+        for i, (metric, value) in enumerate(zip(metrics_data['Metric'], metrics_data['Value'])):
+            st.markdown(f"""
+                <div style="display: flex; justify-content: space-between; align-items: center; 
+                           padding: 12px 0; border-bottom: {'1px solid #e5e7eb' if i < len(metrics_data['Metric'])-1 else 'none'};">
+                    <span style="color: #4b5563; font-size: 14px;">{metric}</span>
+                    <span style="font-weight: 600; color: #1f2937; font-size: 16px;">{value}</span>
+                </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("Connect to view platform metrics")
     
     st.markdown("</div>", unsafe_allow_html=True)
 
