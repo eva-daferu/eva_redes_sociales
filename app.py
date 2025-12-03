@@ -7,7 +7,6 @@ import json
 from io import BytesIO
 import os
 import sys
-import requests
 
 st.set_page_config(
     page_title="Social Dashboard - Panel Profesional",
@@ -432,14 +431,11 @@ if 'scraping_in_progress' not in st.session_state:
 if 'data_loaded' not in st.session_state:
     st.session_state.data_loaded = False
 
-if 'backend_data' not in st.session_state:
-    st.session_state.backend_data = None
+if 'last_data_load' not in st.session_state:
+    st.session_state.last_data_load = None
 
-if 'backend_analytics' not in st.session_state:
-    st.session_state.backend_analytics = {}
-
-if 'last_backend_sync' not in st.session_state:
-    st.session_state.last_backend_sync = None
+if 'excel_path' not in st.session_state:
+    st.session_state.excel_path = r"C:\Users\diana\OneDrive\Documentos\WasaFlete\Eva\descargas\base_tiktok.xlsx"
 
 NETWORK_CONFIG = {
     'facebook': {
@@ -509,98 +505,64 @@ NETWORK_CONFIG = {
     }
 }
 
-BACKEND_URL = "https://pahubisas.pythonanywhere.com"
-
-def load_tiktok_data_from_backend():
+def load_tiktok_data_direct():
     try:
-        st.session_state.scraping_in_progress = True
-        response = requests.get(f"{BACKEND_URL}/data", timeout=30)
+        excel_path = st.session_state.excel_path
         
-        if response.status_code == 200:
-            result = response.json()
-            
-            if result.get("status") == "success":
-                data = result.get("data", [])
-                analytics = result.get("analytics", {})
-                df = pd.DataFrame(data)
-                
-                required_columns = ['duracion_video', 'titulo', 'fecha_publicacion', 
-                                  'privacidad', 'visualizaciones', 'me_gusta', 'comentarios']
-                
-                missing_columns = [col for col in required_columns if col not in df.columns]
-                if missing_columns:
-                    st.error(f"❌ Columnas faltantes: {missing_columns}")
-                    return pd.DataFrame(), {}
-                
-                for col in ['visualizaciones', 'me_gusta', 'comentarios']:
-                    if col in df.columns and df[col].dtype == 'object':
-                        df[col] = df[col].astype(str).str.replace(',', '').str.replace(' ', '')
-                        df[col] = pd.to_numeric(df[col], errors='coerce')
-                
-                if 'visualizaciones' in df.columns:
-                    df['visualizaciones_num'] = df['visualizaciones'].fillna(0).astype(float)
-                if 'me_gusta' in df.columns:
-                    df['me_gusta_num'] = df['me_gusta'].fillna(0).astype(float)
-                if 'comentarios' in df.columns:
-                    df['comentarios_num'] = df['comentarios'].fillna(0).astype(float)
-                
-                if 'engagement_rate' not in df.columns:
-                    mask = df['visualizaciones_num'] > 0
-                    df['engagement_rate'] = 0.0
-                    df.loc[mask, 'engagement_rate'] = ((df.loc[mask, 'me_gusta_num'] + df.loc[mask, 'comentarios_num']) / 
-                                                      df.loc[mask, 'visualizaciones_num'] * 100).round(2)
-                
-                st.session_state.backend_data = df
-                st.session_state.backend_analytics = analytics
-                st.session_state.last_backend_sync = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                return df, analytics
-            else:
-                st.error(f"❌ Error del backend: {result.get('message', 'Error desconocido')}")
-                return pd.DataFrame(), {}
-        else:
-            st.error(f"❌ Error HTTP {response.status_code}")
-            return pd.DataFrame(), {}
-            
-    except requests.exceptions.ConnectionError:
-        st.error("❌ No se pudo conectar al servidor backend")
-        return pd.DataFrame(), {}
-    except requests.exceptions.Timeout:
-        st.error("❌ Tiempo de espera agotado")
-        return pd.DataFrame(), {}
-    except Exception as e:
-        st.error(f"❌ Error al cargar datos: {str(e)}")
-        return pd.DataFrame(), {}
-    finally:
-        st.session_state.scraping_in_progress = False
-
-def refresh_backend_data():
-    try:
-        response = requests.get(f"{BACKEND_URL}/refresh", timeout=30)
-        
-        if response.status_code == 200:
-            result = response.json()
-            return result.get("status") == "success", result.get("message", "")
-        else:
-            return False, f"Error HTTP {response.status_code}"
-            
-    except Exception as e:
-        return False, f"Error al refrescar: {str(e)}"
-
-def run_tiktok_scraper():
-    try:
-        df, analytics = load_tiktok_data_from_backend()
-        
-        if df.empty:
-            st.error("❌ No se pudieron cargar datos del backend.")
+        if not os.path.exists(excel_path):
+            st.error(f"❌ Archivo no encontrado: {excel_path}")
+            st.info(f"📁 Verifica que el archivo exista en: {excel_path}")
             return pd.DataFrame()
         
-        st.success(f"✅ Datos cargados: {len(df)} videos")
+        df = pd.read_excel(excel_path)
+        
+        required_columns = ['duracion_video', 'titulo', 'fecha_publicacion', 
+                          'privacidad', 'visualizaciones', 'me_gusta', 'comentarios']
+        
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            st.error(f"❌ Columnas faltantes en el Excel: {missing_columns}")
+            st.info(f"📋 Columnas encontradas: {list(df.columns)}")
+            return pd.DataFrame()
+        
+        for col in ['visualizaciones', 'me_gusta', 'comentarios']:
+            if col in df.columns and df[col].dtype == 'object':
+                df[col] = df[col].astype(str).str.replace(',', '').str.replace(' ', '')
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+        df['visualizaciones_num'] = df['visualizaciones'].fillna(0).astype(float)
+        df['me_gusta_num'] = df['me_gusta'].fillna(0).astype(float)
+        df['comentarios_num'] = df['comentarios'].fillna(0).astype(float)
+        
+        mask = df['visualizaciones_num'] > 0
+        df['engagement_rate'] = 0.0
+        df.loc[mask, 'engagement_rate'] = ((df.loc[mask, 'me_gusta_num'] + df.loc[mask, 'comentarios_num']) / 
+                                          df.loc[mask, 'visualizaciones_num'] * 100).round(2)
+        
+        st.session_state.last_data_load = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return df
+        
+    except Exception as e:
+        st.error(f"❌ Error al cargar datos: {str(e)}")
+        return pd.DataFrame()
+
+def run_tiktok_scraper():
+    st.session_state.scraping_in_progress = True
+    try:
+        df = load_tiktok_data_direct()
+        
+        if df.empty:
+            st.error("❌ No se pudieron cargar datos del archivo Excel.")
+            return pd.DataFrame()
+        
+        st.success(f"✅ Datos cargados exitosamente: {len(df)} videos")
         return df
         
     except Exception as e:
         st.error(f"Error: {str(e)}")
         return pd.DataFrame()
+    finally:
+        st.session_state.scraping_in_progress = False
 
 def create_sidebar():
     with st.sidebar:
@@ -662,19 +624,7 @@ def create_sidebar():
                     <strong>Vistas totales:</strong> {data['visualizaciones_num'].sum():,}
                 </p>
                 <p style="color: rgba(255,255,255,0.8); margin: 8px 0; font-size: 14px;">
-                    <strong>Última actualización:</strong> {st.session_state.last_backend_sync or 'N/A'}
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-        elif st.session_state.last_backend_sync:
-            st.markdown(f"""
-            <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin: 20px 0;">
-                <h4 style="color: white; margin: 0 0 15px 0;">📊 Backend Status</h4>
-                <p style="color: rgba(255,255,255,0.8); margin: 8px 0; font-size: 14px;">
-                    <strong>Última sincronización:</strong> {st.session_state.last_backend_sync}
-                </p>
-                <p style="color: rgba(255,255,255,0.8); margin: 8px 0; font-size: 14px;">
-                    <strong>Estado:</strong> 🟢 Conectado
+                    <strong>Última actualización:</strong> {st.session_state.last_data_load or 'N/A'}
                 </p>
             </div>
             """, unsafe_allow_html=True)
@@ -738,10 +688,10 @@ def show_auth_modal():
                 if network == 'tiktok':
                     st.session_state.scraping_in_progress = True
                     
-                    with st.spinner("📂 Loading REAL data from Excel..."):
+                    with st.spinner("📂 Cargando datos REALES desde Excel..."):
                         progress_bar = st.progress(0)
                         
-                        df, analytics = load_tiktok_data_from_backend()
+                        df = run_tiktok_scraper()
                         
                         for i in range(100):
                             time.sleep(0.01)
@@ -751,25 +701,24 @@ def show_auth_modal():
                             st.session_state.auth_status[network] = True
                             st.session_state.scraped_data[network] = df
                             st.session_state.data_loaded = True
-                            st.session_state.backend_analytics = analytics
-                            st.session_state.last_backend_sync = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            st.session_state.last_data_load = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             
-                            st.success(f"✅ REAL data loaded: {len(df)} videos")
+                            st.success(f"✅ Datos REALES cargados: {len(df)} videos")
                             time.sleep(1)
                             st.rerun()
                         else:
-                            st.error("❌ Could not load REAL data")
+                            st.error("❌ No se pudieron cargar datos REALES")
                             st.session_state.scraping_in_progress = False
                 
                 else:
-                    with st.spinner(f"Authenticating with {config['name']}..."):
+                    with st.spinner(f"Conectando con {config['name']}..."):
                         progress_bar = st.progress(0)
                         for i in range(100):
                             time.sleep(0.03)
                             progress_bar.progress(i + 1)
                         
                         st.session_state.auth_status[network] = True
-                        st.success(f"✅ Connected to {config['name']}!")
+                        st.success(f"✅ Conectado a {config['name']}!")
                         time.sleep(1)
                         st.rerun()
     
@@ -777,7 +726,7 @@ def show_auth_modal():
 
 def show_tiktok_dashboard():
     if 'tiktok' not in st.session_state.scraped_data:
-        st.info("ℹ️ First authenticate with TikTok to view analytics")
+        st.info("ℹ️ Primero autentica con TikTok para ver analytics")
         return
     
     data = st.session_state.scraped_data['tiktok']
@@ -792,10 +741,13 @@ def show_tiktok_dashboard():
             TikTok Analytics Dashboard - DATOS REALES
         </h1>
         <p style="color: rgba(255,255,255,0.9); margin: 15px 0 0 0; font-size: 18px;">
-            Análisis de métricas REALES de tus videos de TikTok desde Excel
+            Análisis de métricas REALES de tus videos de TikTok desde Excel LOCAL
         </p>
         <p style="color: rgba(255,255,255,0.7); margin: 10px 0 0 0; font-size: 14px;">
-            📅 Última actualización: {st.session_state.last_backend_sync or 'N/A'}
+            📅 Última actualización: {st.session_state.last_data_load or 'N/A'}
+        </p>
+        <p style="color: rgba(255,255,255,0.7); margin: 5px 0 0 0; font-size: 12px;">
+            📍 Archivo: {st.session_state.excel_path}
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -803,19 +755,15 @@ def show_tiktok_dashboard():
     refresh_col1, refresh_col2, refresh_col3 = st.columns([1, 2, 1])
     with refresh_col2:
         if st.button("🔄 REFRESCAR DATOS REALES", use_container_width=True, type="primary"):
-            with st.spinner("Refrescando datos REALES..."):
-                success, message = refresh_backend_data()
-                if success:
-                    df, analytics = load_tiktok_data_from_backend()
-                    if not df.empty:
-                        st.session_state.scraped_data['tiktok'] = df
-                        st.session_state.backend_analytics = analytics
-                        st.success("✅ Datos REALES refrescados!")
-                        st.rerun()
-                    else:
-                        st.error("❌ No se pudieron cargar los datos")
+            with st.spinner("Refrescando datos REALES desde Excel LOCAL..."):
+                df = run_tiktok_scraper()
+                if not df.empty:
+                    st.session_state.scraped_data['tiktok'] = df
+                    st.success("✅ Datos REALES refrescados!")
+                    time.sleep(1)
+                    st.rerun()
                 else:
-                    st.error(f"❌ {message}")
+                    st.error("❌ No se pudieron cargar los datos")
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -1174,10 +1122,13 @@ def main():
                 {current_config['name']} Analytics
             </h1>
             <p style="margin: 10px 0 0 0; color: #64748b;">
-                Professional dashboard for social media analytics - DATOS REALES
+                Professional dashboard for social media analytics - DATOS REALES LOCALES
             </p>
             <p style="margin: 5px 0 0 0; color: #94a3b8; font-size: 14px;">
-                Backend: {BACKEND_URL} | Última sincronización: {st.session_state.last_backend_sync or 'N/A'}
+                📍 Archivo Excel: {st.session_state.excel_path}
+            </p>
+            <p style="margin: 5px 0 0 0; color: #94a3b8; font-size: 14px;">
+                📅 Última actualización: {st.session_state.last_data_load or 'N/A'}
             </p>
         </div>
         <div style="background: {current_config['color']}; color: white; padding: 10px 25px; 
@@ -1203,6 +1154,7 @@ def main():
                             if not data.empty:
                                 st.session_state.scraped_data['tiktok'] = data
                                 st.success(f"✅ Reloaded {len(data)} TikTok videos REALES!")
+                                time.sleep(1)
                                 st.rerun()
                 
                 with col2:
@@ -1214,41 +1166,41 @@ def main():
                         st.session_state.auth_status['tiktok'] = False
                         st.session_state.scraped_data.pop('tiktok', None)
                         st.session_state.data_loaded = False
+                        time.sleep(1)
                         st.rerun()
                 
                 if 'tiktok' in st.session_state.scraped_data:
                     data = st.session_state.scraped_data['tiktok']
                     
-                    backend_status = "🟢 Conectado" if st.session_state.last_backend_sync else "🔴 Desconectado"
+                    file_exists = os.path.exists(st.session_state.excel_path)
+                    file_status = "✅ EXISTE" if file_exists else "❌ NO EXISTE"
                     
                     st.info(f"""
-                    **📊 Data Summary REALES:**
+                    **📊 Data Summary REALES LOCALES:**
                     - **Videos Loaded:** {len(data)}
                     - **Total Views:** {data['visualizaciones_num'].sum():,}
                     - **Total Likes:** {data['me_gusta_num'].sum():,}
                     - **Average Engagement:** {data['engagement_rate'].mean():.1f}%
-                    - **Backend Status:** {backend_status}
-                    - **Last Updated:** {st.session_state.last_backend_sync or 'N/A'}
+                    - **File Status:** {file_status}
+                    - **Last Updated:** {st.session_state.last_data_load or 'N/A'}
+                    - **File Path:** {st.session_state.excel_path}
                     """)
                     
-                    if st.button("🔄 REFRESCAR DESDE BACKEND", use_container_width=True):
-                        with st.spinner("Refrescando desde backend..."):
-                            success, message = refresh_backend_data()
-                            if success:
-                                df, analytics = load_tiktok_data_from_backend()
-                                if not df.empty:
-                                    st.session_state.scraped_data['tiktok'] = df
-                                    st.session_state.backend_analytics = analytics
-                                    st.success("✅ Datos REALES refrescados desde backend!")
-                                    st.rerun()
-                                else:
-                                    st.error("❌ No se pudieron cargar los datos")
+                    if st.button("🔄 REFRESCAR DESDE EXCEL LOCAL", use_container_width=True):
+                        with st.spinner("Refrescando desde Excel local..."):
+                            df = run_tiktok_scraper()
+                            if not df.empty:
+                                st.session_state.scraped_data['tiktok'] = df
+                                st.success("✅ Datos REALES refrescados desde Excel local!")
+                                time.sleep(1)
+                                st.rerun()
                             else:
-                                st.error(f"❌ {message}")
+                                st.error("❌ No se pudieron cargar los datos")
             
             else:
                 if st.button("🚪 Disconnect", use_container_width=True):
                     st.session_state.auth_status[st.session_state.current_network] = False
+                    time.sleep(1)
                     st.rerun()
         
         else:
@@ -1269,31 +1221,30 @@ def main():
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("### 🔧 Backend Settings")
+            st.markdown("### 🔧 File Settings")
             
-            backend_status = "🟢 Conectado" if st.session_state.last_backend_sync else "🔴 Desconectado"
-            st.metric("Backend Status", backend_status)
+            current_path = st.session_state.excel_path
+            file_exists = os.path.exists(current_path)
             
-            if st.session_state.last_backend_sync:
-                st.metric("Last Sync", st.session_state.last_backend_sync)
+            st.metric("Excel File Status", "✅ EXISTS" if file_exists else "❌ NOT FOUND")
+            st.metric("Last Data Load", st.session_state.last_data_load or "Never")
             
-            if st.button("🔍 Test Backend Connection", use_container_width=True):
-                try:
-                    response = requests.get(f"{BACKEND_URL}/health", timeout=10)
-                    if response.status_code == 200:
-                        st.success("✅ Backend connection successful!")
-                    else:
-                        st.error(f"❌ Backend responded with status: {response.status_code}")
-                except Exception as e:
-                    st.error(f"❌ Cannot connect to backend: {str(e)}")
+            st.text_input("Excel File Path", value=current_path, disabled=True)
             
-            if st.button("🔄 Force Backend Refresh", use_container_width=True):
-                with st.spinner("Forcing backend refresh..."):
-                    success, message = refresh_backend_data()
-                    if success:
-                        st.success(f"✅ {message}")
-                    else:
-                        st.error(f"❌ {message}")
+            if st.button("📁 Check File Exists", use_container_width=True):
+                if os.path.exists(current_path):
+                    st.success(f"✅ File exists at: {current_path}")
+                    try:
+                        test_df = pd.read_excel(current_path, nrows=5)
+                        st.success(f"✅ File is readable. Columns: {', '.join(test_df.columns)}")
+                        st.success(f"✅ Sample data: {len(test_df)} rows")
+                    except Exception as e:
+                        st.error(f"❌ Error reading file: {str(e)}")
+                else:
+                    st.error(f"❌ File not found at: {current_path}")
+            
+            if st.button("🔄 Refresh File Check", use_container_width=True):
+                st.rerun()
         
         with col2:
             st.markdown("### 💾 Data Management")
@@ -1320,10 +1271,9 @@ def main():
                     st.session_state.auth_status[network] = False
                 st.session_state.scraped_data = {}
                 st.session_state.data_loaded = False
-                st.session_state.backend_data = None
-                st.session_state.backend_analytics = {}
-                st.session_state.last_backend_sync = None
+                st.session_state.last_data_load = None
                 st.success("All data cleared successfully!")
+                time.sleep(1)
                 st.rerun()
         
         st.markdown("---")
@@ -1341,13 +1291,13 @@ def main():
             st.metric("Total Records", f"{total_records}")
         
         with info_col3:
-            st.metric("App Version", "2.0.0")
+            st.metric("App Version", "3.0.0")
         
         st.markdown("---")
-        st.markdown("### 🔗 Backend Information")
-        st.code(f"URL: {BACKEND_URL}")
-        st.code(f"Status: {'🟢 Online' if st.session_state.last_backend_sync else '🔴 Offline'}")
-        st.code(f"Last Sync: {st.session_state.last_backend_sync or 'Never'}")
+        st.markdown("### 📍 File Information")
+        st.code(f"Excel Path: {st.session_state.excel_path}")
+        st.code(f"File Exists: {'✅ YES' if os.path.exists(st.session_state.excel_path) else '❌ NO'}")
+        st.code(f"Last Load: {st.session_state.last_data_load or 'Never'}")
 
 if __name__ == "__main__":
     main()
