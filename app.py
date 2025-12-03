@@ -7,9 +7,8 @@ import json
 from io import BytesIO
 import os
 import sys
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import numpy as np
 
 # Configuración de página
@@ -375,6 +374,16 @@ st.markdown("""
         background-color: #1e3a8a !important;
         color: white !important;
     }
+    
+    /* Estilos para gráficos */
+    .chart-container {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+        margin: 20px 0;
+        border: 1px solid #e2e8f0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -419,7 +428,7 @@ NETWORK_CONFIG = {
             'Gestión de comentarios',
             'Análisis de tendencias y hashtags'
         ],
-        'data_source': r"C:\Users\diana\OneDrive\Documentos\WasaFlete\Eva\descargas\base_tiktok.xlsx"
+        'data_source': r"base_tiktok.xlsx"
     },
     'youtube': {
         'name': 'YouTube',
@@ -433,7 +442,7 @@ NETWORK_CONFIG = {
             'Gestión de comentarios',
             'Análisis de rendimiento de contenido'
         ],
-        'data_source': r"C:\Users\diana\OneDrive\Documentos\WasaFlete\Eva\descargas\base_youtobe.xlsx"
+        'data_source': r"base_youtobe.xlsx"
     },
     'facebook': {
         'name': 'Facebook',
@@ -501,7 +510,10 @@ def load_data_from_excel(file_path):
     
     try:
         if not os.path.exists(file_path):
-            return pd.DataFrame(), f"❌ Archivo no encontrado: {file_path}"
+            # Intentar con ruta relativa en Streamlit Cloud
+            file_path = file_path.split('/')[-1]  # Solo el nombre del archivo
+            if not os.path.exists(file_path):
+                return pd.DataFrame(), f"❌ Archivo no encontrado: {file_path}"
         
         # Cargar datos desde Excel
         df = pd.read_excel(file_path)
@@ -584,6 +596,107 @@ def run_data_loader(network):
         st.session_state.data_loaded = True
 
 # =============================================
+# FUNCIONES PARA GRÁFICOS
+# =============================================
+def create_multiline_chart(daily_data, metric_trend, config):
+    """Crea gráfico multilineal con matplotlib"""
+    
+    fig, ax = plt.subplots(figsize=(12, 6))
+    
+    # Configurar estilo
+    plt.style.use('seaborn-v0_8-whitegrid')
+    
+    # Crear gráfico
+    if metric_trend == 'Engagement':
+        ax.plot(daily_data['Fecha'], daily_data['Engagement'], 
+                marker='o', linewidth=3, markersize=8, color=config['color'])
+        ax.set_ylabel('Engagement Rate (%)')
+    else:
+        metric_data = daily_data[metric_trend]
+        ax.plot(daily_data['Fecha'], metric_data, 
+                marker='o', linewidth=3, markersize=8, color=config['color'])
+        ax.set_ylabel(metric_trend)
+    
+    # Personalizar gráfico
+    ax.set_xlabel('Fecha')
+    ax.set_title(f'Tendencia de {metric_trend} a lo largo del tiempo', fontsize=16, fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    ax.tick_params(axis='x', rotation=45)
+    
+    # Mejorar formato de fechas
+    fig.autofmt_xdate()
+    
+    # Añadir área sombreada bajo la línea
+    if metric_trend == 'Engagement':
+        ax.fill_between(daily_data['Fecha'], daily_data['Engagement'], alpha=0.2, color=config['color'])
+    else:
+        metric_data = daily_data[metric_trend]
+        ax.fill_between(daily_data['Fecha'], metric_data, alpha=0.2, color=config['color'])
+    
+    plt.tight_layout()
+    return fig
+
+def create_heatmap_chart(data, metric_column, title, config):
+    """Crea heatmap de calor por contenido con matplotlib"""
+    
+    # Preparar datos
+    heatmap_data = data.copy()
+    heatmap_data['titulo_short'] = heatmap_data['titulo'].str[:40] + '...'
+    heatmap_data = heatmap_data.sort_values(metric_column, ascending=False).head(15)
+    
+    # Crear valores normalizados
+    values = heatmap_data[metric_column].values
+    normalized_values = (values - values.min()) / (values.max() - values.min() + 1e-8)
+    
+    # Crear figura
+    fig, ax = plt.subplots(figsize=(14, 6))
+    
+    # Crear heatmap con colormap
+    cmap = plt.cm.RdYlGn_r  # Rojo (alto) a Verde (bajo)
+    colors = cmap(normalized_values)
+    
+    # Crear barras horizontales
+    bars = ax.barh(range(len(heatmap_data)), normalized_values, color=colors)
+    
+    # Añadir etiquetas de valores
+    for i, (bar, val) in enumerate(zip(bars, values)):
+        if metric_column == 'engagement_rate':
+            value_text = f"{val:.1f}%"
+        else:
+            value_text = f"{val:,.0f}"
+        
+        # Posicionar texto dentro o fuera de la barra
+        if normalized_values[i] > 0.5:
+            ax.text(bar.get_width() - 0.02, bar.get_y() + bar.get_height()/2, 
+                   value_text, va='center', ha='right', color='white', fontweight='bold')
+        else:
+            ax.text(bar.get_width() + 0.02, bar.get_y() + bar.get_height()/2, 
+                   value_text, va='center', ha='left', color='black', fontweight='bold')
+    
+    # Configurar eje Y
+    ax.set_yticks(range(len(heatmap_data)))
+    ax.set_yticklabels(heatmap_data['titulo_short'])
+    
+    # Configurar eje X
+    ax.set_xlim(0, 1.1)
+    ax.set_xlabel('Rendimiento Normalizado (0 = mínimo, 1 = máximo)')
+    
+    # Título
+    ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
+    
+    # Añadir leyenda de colores
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='#d73027', label='Alto rendimiento'),
+        Patch(facecolor='#fee08b', label='Rendimiento medio'),
+        Patch(facecolor='#1a9850', label='Bajo rendimiento')
+    ]
+    ax.legend(handles=legend_elements, loc='upper right')
+    
+    plt.tight_layout()
+    return fig
+
+# =============================================
 # COMPONENTES DE INTERFAZ
 # =============================================
 def create_sidebar():
@@ -618,29 +731,18 @@ def create_sidebar():
             
             # Botón de selección
             button_html = f"""
-            <button class="network-sidebar-btn {active_class}" onclick="setNetwork('{network_id}')" 
-                    style="border-left-color: {border_color} !important;">
+            <div class="network-sidebar-btn {active_class}" 
+                 style="border-left-color: {border_color} !important; cursor: pointer;"
+                 onclick="parent.window.location.href='?network={network_id}'">
                 <div class="network-icon">
                     <i class="{network_icon}" style="color: {config['icon_color']};"></i>
                 </div>
                 <div class="network-name">{network_name}</div>
                 <div class="network-status">{status}</div>
-            </button>
+            </div>
             """
             
             st.markdown(button_html, unsafe_allow_html=True)
-        
-        # JavaScript para cambiar red
-        st.markdown("""
-        <script>
-        function setNetwork(network) {
-            window.parent.postMessage({
-                type: 'streamlit:setComponentValue',
-                value: network
-            }, '*');
-        }
-        </script>
-        """, unsafe_allow_html=True)
         
         # Separador
         st.markdown("---")
@@ -769,54 +871,6 @@ def show_auth_modal():
     
     st.markdown("</div></div>", unsafe_allow_html=True)
 
-def create_heatmap(data, metric_column, title):
-    """Crea un heatmap de calor por contenido"""
-    
-    # Preparar datos para el heatmap
-    heatmap_data = data.copy()
-    
-    # Agrupar por contenido (usando títulos truncados)
-    heatmap_data['titulo_short'] = heatmap_data['titulo'].str[:40] + '...'
-    
-    # Ordenar por la métrica seleccionada
-    heatmap_data = heatmap_data.sort_values(metric_column, ascending=False).head(20)
-    
-    # Crear valores normalizados para el heatmap
-    values = heatmap_data[metric_column].values
-    normalized_values = (values - values.min()) / (values.max() - values.min() + 1e-8)
-    
-    # Crear figura
-    fig = go.Figure(data=go.Heatmap(
-        z=[normalized_values],
-        x=heatmap_data['titulo_short'].tolist(),
-        y=[''],
-        colorscale='RdYlGn_r',  # Rojo para alto, verde para bajo
-        showscale=True,
-        hoverongaps=False,
-        hovertemplate='<b>%{x}</b><br>' + metric_column + ': %{customdata}<extra></extra>',
-        customdata=[[f"{val:,.0f}" if metric_column != 'engagement_rate' else f"{val:.1f}%" 
-                    for val in values]]
-    ))
-    
-    fig.update_layout(
-        title=dict(
-            text=title,
-            font=dict(size=20, color='#0f172a')
-        ),
-        xaxis=dict(
-            title='Contenido',
-            tickangle=45,
-            tickfont=dict(size=10)
-        ),
-        yaxis=dict(visible=False),
-        height=400,
-        margin=dict(l=20, r=20, t=60, b=150),
-        paper_bgcolor='white',
-        plot_bgcolor='white'
-    )
-    
-    return fig
-
 def show_social_dashboard(network):
     """Dashboard específico para cada red social"""
     if network not in st.session_state.scraped_data:
@@ -891,6 +945,7 @@ def show_social_dashboard(network):
         tab1, tab2 = st.tabs(["📈 Gráficas Multilineales", "📋 Datos Completos"])
     
     with tab1:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         st.subheader("📈 Gráficas Multilineales de Rendimiento")
         
         # Intentar parsear fechas
@@ -929,41 +984,9 @@ def show_social_dashboard(network):
                         key=f"trend_metric_{network}"
                     )
                     
-                    # Crear gráfico multilineal con Plotly
-                    fig = go.Figure()
-                    
-                    if metric_trend == 'Engagement':
-                        fig.add_trace(go.Scatter(
-                            x=daily_data['Fecha'],
-                            y=daily_data['Engagement'],
-                            mode='lines+markers',
-                            name='Engagement Rate',
-                            line=dict(color=config['color'], width=3),
-                            marker=dict(size=8, color=config['color'])
-                        ))
-                        fig.update_layout(yaxis_title='Engagement Rate (%)')
-                    else:
-                        metric_data = daily_data[metric_trend]
-                        fig.add_trace(go.Scatter(
-                            x=daily_data['Fecha'],
-                            y=metric_data,
-                            mode='lines+markers',
-                            name=metric_trend,
-                            line=dict(color=config['color'], width=3),
-                            marker=dict(size=8, color=config['color'])
-                        ))
-                        fig.update_layout(yaxis_title=metric_trend)
-                    
-                    fig.update_layout(
-                        title=f'Tendencia de {metric_trend} a lo largo del tiempo',
-                        xaxis_title='Fecha',
-                        height=500,
-                        paper_bgcolor='white',
-                        plot_bgcolor='white',
-                        font=dict(family='Inter', size=12)
-                    )
-                    
-                    st.plotly_chart(fig, use_container_width=True)
+                    # Crear gráfico multilineal
+                    fig = create_multiline_chart(daily_data, metric_trend, config)
+                    st.pyplot(fig)
                     
                     # Estadísticas de tendencia
                     if len(daily_data) > 1:
@@ -998,9 +1021,12 @@ def show_social_dashboard(network):
                 
         except Exception as e:
             st.warning(f"⚠️ No se pudieron analizar tendencias temporales: {str(e)}")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
     
     if network == 'tiktok':
         with tab2:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
             st.subheader("🔥 Heatmap de Calor por Contenido")
             
             # Seleccionar métrica para heatmap
@@ -1018,18 +1044,19 @@ def show_social_dashboard(network):
             
             # Crear heatmap
             heatmap_title = f"Heatmap de Calor por {['Vistas', 'Likes', 'Comentarios', 'Engagement Rate'][['visualizaciones_num', 'me_gusta_num', 'comentarios_num', 'engagement_rate'].index(heatmap_metric)]}"
-            fig = create_heatmap(data, heatmap_metric, heatmap_title)
-            st.plotly_chart(fig, use_container_width=True)
+            fig = create_heatmap_chart(data, heatmap_metric, heatmap_title, config)
+            st.pyplot(fig)
             
             # Explicación del heatmap
             st.info("""
             **📊 Interpretación del Heatmap:**
             - **Rojo intenso:** Contenido con mayor rendimiento
-            - **Verde intenso:** Contenido con menor rendimiento
             - **Amarillo:** Contenido con rendimiento intermedio
+            - **Verde intenso:** Contenido con menor rendimiento
             
             Los colores muestran el rendimiento relativo de cada video en la métrica seleccionada.
             """)
+            st.markdown('</div>', unsafe_allow_html=True)
     
     # Tab de datos completos
     if network == 'tiktok':
@@ -1118,7 +1145,7 @@ def show_data_table(data, config):
         # Exportar a Excel
         try:
             output = BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 data[display_cols].to_excel(writer, index=False, sheet_name=f'{config["name"]} Data')
             excel_data = output.getvalue()
             
@@ -1137,6 +1164,13 @@ def show_data_table(data, config):
 # APLICACIÓN PRINCIPAL
 # =============================================
 def main():
+    # Manejar parámetros de URL para cambiar red
+    query_params = st.query_params
+    if 'network' in query_params:
+        network = query_params['network']
+        if network in NETWORK_CONFIG:
+            st.session_state.current_network = network
+    
     # Sidebar
     create_sidebar()
     
