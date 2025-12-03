@@ -1,3 +1,39 @@
+import subprocess
+import sys
+import os
+
+# =============================================
+# VERIFICAR E INSTALAR DEPENDENCIAS FALTANTES
+# =============================================
+def install_package(package):
+    """Instala un paquete usando pip"""
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package, "--quiet"])
+
+# Lista de paquetes requeridos
+required_packages = [
+    'streamlit',
+    'pandas',
+    'plotly',
+    'openpyxl'  # Para exportar Excel
+]
+
+# Verificar e instalar paquetes faltantes
+for package in required_packages:
+    try:
+        if package == 'streamlit':
+            import streamlit as st
+        elif package == 'pandas':
+            import pandas as pd
+        elif package == 'plotly':
+            import plotly.graph_objects as go
+        elif package == 'openpyxl':
+            import openpyxl
+    except ImportError:
+        install_package(package)
+
+# =============================================
+# IMPORTAR LIBRERÍAS DESPUÉS DE INSTALACIÓN
+# =============================================
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
@@ -8,8 +44,6 @@ import random
 import json
 import re
 from io import BytesIO
-import subprocess
-import sys
 import os
 
 # Configuración de página
