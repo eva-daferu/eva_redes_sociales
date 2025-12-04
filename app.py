@@ -571,7 +571,7 @@ with st.sidebar:
     
     # Inicializar estado si no existe
     if "selected_platform" not in st.session_state:
-        st.session_state["selected_platform"] = "youtube"
+        st.session_state["selected_platform"] = "youtobe"
     
     selected_platform = st.session_state["selected_platform"]
     
