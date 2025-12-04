@@ -20,7 +20,6 @@ st.set_page_config(
 # CONEXIÓN A BACKEND REAL (NO TOCAR)
 #############################################
 BACKEND_URL = "http://pahubisas.pythonanywhere.com/data"
-
 def cargar_datos_backend():
     try:
         r = requests.get(BACKEND_URL, timeout=20)
