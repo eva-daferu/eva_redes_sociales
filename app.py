@@ -10,7 +10,7 @@ st.set_page_config(page_title="Social Media Dashboard", layout="wide", page_icon
 @st.cache_data
 def cargar_backend():
     try:
-        url = "https://pahubisas.pythonanywhere.com/data"
+        url = "http://pahubisas.pythonanywhere.com/data"
         r = requests.get(url, timeout=20)
         js = r.json()
 
