@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from datetime import datetime
+from datetime import datetime, timedelta
 import warnings
 import requests
 
@@ -94,7 +94,7 @@ def cargar_datos():
         # Datos de respaldo si falla el backend
         st.warning("Usando datos de respaldo. El backend no está disponible.")
         
-        # Datos de ejemplo (simplificados para respaldo)
+        # Datos de ejemplo
         youtobe_data = pd.DataFrame({
             'titulo': ['Amazonía al borde', 'El costo oculto de botar comida'],
             'fecha_publicacion': ['01/10/2025', '23/09/2025'],
@@ -120,26 +120,16 @@ def cargar_datos():
         # Primero, asegurarnos de que la columna 'red' existe y está limpia
         if 'red' in df.columns:
             df['red'] = df['red'].astype(str).str.lower().str.strip()
-            
-            # Mostrar valores únicos para debug
-            unique_reds = df['red'].unique()
-            st.sidebar.info(f"Valores en 'red': {list(unique_reds)[:10]}")
         
-        # Filtrar usando comparación exacta (con 'youtobe' con 'o')
+        # Filtrar usando comparación exacta
         youtobe_data = df[df['red'] == 'youtobe'].copy()
         
         # Si no encuentra 'youtobe', buscar 'youtube' como alternativa
         if youtobe_data.empty:
             youtobe_data = df[df['red'] == 'youtube'].copy()
-            if not youtobe_data.empty:
-                st.sidebar.info("Encontrado 'youtube' en lugar de 'youtobe'")
         
         # Para TikTok
         tiktok_data = df[df['red'] == 'tiktok'].copy()
-        
-        # Mostrar conteos
-        st.sidebar.success(f"YouTube/Youtobe: {len(youtobe_data)} posts")
-        st.sidebar.success(f"TikTok: {len(tiktok_data)} posts")
     
     # Calcular métricas comunes para ambos datasets
     for df_data in [youtobe_data, tiktok_data]:
@@ -149,9 +139,9 @@ def cargar_datos():
             df_data['dias_desde_publicacion'] = df_data['dias_desde_publicacion'].apply(lambda x: max(x, 1))
             df_data['rendimiento_por_dia'] = df_data['visualizaciones'] / df_data['dias_desde_publicacion']
     
-    return youtobe_data, tiktok_data
+    return df, youtobe_data, tiktok_data
 
-# Estilos CSS mejorados (sin f-strings problemáticos)
+# Estilos CSS mejorados
 st.markdown("""
 <style>
 /* Main container */
@@ -464,11 +454,36 @@ st.markdown("""
     .metric-value { font-size: 28px; }
     .dashboard-header { padding: 25px; }
 }
+
+/* Data table improvements */
+.full-table {
+    width: 100%;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.full-table th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* Filter buttons */
+.filter-btn {
+    margin: 2px;
+    border-radius: 8px;
+}
+
+.filter-btn.active {
+    background-color: #3B82F6;
+    color: white;
+    border-color: #3B82F6;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # Cargar datos
-youtobe_df, tiktok_df = cargar_datos()
+df_all, youtobe_df, tiktok_df = cargar_datos()
 
 # Sidebar
 with st.sidebar:
@@ -481,7 +496,7 @@ with st.sidebar:
             📊
         </div>
         <h2 style="color: white; margin-bottom: 5px; font-size: 22px;">DASHBOARD PRO</h2>
-        <p style="color: #94a3b8; font-size: 13px; margin: 0;">Social Media Analytics v3.0</p>
+        <p style="color: #94a3b8; font-size: 13px; margin: 0;">Social Media Analytics v3.1</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -497,8 +512,9 @@ with st.sidebar:
     
     st.markdown('<p class="sidebar-title">🔗 Panel Professional</p>', unsafe_allow_html=True)
     
-    # Botones de plataformas
+    # Botones de plataformas con botón GENERAL
     platforms = {
+        "general": ("🌐 GENERAL", "#3B82F6"),  # NUEVO: Botón general
         "facebook": ("📘 Facebook", "#1877F2"),
         "twitter": ("🐦 Twitter", "#1DA1F2"),
         "instagram": ("📷 Instagram", "#E4405F"),
@@ -507,7 +523,7 @@ with st.sidebar:
         "tiktok": ("🎵 TikTok", "#000000")
     }
     
-    selected_platform = st.session_state.get("selected_platform", "youtube")
+    selected_platform = st.session_state.get("selected_platform", "general")
     
     for platform_key, (platform_name, platform_color) in platforms.items():
         if st.button(platform_name, key=f"{platform_key}_btn", use_container_width=True):
@@ -516,6 +532,17 @@ with st.sidebar:
             st.rerun()
     
     st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+    
+    # Filtros de tiempo cuando no está en modo GENERAL
+    if selected_platform != "general":
+        st.markdown('<p class="sidebar-title">📅 Filtros de Tiempo</p>', unsafe_allow_html=True)
+        
+        tiempo_filtro = st.selectbox(
+            "Seleccionar período:",
+            ["Últimos 7 días", "Últimos 30 días", "Últimos 90 días", "Todo el período"],
+            key="tiempo_filtro"
+        )
+    
     st.markdown('<p class="sidebar-title">📈 Status Conexiones</p>', unsafe_allow_html=True)
     
     # Estado de conexiones basado en datos reales
@@ -565,54 +592,96 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Determinar datos según plataforma seleccionada
-platform_config = {
-    "youtube": ("YouTube", "#FF0000", "▶️", youtobe_df),
-    "tiktok": ("TikTok", "#000000", "🎵", tiktok_df),
-    "facebook": ("Facebook", "#1877F2", "📘", youtobe_df),
-    "twitter": ("Twitter", "#1DA1F2", "🐦", youtobe_df),
-    "instagram": ("Instagram", "#E4405F", "📷", youtobe_df),
-    "linkedin": ("LinkedIn", "#0A66C2", "💼", youtobe_df)
-}
+if selected_platform == "general":
+    platform_name = "GENERAL"
+    platform_color = "#3B82F6"
+    platform_icon = "🌐"
+    df = df_all
+elif selected_platform == "youtube":
+    platform_name = "YouTube"
+    platform_color = "#FF0000"
+    platform_icon = "▶️"
+    df = youtobe_df
+elif selected_platform == "tiktok":
+    platform_name = "TikTok"
+    platform_color = "#000000"
+    platform_icon = "🎵"
+    df = tiktok_df
+else:
+    # Para otras plataformas (Facebook, Twitter, etc.) usar datos de YouTube temporalmente
+    platform_config = {
+        "facebook": ("Facebook", "#1877F2", "📘", youtobe_df),
+        "twitter": ("Twitter", "#1DA1F2", "🐦", youtobe_df),
+        "instagram": ("Instagram", "#E4405F", "📷", youtobe_df),
+        "linkedin": ("LinkedIn", "#0A66C2", "💼", youtobe_df)
+    }
+    platform_name, platform_color, platform_icon, df = platform_config.get(
+        selected_platform, 
+        ("YouTube", "#FF0000", "▶️", youtobe_df)
+    )
 
-platform_name, platform_color, platform_icon, df = platform_config.get(
-    selected_platform, 
-    ("YouTube", "#FF0000", "▶️", youtobe_df)
-)
+# Aplicar filtro de tiempo si no está en modo GENERAL
+if selected_platform != "general" and 'fecha_publicacion' in df.columns:
+    hoy = pd.Timestamp.now()
+    
+    if 'tiempo_filtro' in st.session_state:
+        if st.session_state.tiempo_filtro == "Últimos 7 días":
+            fecha_limite = hoy - timedelta(days=7)
+            df = df[df['fecha_publicacion'] >= fecha_limite]
+        elif st.session_state.tiempo_filtro == "Últimos 30 días":
+            fecha_limite = hoy - timedelta(days=30)
+            df = df[df['fecha_publicacion'] >= fecha_limite]
+        elif st.session_state.tiempo_filtro == "Últimos 90 días":
+            fecha_limite = hoy - timedelta(days=90)
+            df = df[df['fecha_publicacion'] >= fecha_limite]
+        # "Todo el período" no aplica filtro
 
 # Verificar si hay datos
 if df.empty:
     st.error(f"⚠️ No hay datos disponibles para {platform_name}")
     
-    # Mostrar información de debug
-    with st.expander("🔍 Información de Depuración", expanded=False):
-        st.write(f"**Plataforma seleccionada:** {selected_platform}")
-        st.write(f"**Total registros YouTube/Youtobe:** {len(youtobe_df)}")
-        st.write(f"**Total registros TikTok:** {len(tiktok_df)}")
-        
-        if not youtobe_df.empty:
-            st.write("**Primeras filas YouTube/Youtobe:**")
-            st.dataframe(youtobe_df.head())
-            
-        if not tiktok_df.empty:
-            st.write("**Primeras filas TikTok:**")
-            st.dataframe(tiktok_df.head())
+    if selected_platform != "general":
+        with st.expander("🔍 Información de Depuración", expanded=False):
+            st.write(f"**Plataforma seleccionada:** {selected_platform}")
+            st.write(f"**Total registros en dataset:** {len(df_all)}")
+            st.write(f"**Total registros YouTube/Youtobe:** {len(youtobe_df)}")
+            st.write(f"**Total registros TikTok:** {len(tiktok_df)}")
     
     st.info("Conectando al backend para cargar datos en tiempo real...")
     st.stop()
 
+# Calcular métricas clave
+total_posts = len(df)
+total_views = df['visualizaciones'].sum() if 'visualizaciones' in df.columns else 0
+total_likes = df['me_gusta'].sum() if 'me_gusta' in df.columns else 0
+total_comments = df['comentarios'].sum() if 'comentarios' in df.columns else 0
+
+if 'rendimiento_por_dia' in df.columns:
+    avg_daily_perf = df['rendimiento_por_dia'].mean()
+else:
+    avg_daily_perf = 0
+
+if total_views > 0:
+    engagement_rate = ((total_likes + total_comments) / total_views * 100)
+else:
+    engagement_rate = 0
+
 current_time_short = datetime.now().strftime('%H:%M')
+
+# Mostrar información de la plataforma
 st.markdown(f"""
 <div style="display: flex; align-items: center; margin-bottom: 30px;">
     <div style="font-size: 32px; margin-right: 15px; color: {platform_color};">{platform_icon}</div>
     <div>
         <h2 style="margin: 0; color: {platform_color}; font-size: 28px;">{platform_name} ANALYTICS</h2>
         <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 14px;">
-            {len(df)} contenidos analizados • Última actualización: {current_time_short}
+            {total_posts} contenidos analizados • Última actualización: {current_time_short}
+            {f" • Filtro: {st.session_state.get('tiempo_filtro', 'Todo el período')}" if selected_platform != "general" else ""}
         </p>
     </div>
     <div style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
         <div style="background: {platform_color}15; color: {platform_color}; padding: 8px 20px; border-radius: 20px; font-size: 14px; font-weight: 600;">
-            {len(df)} {platform_name} Posts
+            {total_posts} {platform_name} Posts
         </div>
     </div>
 </div>
@@ -622,11 +691,10 @@ st.markdown(f"""
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    total_videos = len(df)
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-label">TOTAL CONTENIDOS</div>
-        <div class="metric-value">{total_videos}</div>
+        <div class="metric-value">{total_posts}</div>
         <div class="metric-trend trend-up">
             <span>📈 Contenido Activo</span>
         </div>
@@ -634,7 +702,6 @@ with col1:
     """, unsafe_allow_html=True)
 
 with col2:
-    total_views = df['visualizaciones'].sum() if 'visualizaciones' in df.columns else 0
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-label">VISUALIZACIONES TOTALES</div>
@@ -646,10 +713,6 @@ with col2:
     """, unsafe_allow_html=True)
 
 with col3:
-    if 'rendimiento_por_dia' in df.columns:
-        avg_daily_perf = df['rendimiento_por_dia'].mean()
-    else:
-        avg_daily_perf = 0
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-label">RENDIMIENTO DIARIO</div>
@@ -661,12 +724,6 @@ with col3:
     """, unsafe_allow_html=True)
 
 with col4:
-    if 'visualizaciones' in df.columns and total_views > 0:
-        total_engagement = (df['me_gusta'].sum() if 'me_gusta' in df.columns else 0) + \
-                          (df['comentarios'].sum() if 'comentarios' in df.columns else 0)
-        engagement_rate = (total_engagement / total_views * 100)
-    else:
-        engagement_rate = 0
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-label">TASA DE ENGAGEMENT</div>
@@ -677,376 +734,525 @@ with col4:
     </div>
     """, unsafe_allow_html=True)
 
-# Gráfica de performance
+# SECCIÓN 1: PERFORMANCE OVER TIME - GRÁFICA MULTI-LÍNEA MEJORADA
 st.markdown("""
 <div class="performance-chart">
-    <h3 style="margin-top: 0; margin-bottom: 25px; color: #1f2937; font-size: 20px;">
-        📈 PERFORMANCE OVER TIME
-    </h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+        <h3 style="margin: 0; color: #1f2937; font-size: 22px;">
+            📈 PERFORMANCE OVER TIME - EVOLUCIÓN DETALLADA
+        </h3>
+        <div style="color: #6b7280; font-size: 13px;">
+            Gráfica multi-línea interactiva
+        </div>
+    </div>
 """, unsafe_allow_html=True)
 
 try:
-    # Preparar datos para la gráfica
-    if 'fecha_publicacion' in df.columns and 'visualizaciones' in df.columns:
+    if not df.empty and 'fecha_publicacion' in df.columns:
+        # Crear DataFrame para gráficas diarias
         df_sorted = df.sort_values('fecha_publicacion')
         
-        # Crear subplots
+        # Agrupar por fecha
+        daily_stats = df_sorted.groupby('fecha_publicacion').agg({
+            'visualizaciones': 'sum',
+            'me_gusta': 'sum',
+            'comentarios': 'sum',
+            'rendimiento_por_dia': 'mean'
+        }).reset_index()
+        
+        # Crear gráfica multi-línea con subplots
         fig = make_subplots(
             rows=2, cols=2,
             subplot_titles=(
-                'Evolución de Visualizaciones',
-                'Distribución por Rendimiento',
-                'Métricas de Engagement',
-                'Tendencia Semanal'
+                '📊 Evolución Diaria de Visualizaciones',
+                '❤️ Evolución Diaria de Likes',
+                '💬 Evolución Diaria de Comentarios',
+                '🚀 Rendimiento Promedio Diario'
             ),
             specs=[
-                [{'type': 'scatter'}, {'type': 'pie'}],
-                [{'type': 'bar'}, {'type': 'scatter'}]
+                [{'type': 'scatter'}, {'type': 'scatter'}],
+                [{'type': 'scatter'}, {'type': 'scatter'}]
             ],
             vertical_spacing=0.15,
             horizontal_spacing=0.15
         )
         
-        # 1. Evolución de visualizaciones
+        # 1. Visualizaciones
         fig.add_trace(
             go.Scatter(
-                x=df_sorted['fecha_publicacion'],
-                y=df_sorted['visualizaciones'],
+                x=daily_stats['fecha_publicacion'],
+                y=daily_stats['visualizaciones'],
                 mode='lines+markers',
                 name='Visualizaciones',
-                line=dict(color=platform_color, width=3),
-                marker=dict(size=6),
-                hovertemplate='<b>%{x|%d/%m}</b><br>Views: %{y:,}<extra></extra>'
+                line=dict(color='#3B82F6', width=3),
+                marker=dict(size=6, color='#3B82F6'),
+                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>👁️ Views: %{y:,}<extra></extra>',
+                fill='tozeroy',
+                fillcolor='rgba(59, 130, 246, 0.1)'
             ),
             row=1, col=1
         )
         
-        # 2. Distribución por rendimiento
-        if 'rendimiento_por_dia' in df.columns:
-            categories = pd.qcut(df['rendimiento_por_dia'], q=4, 
-                                labels=['Bajo', 'Medio-Bajo', 'Medio-Alto', 'Alto'])
-            category_counts = categories.value_counts()
-            
-            fig.add_trace(
-                go.Pie(
-                    labels=category_counts.index,
-                    values=category_counts.values,
-                    hole=0.4,
-                    marker=dict(colors=['#ef4444', '#f59e0b', '#3B82F6', '#10b981']),
-                    name='Rendimiento',
-                    hovertemplate='<b>%{label}</b><br>%{value} posts<br>%{percent}<extra></extra>'
-                ),
-                row=1, col=2
-            )
-        
-        # 3. Métricas de engagement
-        engagement_data = [
-            df['me_gusta'].sum() if 'me_gusta' in df.columns else 0,
-            df['comentarios'].sum() if 'comentarios' in df.columns else 0
-        ]
-        
+        # 2. Likes
         fig.add_trace(
-            go.Bar(
-                x=['Likes', 'Comentarios'],
-                y=engagement_data,
-                marker_color=[platform_color, '#8b5cf6'],
-                name='Engagement',
-                hovertemplate='<b>%{x}</b><br>Total: %{y:,}<extra></extra>'
+            go.Scatter(
+                x=daily_stats['fecha_publicacion'],
+                y=daily_stats['me_gusta'],
+                mode='lines+markers',
+                name='Likes',
+                line=dict(color='#10b981', width=3),
+                marker=dict(size=6, color='#10b981'),
+                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>❤️ Likes: %{y:,}<extra></extra>',
+                fill='tozeroy',
+                fillcolor='rgba(16, 185, 129, 0.1)'
+            ),
+            row=1, col=2
+        )
+        
+        # 3. Comentarios
+        fig.add_trace(
+            go.Scatter(
+                x=daily_stats['fecha_publicacion'],
+                y=daily_stats['comentarios'],
+                mode='lines+markers',
+                name='Comentarios',
+                line=dict(color='#8b5cf6', width=3),
+                marker=dict(size=6, color='#8b5cf6'),
+                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>💬 Comments: %{y:,}<extra></extra>',
+                fill='tozeroy',
+                fillcolor='rgba(139, 92, 246, 0.1)'
             ),
             row=2, col=1
         )
         
-        # 4. Tendencia semanal
-        if 'fecha_publicacion' in df.columns and 'visualizaciones' in df.columns:
-            df['semana'] = df['fecha_publicacion'].dt.isocalendar().week
-            weekly_views = df.groupby('semana')['visualizaciones'].sum().reset_index()
-            
-            fig.add_trace(
-                go.Scatter(
-                    x=weekly_views['semana'],
-                    y=weekly_views['visualizaciones'],
-                    mode='lines+markers',
-                    name='Views Semanales',
-                    line=dict(color='#10b981', width=2),
-                    marker=dict(size=8),
-                    hovertemplate='<b>Semana %{x}</b><br>Views: %{y:,}<extra></extra>'
-                ),
-                row=2, col=2
-            )
+        # 4. Rendimiento diario
+        fig.add_trace(
+            go.Scatter(
+                x=daily_stats['fecha_publicacion'],
+                y=daily_stats['rendimiento_por_dia'],
+                mode='lines+markers',
+                name='Rendimiento/Día',
+                line=dict(color='#f59e0b', width=3),
+                marker=dict(size=6, color='#f59e0b'),
+                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>🚀 Perf/Día: %{y:.1f}<extra></extra>',
+                fill='tozeroy',
+                fillcolor='rgba(245, 158, 11, 0.1)'
+            ),
+            row=2, col=2
+        )
         
         # Actualizar layout
         fig.update_layout(
-            height=700,
+            height=800,
             showlegend=False,
             template='plotly_white',
             plot_bgcolor='white',
             paper_bgcolor='white',
-            margin=dict(l=40, r=40, t=80, b=40),
-            title_font=dict(size=14),
-            font=dict(size=12)
+            margin=dict(l=40, r=40, t=100, b=40),
+            title_font=dict(size=16),
+            font=dict(size=12),
+            hovermode='x unified'
         )
         
         # Actualizar ejes
         fig.update_xaxes(title_text="Fecha", row=1, col=1)
         fig.update_yaxes(title_text="Visualizaciones", row=1, col=1)
-        fig.update_xaxes(title_text="Métrica", row=2, col=1)
-        fig.update_yaxes(title_text="Cantidad", row=2, col=1)
-        fig.update_xaxes(title_text="Semana", row=2, col=2)
-        fig.update_yaxes(title_text="Visualizaciones", row=2, col=2)
+        fig.update_xaxes(title_text="Fecha", row=1, col=2)
+        fig.update_yaxes(title_text="Likes", row=1, col=2)
+        fig.update_xaxes(title_text="Fecha", row=2, col=1)
+        fig.update_yaxes(title_text="Comentarios", row=2, col=1)
+        fig.update_xaxes(title_text="Fecha", row=2, col=2)
+        fig.update_yaxes(title_text="Rendimiento/Día", row=2, col=2)
         
         st.plotly_chart(fig, use_container_width=True)
         
+        # Estadísticas resumidas debajo del gráfico
+        col_stats1, col_stats2, col_stats3, col_stats4 = st.columns(4)
+        
+        with col_stats1:
+            max_views_day = daily_stats.loc[daily_stats['visualizaciones'].idxmax(), 'fecha_publicacion']
+            max_views = daily_stats['visualizaciones'].max()
+            st.metric("📅 Día con más Views", max_views_day.strftime('%d/%m/%Y'), f"{max_views:,}")
+        
+        with col_stats2:
+            max_likes_day = daily_stats.loc[daily_stats['me_gusta'].idxmax(), 'fecha_publicacion']
+            max_likes = daily_stats['me_gusta'].max()
+            st.metric("📅 Día con más Likes", max_likes_day.strftime('%d/%m/%Y'), f"{max_likes:,}")
+        
+        with col_stats3:
+            max_comments_day = daily_stats.loc[daily_stats['comentarios'].idxmax(), 'fecha_publicacion']
+            max_comments = daily_stats['comentarios'].max()
+            st.metric("📅 Día con más Comments", max_comments_day.strftime('%d/%m/%Y'), f"{max_comments:,}")
+        
+        with col_stats4:
+            max_perf_day = daily_stats.loc[daily_stats['rendimiento_por_dia'].idxmax(), 'fecha_publicacion']
+            max_perf = daily_stats['rendimiento_por_dia'].max()
+            st.metric("📅 Mejor rendimiento/día", max_perf_day.strftime('%d/%m/%Y'), f"{max_perf:.1f}")
+        
 except Exception as e:
     st.warning(f"Error al generar gráficas: {str(e)}")
+    import traceback
+    st.code(traceback.format_exc())
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Tabla de contenidos
+# SECCIÓN 2: CONTENT PERFORMANCE DATA - TABLA COMPLETA
 st.markdown("""
 <div class="data-table-container">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-        <h3 style="margin: 0; color: #1f2937; font-size: 20px;">📊 CONTENT PERFORMANCE DATA</h3>
-        <div style="color: #6b7280; font-size: 13px;">
-            Mostrando top 10 por visualizaciones
+        <div>
+            <h3 style="margin: 0; color: #1f2937; font-size: 22px;">
+                📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA
+            </h3>
+            <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 14px;">
+                Lista completa de contenidos con todos los detalles
+            </p>
+        </div>
+        <div style="color: #6b7280; font-size: 13px; background: #f8fafc; padding: 8px 16px; border-radius: 20px; border: 1px solid #e5e7eb;">
+            {len(df)} contenidos totales
         </div>
     </div>
 """, unsafe_allow_html=True)
 
-if selected_platform in ["youtube", "tiktok"] and not df.empty:
-    # Seleccionar top 10 videos
-    top_videos = df.nlargest(10, 'visualizaciones').copy()
+if not df.empty:
+    # Preparar DataFrame para mostrar
+    display_df = df.copy()
     
-    # Preparar columnas para mostrar
-    display_columns = {}
+    # Seleccionar y ordenar columnas
+    column_order = []
     
-    if 'titulo' in top_videos.columns:
-        display_columns['Título'] = top_videos['titulo'].str[:60] + '...'
+    if 'titulo' in display_df.columns:
+        column_order.append('titulo')
+        display_df['titulo'] = display_df['titulo'].fillna('Sin título')
     
-    if 'fecha_publicacion' in top_videos.columns:
-        display_columns['Fecha'] = top_videos['fecha_publicacion'].dt.strftime('%d/%m/%Y')
+    if 'fecha_publicacion' in display_df.columns:
+        column_order.append('fecha_publicacion')
+        display_df['fecha_publicacion'] = display_df['fecha_publicacion'].dt.strftime('%d/%m/%Y %H:%M')
     
-    if 'visualizaciones' in top_videos.columns:
-        display_columns['Views'] = top_videos['visualizaciones']
+    if 'red' in display_df.columns:
+        column_order.append('red')
     
-    if 'me_gusta' in top_videos.columns:
-        display_columns['Likes'] = top_videos['me_gusta']
+    if 'visualizaciones' in display_df.columns:
+        column_order.append('visualizaciones')
     
-    if 'comentarios' in top_videos.columns:
-        display_columns['Comments'] = top_videos['comentarios']
+    if 'me_gusta' in display_df.columns:
+        column_order.append('me_gusta')
     
-    if 'rendimiento_por_dia' in top_videos.columns:
-        display_columns['Rend/Día'] = top_videos['rendimiento_por_dia']
+    if 'comentarios' in display_df.columns:
+        column_order.append('comentarios')
     
-    if 'dias_desde_publicacion' in top_videos.columns:
-        display_columns['Días'] = top_videos['dias_desde_publicacion']
+    if 'rendimiento_por_dia' in display_df.columns:
+        column_order.append('rendimiento_por_dia')
     
-    # Crear DataFrame para mostrar
-    display_df = pd.DataFrame(display_columns)
+    if 'dias_desde_publicacion' in display_df.columns:
+        column_order.append('dias_desde_publicacion')
     
-    # Formatear números
-    if 'Views' in display_df.columns:
-        display_df['Views'] = display_df['Views'].apply(lambda x: f"{int(x):,}")
+    if 'semana' in display_df.columns:
+        column_order.append('semana')
     
-    if 'Rend/Día' in display_df.columns:
-        display_df['Rend/Día'] = display_df['Rend/Día'].apply(lambda x: f"{float(x):.1f}")
+    if 'meses' in display_df.columns:
+        column_order.append('meses')
     
-    # Mostrar tabla
+    # Filtrar solo columnas existentes
+    column_order = [col for col in column_order if col in display_df.columns]
+    display_df = display_df[column_order]
+    
+    # Renombrar columnas para mejor visualización
+    rename_dict = {
+        'titulo': '📝 TÍTULO',
+        'fecha_publicacion': '📅 FECHA PUBLICACIÓN',
+        'red': '🌐 PLATAFORMA',
+        'visualizaciones': '👁️ VISUALIZACIONES',
+        'me_gusta': '❤️ LIKES',
+        'comentarios': '💬 COMENTARIOS',
+        'rendimiento_por_dia': '🚀 REND/DÍA',
+        'dias_desde_publicacion': '📅 DÍAS PUBLICADO',
+        'semana': '📅 SEMANA',
+        'meses': '📅 MES'
+    }
+    
+    display_df = display_df.rename(columns={k: v for k, v in rename_dict.items() if k in display_df.columns})
+    
+    # Configurar columnas para mejor visualización
+    column_config = {}
+    
+    if '👁️ VISUALIZACIONES' in display_df.columns:
+        column_config['👁️ VISUALIZACIONES'] = st.column_config.NumberColumn(
+            format="%d",
+            help="Número total de visualizaciones"
+        )
+    
+    if '❤️ LIKES' in display_df.columns:
+        column_config['❤️ LIKES'] = st.column_config.NumberColumn(
+            format="%d",
+            help="Número total de likes"
+        )
+    
+    if '💬 COMENTARIOS' in display_df.columns:
+        column_config['💬 COMENTARIOS'] = st.column_config.NumberColumn(
+            format="%d",
+            help="Número total de comentarios"
+        )
+    
+    if '🚀 REND/DÍA' in display_df.columns:
+        column_config['🚀 REND/DÍA'] = st.column_config.NumberColumn(
+            format="%.1f",
+            help="Rendimiento promedio por día"
+        )
+    
+    if '📝 TÍTULO' in display_df.columns:
+        column_config['📝 TÍTULO'] = st.column_config.TextColumn(
+            width="large",
+            help="Título del contenido"
+        )
+    
+    # Mostrar tabla completa con paginación
     st.dataframe(
         display_df,
         use_container_width=True,
         hide_index=True,
-        column_config={
-            "Views": st.column_config.NumberColumn(format="%d"),
-            "Likes": st.column_config.NumberColumn(format="%d"),
-            "Comments": st.column_config.NumberColumn(format="%d"),
-            "Rend/Día": st.column_config.NumberColumn(format="%.1f")
-        }
+        column_config=column_config,
+        height=600
     )
     
-    # Top performing video
-    if not top_videos.empty:
-        top_video = top_videos.iloc[0]
-        video_title = str(top_video.get('titulo', 'N/A'))
-        if len(video_title) > 100:
-            video_title = video_title[:100] + '...'
-        
-        top_views = top_video.get('visualizaciones', 0)
-        top_likes = top_video.get('me_gusta', 0)
-        top_comments = top_video.get('comentarios', 0)
-        top_perf = top_video.get('rendimiento_por_dia', 0)
-        
-        st.markdown(f"""
-        <div style="margin-top: 25px; padding: 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); 
-                    border-radius: 12px; border-left: 4px solid {platform_color};">
-            <div style="display: flex; align-items: flex-start; gap: 15px;">
-                <div style="font-size: 24px; color: {platform_color};">🏆</div>
-                <div style="flex: 1;">
-                    <h4 style="margin: 0 0 10px 0; color: #374151;">Top Performing Content:</h4>
-                    <p style="margin: 0 0 8px 0; color: #4b5563; font-size: 15px;">
-                        <strong>{video_title}</strong>
-                    </p>
-                    <div style="display: flex; gap: 20px; margin-top: 10px;">
-                        <span style="color: #6b7280; font-size: 13px;">
-                            <strong>📈 {top_views:,}</strong> Views
-                        </span>
-                        <span style="color: #6b7280; font-size: 13px;">
-                            <strong>👍 {top_likes:,}</strong> Likes
-                        </span>
-                        <span style="color: #6b7280; font-size: 13px;">
-                            <strong>💬 {top_comments:,}</strong> Comments
-                        </span>
-                        <span style="color: #6b7280; font-size: 13px;">
-                            <strong>🚀 {top_perf:.1f}</strong> Perf/Día
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
+    # Estadísticas de la tabla
+    col_table1, col_table2, col_table3, col_table4 = st.columns(4)
+    
+    with col_table1:
+        avg_views = display_df['👁️ VISUALIZACIONES'].mean() if '👁️ VISUALIZACIONES' in display_df.columns else 0
+        st.metric("📊 Views promedio", f"{avg_views:,.0f}")
+    
+    with col_table2:
+        avg_likes = display_df['❤️ LIKES'].mean() if '❤️ LIKES' in display_df.columns else 0
+        st.metric("📊 Likes promedio", f"{avg_likes:,.0f}")
+    
+    with col_table3:
+        avg_comments = display_df['💬 COMENTARIOS'].mean() if '💬 COMENTARIOS' in display_df.columns else 0
+        st.metric("📊 Comments promedio", f"{avg_comments:,.0f}")
+    
+    with col_table4:
+        avg_perf = display_df['🚀 REND/DÍA'].mean() if '🚀 REND/DÍA' in display_df.columns else 0
+        st.metric("📊 Rendimiento promedio", f"{avg_perf:.1f}")
+    
 else:
-    st.info(f"🔒 {platform_name} analytics require platform connection or no data available")
+    st.info("No hay datos para mostrar en la tabla")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Análisis avanzado
+# SECCIÓN 3: ANÁLISIS DETALLADO EN DOS COLUMNAS
 col_analysis1, col_analysis2 = st.columns(2)
 
 with col_analysis1:
     st.markdown("""
     <div class="performance-chart" style="height: 100%;">
-        <h3 style="margin-top: 0; margin-bottom: 20px; color: #1f2937;">📊 PERFORMANCE ANALYTICS</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
+                📊 PERFORMANCE ANALYTICS
+            </h3>
+        </div>
     """, unsafe_allow_html=True)
     
-    if selected_platform in ["youtube", "tiktok"] and not df.empty and 'rendimiento_por_dia' in df.columns:
-        # Categorizar performance
-        q75 = df['rendimiento_por_dia'].quantile(0.75)
-        q25 = df['rendimiento_por_dia'].quantile(0.25)
-        
-        high_perf = len(df[df['rendimiento_por_dia'] > q75])
-        medium_perf = len(df[(df['rendimiento_por_dia'] >= q25) & (df['rendimiento_por_dia'] <= q75)])
-        low_perf = len(df[df['rendimiento_por_dia'] < q25])
-        
-        # Gráfico de barras para performance
-        perf_data = pd.DataFrame({
-            'Categoría': ['Alto Rendimiento', 'Rendimiento Medio', 'Bajo Rendimiento'],
-            'Cantidad': [high_perf, medium_perf, low_perf],
-            'Color': ['#10b981', '#3B82F6', '#6b7280']
-        })
-        
-        fig_perf = go.Figure(data=[
-            go.Bar(
-                x=perf_data['Categoría'],
-                y=perf_data['Cantidad'],
-                marker_color=perf_data['Color'],
-                text=perf_data['Cantidad'],
-                textposition='auto',
-                hovertemplate='<b>%{x}</b><br>Posts: %{y}<extra></extra>'
+    if not df.empty:
+        # Análisis de distribución por rendimiento
+        if 'rendimiento_por_dia' in df.columns:
+            # Categorizar performance
+            q75 = df['rendimiento_por_dia'].quantile(0.75)
+            q50 = df['rendimiento_por_dia'].quantile(0.50)
+            q25 = df['rendimiento_por_dia'].quantile(0.25)
+            
+            high_perf = len(df[df['rendimiento_por_dia'] > q75])
+            medium_high_perf = len(df[(df['rendimiento_por_dia'] > q50) & (df['rendimiento_por_dia'] <= q75)])
+            medium_low_perf = len(df[(df['rendimiento_por_dia'] > q25) & (df['rendimiento_por_dia'] <= q50)])
+            low_perf = len(df[df['rendimiento_por_dia'] <= q25])
+            
+            # Gráfico de pastel
+            labels = ['🟢 Alto', '🟡 Medio-Alto', '🟠 Medio-Bajo', '🔴 Bajo']
+            values = [high_perf, medium_high_perf, medium_low_perf, low_perf]
+            colors = ['#10b981', '#f59e0b', '#f97316', '#ef4444']
+            
+            fig_pie = go.Figure(data=[go.Pie(
+                labels=labels,
+                values=values,
+                hole=0.4,
+                marker=dict(colors=colors),
+                textinfo='label+percent',
+                textposition='outside',
+                hovertemplate='<b>%{label}</b><br>Cantidad: %{value}<br>Porcentaje: %{percent}<extra></extra>'
+            )])
+            
+            fig_pie.update_layout(
+                height=350,
+                showlegend=False,
+                template='plotly_white',
+                margin=dict(l=20, r=20, t=40, b=20),
+                title_text="Distribución por Nivel de Rendimiento",
+                title_font=dict(size=14)
             )
-        ])
+            
+            st.plotly_chart(fig_pie, use_container_width=True)
         
-        fig_perf.update_layout(
-            height=350,
-            showlegend=False,
-            template='plotly_white',
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            margin=dict(l=40, r=40, t=40, b=40),
-            xaxis_title="Categoría de Rendimiento",
-            yaxis_title="Número de Posts"
-        )
-        
-        st.plotly_chart(fig_perf, use_container_width=True)
-        
-        # Insights
-        total_posts = len(df)
-        high_perf_pct = (high_perf / total_posts * 100) if total_posts > 0 else 0
-        
-        st.markdown(f"""
-        <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 10px;">
-            <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 16px;">📈 Insights de Performance:</h4>
-            <div style="color: #4b5563; font-size: 14px; line-height: 1.6;">
-                • <strong>{high_perf_pct:.1f}%</strong> de los posts tienen alto rendimiento<br>
-                • Rendimiento promedio: <strong>{df['rendimiento_por_dia'].mean():.1f}</strong> views/día<br>
-                • Mejor post: <strong>{df['rendimiento_por_dia'].max():.1f}</strong> views/día<br>
-                • Posts con bajo rendimiento: <strong>{low_perf}</strong>
-            </div>
-        </div>
+        # Estadísticas detalladas
+        st.markdown("""
+        <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); 
+                    border-radius: 12px; border-left: 4px solid #3B82F6;">
+            <h4 style="margin: 0 0 15px 0; color: #374151; font-size: 16px;">📈 ANÁLISIS DE PERFORMANCE</h4>
+            <div style="color: #4b5563; font-size: 14px;">
         """, unsafe_allow_html=True)
+        
+        if 'rendimiento_por_dia' in df.columns:
+            stats_html = f"""
+                <div style="margin-bottom: 8px;">
+                    <span style="display: inline-block; width: 180px;">🟢 Alto rendimiento:</span>
+                    <span style="font-weight: 700; color: #10b981;">{high_perf} posts ({(high_perf/total_posts*100):.1f}%)</span>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <span style="display: inline-block; width: 180px;">🟡 Medio-Alto:</span>
+                    <span style="font-weight: 700; color: #f59e0b;">{medium_high_perf} posts ({(medium_high_perf/total_posts*100):.1f}%)</span>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <span style="display: inline-block; width: 180px;">🟠 Medio-Bajo:</span>
+                    <span style="font-weight: 700; color: #f97316;">{medium_low_perf} posts ({(medium_low_perf/total_posts*100):.1f}%)</span>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <span style="display: inline-block; width: 180px;">🔴 Bajo rendimiento:</span>
+                    <span style="font-weight: 700; color: #ef4444;">{low_perf} posts ({(low_perf/total_posts*100):.1f}%)</span>
+                </div>
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+                    <span style="display: inline-block; width: 180px;">📊 Rendimiento promedio:</span>
+                    <span style="font-weight: 700; color: #3B82F6;">{df['rendimiento_por_dia'].mean():.1f} views/día</span>
+                </div>
+                <div style="margin-top: 8px;">
+                    <span style="display: inline-block; width: 180px;">🚀 Mejor rendimiento:</span>
+                    <span style="font-weight: 700; color: #8b5cf6;">{df['rendimiento_por_dia'].max():.1f} views/día</span>
+                </div>
+            """
+            st.markdown(stats_html, unsafe_allow_html=True)
+        
+        st.markdown("</div></div>", unsafe_allow_html=True)
     
     else:
-        st.info("Performance data requires platform connection")
+        st.info("No hay datos para análisis de performance")
     
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col_analysis2:
     st.markdown("""
     <div class="performance-chart" style="height: 100%;">
-        <h3 style="margin-top: 0; margin-bottom: 20px; color: #1f2937;">📈 KEY METRICS</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
+                📈 KEY METRICS - MÉTRICAS CLAVE
+            </h3>
+        </div>
     """, unsafe_allow_html=True)
     
-    if selected_platform in ["youtube", "tiktok"] and not df.empty:
-        # Calcular métricas clave
-        metrics = []
+    if not df.empty:
+        # Calcular métricas detalladas
+        metrics_detailed = []
         
+        # Métricas de visualizaciones
         if 'visualizaciones' in df.columns:
-            metrics.append(('Avg. Views/Post', f"{df['visualizaciones'].mean():.0f}"))
-            metrics.append(('Max Views', f"{df['visualizaciones'].max():,}"))
-            metrics.append(('Total Views', f"{df['visualizaciones'].sum():,}"))
+            metrics_detailed.append(('👁️ Avg. Views/Post', f"{df['visualizaciones'].mean():.0f}"))
+            metrics_detailed.append(('👁️ Median Views', f"{df['visualizaciones'].median():.0f}"))
+            metrics_detailed.append(('👁️ Std Dev Views', f"{df['visualizaciones'].std():.0f}"))
+            metrics_detailed.append(('👁️ Min Views', f"{df['visualizaciones'].min():,}"))
+            metrics_detailed.append(('👁️ Max Views', f"{df['visualizaciones'].max():,}"))
         
+        # Métricas de engagement
         if 'me_gusta' in df.columns:
-            metrics.append(('Avg. Likes/Post', f"{df['me_gusta'].mean():.1f}"))
-            metrics.append(('Total Likes', f"{df['me_gusta'].sum():,}"))
+            metrics_detailed.append(('❤️ Avg. Likes/Post', f"{df['me_gusta'].mean():.1f}"))
+            metrics_detailed.append(('❤️ Max Likes', f"{df['me_gusta'].max():,}"))
         
         if 'comentarios' in df.columns:
-            metrics.append(('Avg. Comments/Post', f"{df['comentarios'].mean():.1f}"))
-            metrics.append(('Total Comments', f"{df['comentarios'].sum():,}"))
+            metrics_detailed.append(('💬 Avg. Comments/Post', f"{df['comentarios'].mean():.1f}"))
+            metrics_detailed.append(('💬 Max Comments', f"{df['comentarios'].max():,}"))
         
-        if 'rendimiento_por_dia' in df.columns:
-            metrics.append(('Avg. Daily Perf.', f"{df['rendimiento_por_dia'].mean():.1f}"))
-            metrics.append(('Max Daily Perf.', f"{df['rendimiento_por_dia'].max():.1f}"))
-        
+        # Métricas de tiempo
         if 'dias_desde_publicacion' in df.columns:
-            metrics.append(('Avg. Content Age', f"{df['dias_desde_publicacion'].mean():.0f} días"))
-            metrics.append(('Oldest Post', f"{df['dias_desde_publicacion'].max()} días"))
+            metrics_detailed.append(('📅 Avg. Content Age', f"{df['dias_desde_publicacion'].mean():.0f} días"))
+            metrics_detailed.append(('📅 Newest Post', f"{df['dias_desde_publicacion'].min()} días"))
+            metrics_detailed.append(('📅 Oldest Post', f"{df['dias_desde_publicacion'].max()} días"))
         
-        metrics.append(('Engagement Rate', f"{engagement_rate:.2f}%"))
+        # Métricas de rendimiento
+        if 'rendimiento_por_dia' in df.columns:
+            metrics_detailed.append(('🚀 Avg. Daily Perf.', f"{df['rendimiento_por_dia'].mean():.1f}"))
+            metrics_detailed.append(('🚀 Median Daily Perf.', f"{df['rendimiento_por_dia'].median():.1f}"))
         
-        # Mostrar métricas en una tabla estilizada
-        for i, (metric, value) in enumerate(metrics):
+        # Engagement rate detallado
+        metrics_detailed.append(('💬 Engagement Rate', f"{engagement_rate:.2f}%"))
+        
+        if total_views > 0 and total_likes > 0:
+            like_to_view_ratio = (total_likes / total_views) * 100
+            metrics_detailed.append(('👍 Like/View Ratio', f"{like_to_view_ratio:.2f}%"))
+        
+        if total_comments > 0 and total_likes > 0:
+            comment_to_like_ratio = (total_comments / total_likes) * 100
+            metrics_detailed.append(('💬 Comment/Like Ratio', f"{comment_to_like_ratio:.2f}%"))
+        
+        # Mostrar métricas en tabla mejorada
+        for i, (metric, value) in enumerate(metrics_detailed):
             bg_color = "#ffffff" if i % 2 == 0 else "#f8fafc"
+            icon = metric.split(' ')[0]
+            metric_name = ' '.join(metric.split(' ')[1:])
             
             st.markdown(f"""
             <div style="display: flex; justify-content: space-between; align-items: center; 
                         padding: 14px 16px; background: {bg_color}; 
-                        border-radius: 8px; margin: 4px 0;">
-                <span style="color: #4b5563; font-size: 14px; font-weight: 500;">{metric}</span>
+                        border-radius: 8px; margin: 4px 0; border: 1px solid #e5e7eb;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 18px;">{icon}</span>
+                    <span style="color: #4b5563; font-size: 14px; font-weight: 500;">{metric_name}</span>
+                </div>
                 <span style="font-weight: 700; color: #1f2937; font-size: 15px;">
                     {value}
                 </span>
             </div>
             """, unsafe_allow_html=True)
         
-        # Resumen de engagement
-        if 'visualizaciones' in df.columns and total_views > 0:
-            like_rate = (df['me_gusta'].sum() / total_views * 100) if 'me_gusta' in df.columns else 0
-            comment_rate = (df['comentarios'].sum() / total_views * 100) if 'comentarios' in df.columns else 0
+        # Análisis de engagement avanzado
+        st.markdown("""
+        <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
+                    border-radius: 12px; border-left: 4px solid #0ea5e9;">
+            <h4 style="margin: 0 0 12px 0; color: #374151; font-size: 16px;">📊 ANÁLISIS DE ENGAGEMENT AVANZADO</h4>
+            <div style="color: #4b5563; font-size: 14px;">
+        """, unsafe_allow_html=True)
+        
+        engagement_html = ""
+        
+        if total_views > 0:
+            like_rate = (total_likes / total_views * 100) if 'me_gusta' in df.columns else 0
+            comment_rate = (total_comments / total_views * 100) if 'comentarios' in df.columns else 0
             
-            st.markdown(f"""
-            <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
-                        border-radius: 10px; border-left: 4px solid #0ea5e9;">
-                <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 16px;">💬 Engagement Analysis:</h4>
-                <div style="color: #4b5563; font-size: 14px;">
-                    • Tasa de Likes: <strong>{like_rate:.2f}%</strong><br>
-                    • Tasa de Comentarios: <strong>{comment_rate:.2f}%</strong><br>
-                    • Total Engagement: <strong>{(like_rate + comment_rate):.2f}%</strong><br>
-                    • Ratio Likes/Comments: <strong>{(df['me_gusta'].sum()/max(df['comentarios'].sum(), 1)):.1f}</strong>
+            engagement_html += f"""
+                <div style="margin-bottom: 8px;">
+                    <span style="display: inline-block; width: 180px;">👍 Tasa de Likes:</span>
+                    <span style="font-weight: 700; color: #10b981;">{like_rate:.2f}%</span>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+                <div style="margin-bottom: 8px;">
+                    <span style="display: inline-block; width: 180px;">💬 Tasa de Comentarios:</span>
+                    <span style="font-weight: 700; color: #3B82F6;">{comment_rate:.2f}%</span>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <span style="display: inline-block; width: 180px;">📊 Total Engagement:</span>
+                    <span style="font-weight: 700; color: #8b5cf6;">{(like_rate + comment_rate):.2f}%</span>
+                </div>
+            """
+        
+        if total_likes > 0 and total_comments > 0:
+            like_to_comment_ratio = total_likes / total_comments
+            engagement_html += f"""
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+                    <span style="display: inline-block; width: 180px;">⚖️ Ratio Likes/Comments:</span>
+                    <span style="font-weight: 700; color: #EC4899;">{like_to_comment_ratio:.1f}</span>
+                </div>
+            """
+        
+        if engagement_html:
+            st.markdown(engagement_html, unsafe_allow_html=True)
+        
+        st.markdown("</div></div>", unsafe_allow_html=True)
     
     else:
-        st.info("Connect to view platform metrics")
+        st.info("No hay datos para métricas clave")
     
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1055,8 +1261,8 @@ current_time_full = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 st.markdown(f"""
 <div style="text-align: center; color: #6b7280; font-size: 13px; padding: 30px; 
             border-top: 1px solid #e5e7eb; margin-top: 40px;">
-    <div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 15px;">
-        <span>Social Media Dashboard PRO v3.0</span>
+    <div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 15px; flex-wrap: wrap;">
+        <span>Social Media Dashboard PRO v3.1</span>
         <span>•</span>
         <span>Data from Backend API</span>
         <span>•</span>
