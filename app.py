@@ -479,6 +479,59 @@ st.markdown("""
     color: white;
     border-color: #3B82F6;
 }
+
+/* Platform header styles */
+.platform-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: rgba(var(--platform-color-rgb), 0.05);
+    border-radius: 18px;
+    border-left: 6px solid var(--platform-color);
+}
+
+.platform-icon {
+    font-size: 32px;
+    margin-right: 20px;
+    color: var(--platform-color);
+}
+
+.platform-title {
+    flex: 1;
+}
+
+.platform-title h2 {
+    margin: 0;
+    color: var(--platform-color);
+    font-size: 28px;
+}
+
+.platform-title p {
+    margin: 8px 0 0 0;
+    color: #6b7280;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.platform-badge-container {
+    margin-left: auto;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.platform-badge-style {
+    background: rgba(var(--platform-color-rgb), 0.1);
+    color: var(--platform-color);
+    padding: 10px 24px;
+    border-radius: 24px;
+    font-size: 15px;
+    font-weight: 700;
+    border: 2px solid rgba(var(--platform-color-rgb), 0.2);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -514,7 +567,7 @@ with st.sidebar:
     
     # Botones de plataformas con botón GENERAL
     platforms = {
-        "general": ("🌐 GENERAL", "#3B82F6"),  # NUEVO: Botón general
+        "general": ("🌐 GENERAL", "#3B82F6"),
         "facebook": ("📘 Facebook", "#1877F2"),
         "twitter": ("🐦 Twitter", "#1DA1F2"),
         "instagram": ("📷 Instagram", "#E4405F"),
@@ -668,24 +721,26 @@ else:
 
 current_time_short = datetime.now().strftime('%H:%M')
 
-# Mostrar información de la plataforma
-st.markdown(f"""
-<div style="display: flex; align-items: center; margin-bottom: 30px;">
-    <div style="font-size: 32px; margin-right: 15px; color: {platform_color};">{platform_icon}</div>
-    <div>
-        <h2 style="margin: 0; color: {platform_color}; font-size: 28px;">{platform_name} ANALYTICS</h2>
-        <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 14px;">
-            {total_posts} contenidos analizados • Última actualización: {current_time_short}
-            {f" • Filtro: {st.session_state.get('tiempo_filtro', 'Todo el período')}" if selected_platform != "general" else ""}
-        </p>
+# CORREGIDO: Mostrar información de la plataforma usando componentes de Streamlit
+col_header1, col_header2, col_header3 = st.columns([1, 3, 1])
+
+with col_header1:
+    st.markdown(f'<div style="font-size: 42px; text-align: center; color: {platform_color};">{platform_icon}</div>', unsafe_allow_html=True)
+
+with col_header2:
+    st.markdown(f'<h2 style="margin: 0; color: {platform_color}; font-size: 28px; text-align: center;">{platform_name} ANALYTICS</h2>', unsafe_allow_html=True)
+    st.markdown(f'<p style="margin: 5px 0 0 0; color: #6b7280; font-size: 14px; text-align: center;">{total_posts} contenidos analizados • Última actualización: {current_time_short}</p>', unsafe_allow_html=True)
+    if selected_platform != "general":
+        st.markdown(f'<p style="margin: 2px 0 0 0; color: #9ca3af; font-size: 12px; text-align: center;">Filtro: {st.session_state.get("tiempo_filtro", "Todo el período")}</p>', unsafe_allow_html=True)
+
+with col_header3:
+    st.markdown(f'''
+    <div style="background: {platform_color}15; color: {platform_color}; padding: 10px 20px; 
+                border-radius: 20px; font-size: 14px; font-weight: 600; text-align: center; 
+                border: 1px solid {platform_color}30;">
+        {total_posts} {platform_name} Posts
     </div>
-    <div style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
-        <div style="background: {platform_color}15; color: {platform_color}; padding: 8px 20px; border-radius: 20px; font-size: 14px; font-weight: 600;">
-            {total_posts} {platform_name} Posts
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
 
 # Métricas principales
 col1, col2, col3, col4 = st.columns(4)
@@ -891,8 +946,6 @@ try:
         
 except Exception as e:
     st.warning(f"Error al generar gráficas: {str(e)}")
-    import traceback
-    st.code(traceback.format_exc())
 
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -909,10 +962,10 @@ st.markdown("""
             </p>
         </div>
         <div style="color: #6b7280; font-size: 13px; background: #f8fafc; padding: 8px 16px; border-radius: 20px; border: 1px solid #e5e7eb;">
-            {len(df)} contenidos totales
+            {total_posts} contenidos totales
         </div>
     </div>
-""", unsafe_allow_html=True)
+""".format(total_posts=total_posts), unsafe_allow_html=True)
 
 if not df.empty:
     # Preparar DataFrame para mostrar
@@ -1052,70 +1105,69 @@ with col_analysis1:
         </div>
     """, unsafe_allow_html=True)
     
-    if not df.empty:
+    if not df.empty and 'rendimiento_por_dia' in df.columns:
         # Análisis de distribución por rendimiento
-        if 'rendimiento_por_dia' in df.columns:
-            # Categorizar performance
-            q75 = df['rendimiento_por_dia'].quantile(0.75)
-            q50 = df['rendimiento_por_dia'].quantile(0.50)
-            q25 = df['rendimiento_por_dia'].quantile(0.25)
-            
-            high_perf = len(df[df['rendimiento_por_dia'] > q75])
-            medium_high_perf = len(df[(df['rendimiento_por_dia'] > q50) & (df['rendimiento_por_dia'] <= q75)])
-            medium_low_perf = len(df[(df['rendimiento_por_dia'] > q25) & (df['rendimiento_por_dia'] <= q50)])
-            low_perf = len(df[df['rendimiento_por_dia'] <= q25])
-            
-            # Gráfico de pastel
-            labels = ['🟢 Alto', '🟡 Medio-Alto', '🟠 Medio-Bajo', '🔴 Bajo']
-            values = [high_perf, medium_high_perf, medium_low_perf, low_perf]
-            colors = ['#10b981', '#f59e0b', '#f97316', '#ef4444']
-            
-            fig_pie = go.Figure(data=[go.Pie(
-                labels=labels,
-                values=values,
-                hole=0.4,
-                marker=dict(colors=colors),
-                textinfo='label+percent',
-                textposition='outside',
-                hovertemplate='<b>%{label}</b><br>Cantidad: %{value}<br>Porcentaje: %{percent}<extra></extra>'
-            )])
-            
-            fig_pie.update_layout(
-                height=350,
-                showlegend=False,
-                template='plotly_white',
-                margin=dict(l=20, r=20, t=40, b=20),
-                title_text="Distribución por Nivel de Rendimiento",
-                title_font=dict(size=14)
-            )
-            
-            st.plotly_chart(fig_pie, use_container_width=True)
+        q75 = df['rendimiento_por_dia'].quantile(0.75)
+        q50 = df['rendimiento_por_dia'].quantile(0.50)
+        q25 = df['rendimiento_por_dia'].quantile(0.25)
+        
+        high_perf = len(df[df['rendimiento_por_dia'] > q75])
+        medium_high_perf = len(df[(df['rendimiento_por_dia'] > q50) & (df['rendimiento_por_dia'] <= q75)])
+        medium_low_perf = len(df[(df['rendimiento_por_dia'] > q25) & (df['rendimiento_por_dia'] <= q50)])
+        low_perf = len(df[df['rendimiento_por_dia'] <= q25])
+        
+        # Gráfico de pastel
+        labels = ['🟢 Alto', '🟡 Medio-Alto', '🟠 Medio-Bajo', '🔴 Bajo']
+        values = [high_perf, medium_high_perf, medium_low_perf, low_perf]
+        colors = ['#10b981', '#f59e0b', '#f97316', '#ef4444']
+        
+        fig_pie = go.Figure(data=[go.Pie(
+            labels=labels,
+            values=values,
+            hole=0.4,
+            marker=dict(colors=colors),
+            textinfo='label+percent',
+            textposition='outside',
+            hovertemplate='<b>%{label}</b><br>Cantidad: %{value}<br>Porcentaje: %{percent}<extra></extra>'
+        )])
+        
+        fig_pie.update_layout(
+            height=350,
+            showlegend=False,
+            template='plotly_white',
+            margin=dict(l=20, r=20, t=40, b=20),
+            title_text="Distribución por Nivel de Rendimiento",
+            title_font=dict(size=14)
+        )
+        
+        st.plotly_chart(fig_pie, use_container_width=True)
         
         # Estadísticas detalladas
-        st.markdown("""
+        high_perf_pct = (high_perf / total_posts * 100) if total_posts > 0 else 0
+        medium_high_pct = (medium_high_perf / total_posts * 100) if total_posts > 0 else 0
+        medium_low_pct = (medium_low_perf / total_posts * 100) if total_posts > 0 else 0
+        low_perf_pct = (low_perf / total_posts * 100) if total_posts > 0 else 0
+        
+        st.markdown(f"""
         <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); 
                     border-radius: 12px; border-left: 4px solid #3B82F6;">
             <h4 style="margin: 0 0 15px 0; color: #374151; font-size: 16px;">📈 ANÁLISIS DE PERFORMANCE</h4>
             <div style="color: #4b5563; font-size: 14px;">
-        """, unsafe_allow_html=True)
-        
-        if 'rendimiento_por_dia' in df.columns:
-            stats_html = f"""
                 <div style="margin-bottom: 8px;">
                     <span style="display: inline-block; width: 180px;">🟢 Alto rendimiento:</span>
-                    <span style="font-weight: 700; color: #10b981;">{high_perf} posts ({(high_perf/total_posts*100):.1f}%)</span>
+                    <span style="font-weight: 700; color: #10b981;">{high_perf} posts ({high_perf_pct:.1f}%)</span>
                 </div>
                 <div style="margin-bottom: 8px;">
                     <span style="display: inline-block; width: 180px;">🟡 Medio-Alto:</span>
-                    <span style="font-weight: 700; color: #f59e0b;">{medium_high_perf} posts ({(medium_high_perf/total_posts*100):.1f}%)</span>
+                    <span style="font-weight: 700; color: #f59e0b;">{medium_high_perf} posts ({medium_high_pct:.1f}%)</span>
                 </div>
                 <div style="margin-bottom: 8px;">
                     <span style="display: inline-block; width: 180px;">🟠 Medio-Bajo:</span>
-                    <span style="font-weight: 700; color: #f97316;">{medium_low_perf} posts ({(medium_low_perf/total_posts*100):.1f}%)</span>
+                    <span style="font-weight: 700; color: #f97316;">{medium_low_perf} posts ({medium_low_pct:.1f}%)</span>
                 </div>
                 <div style="margin-bottom: 8px;">
                     <span style="display: inline-block; width: 180px;">🔴 Bajo rendimiento:</span>
-                    <span style="font-weight: 700; color: #ef4444;">{low_perf} posts ({(low_perf/total_posts*100):.1f}%)</span>
+                    <span style="font-weight: 700; color: #ef4444;">{low_perf} posts ({low_perf_pct:.1f}%)</span>
                 </div>
                 <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
                     <span style="display: inline-block; width: 180px;">📊 Rendimiento promedio:</span>
@@ -1125,10 +1177,9 @@ with col_analysis1:
                     <span style="display: inline-block; width: 180px;">🚀 Mejor rendimiento:</span>
                     <span style="font-weight: 700; color: #8b5cf6;">{df['rendimiento_por_dia'].max():.1f} views/día</span>
                 </div>
-            """
-            st.markdown(stats_html, unsafe_allow_html=True)
-        
-        st.markdown("</div></div>", unsafe_allow_html=True)
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
     else:
         st.info("No hay datos para análisis de performance")
