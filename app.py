@@ -20,6 +20,7 @@ st.set_page_config(
 # CONEXIÓN A BACKEND REAL
 #############################################
 BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
+FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
 
 def cargar_datos_backend():
     try:
@@ -40,7 +41,7 @@ def cargar_datos_backend():
 
         # Convertir números
         num_cols = ["vistas", "comentarios", "me_gusta_numero", "visualizaciones", 
-                   "me_gusta", "comentarios_num"]
+                   "me_gusta", "comentarios_num", "Seguidores_Totales"]
         for col in num_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -77,7 +78,35 @@ def cargar_datos_backend():
         return df
 
     except Exception as e:
-        st.error(f"Error al conectar con el backend: {str(e)}")
+        st.error(f"Error al conectar con el backend de datos: {str(e)}")
+        return pd.DataFrame()
+
+def cargar_datos_seguidores():
+    """Carga datos de seguidores desde el endpoint específico"""
+    try:
+        r = requests.get(FOLLOWERS_URL, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        
+        # Convertir a DataFrame
+        df_followers = pd.DataFrame(data.get("data", []))
+        
+        # Procesar datos
+        if "Fecha" in df_followers.columns:
+            df_followers["Fecha"] = pd.to_datetime(
+                df_followers["Fecha"],
+                dayfirst=True,
+                errors="coerce"
+            )
+        
+        # Convertir números
+        if "Seguidores_Totales" in df_followers.columns:
+            df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors="coerce")
+        
+        return df_followers
+        
+    except Exception as e:
+        st.error(f"Error al conectar con el backend de seguidores: {str(e)}")
         return pd.DataFrame()
 
 #############################################
@@ -89,6 +118,7 @@ def cargar_datos_backend():
 def cargar_datos():
     """Carga datos desde el backend y separa por plataforma"""
     df = cargar_datos_backend()
+    df_followers = cargar_datos_seguidores()
     
     if df.empty:
         # Datos de respaldo si falla el backend
@@ -101,6 +131,7 @@ def cargar_datos():
             'visualizaciones': [18, 22],
             'me_gusta': [0, 0],
             'comentarios': [0, 0],
+            'Seguidores_Totales': [0, 0],
             'red': ['youtobe', 'youtobe']
         })
         
@@ -110,11 +141,18 @@ def cargar_datos():
             'visualizaciones': [127, 5669],
             'me_gusta': [19, 211],
             'comentarios': [2, 5],
+            'Seguidores_Totales': [450, 450],
             'red': ['tiktok', 'tiktok']
         })
         
         youtobe_data['fecha_publicacion'] = pd.to_datetime(youtobe_data['fecha_publicacion'], dayfirst=True)
         tiktok_data['fecha_publicacion'] = pd.to_datetime(tiktok_data['fecha_publicacion'], dayfirst=True)
+        
+        # Datos de seguidores de ejemplo
+        df_followers = pd.DataFrame({
+            'Fecha': pd.date_range(start='2024-01-01', periods=30, freq='D'),
+            'Seguidores_Totales': range(400, 430)
+        })
         
     else:
         # Primero, asegurarnos de que la columna 'red' existe y está limpia
@@ -139,9 +177,9 @@ def cargar_datos():
             df_data['dias_desde_publicacion'] = df_data['dias_desde_publicacion'].apply(lambda x: max(x, 1))
             df_data['rendimiento_por_dia'] = df_data['visualizaciones'] / df_data['dias_desde_publicacion']
     
-    return df, youtobe_data, tiktok_data
+    return df, youtobe_data, tiktok_data, df_followers
 
-# Estilos CSS mejorados
+# Estilos CSS mejorados (se mantiene igual)
 st.markdown("""
 <style>
 /* Main container */
@@ -536,7 +574,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cargar datos
-df_all, youtobe_df, tiktok_df = cargar_datos()
+df_all, youtobe_df, tiktok_df, df_followers = cargar_datos()
 
 # Sidebar
 with st.sidebar:
@@ -709,6 +747,12 @@ total_views = df['visualizaciones'].sum() if 'visualizaciones' in df.columns els
 total_likes = df['me_gusta'].sum() if 'me_gusta' in df.columns else 0
 total_comments = df['comentarios'].sum() if 'comentarios' in df.columns else 0
 
+# Calcular total de seguidores (solo para GENERAL y TikTok)
+total_followers = 0
+if (selected_platform == "general" or selected_platform == "tiktok") and not df_followers.empty:
+    if 'Seguidores_Totales' in df_followers.columns:
+        total_followers = int(df_followers['Seguidores_Totales'].sum())
+
 if 'rendimiento_por_dia' in df.columns:
     avg_daily_perf = df['rendimiento_por_dia'].mean()
 else:
@@ -742,52 +786,198 @@ with col_header3:
     </div>
     ''', unsafe_allow_html=True)
 
-# Métricas principales
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-label">TOTAL CONTENIDOS</div>
-        <div class="metric-value">{total_posts}</div>
-        <div class="metric-trend trend-up">
-            <span>📈 Contenido Activo</span>
+# Métricas principales - AGREGADA MÉTRICA DE SEGUIDORES
+if selected_platform == "general" or selected_platform == "tiktok":
+    # Mostrar 5 métricas cuando es GENERAL o TikTok
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">TOTAL SEGUIDORES</div>
+            <div class="metric-value">{total_followers:,}</div>
+            <div class="metric-trend trend-up">
+                <span>👥 TikTok Followers</span>
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-label">VISUALIZACIONES TOTALES</div>
-        <div class="metric-value">{total_views:,}</div>
-        <div class="metric-trend trend-up">
-            <span>👁️ Alcance Total</span>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">TOTAL CONTENIDOS</div>
+            <div class="metric-value">{total_posts}</div>
+            <div class="metric-trend trend-up">
+                <span>📈 Contenido Activo</span>
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-label">RENDIMIENTO DIARIO</div>
-        <div class="metric-value">{avg_daily_perf:.1f}</div>
-        <div class="metric-trend trend-up">
-            <span>🚀 Views/Día</span>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">VISUALIZACIONES TOTALES</div>
+            <div class="metric-value">{total_views:,}</div>
+            <div class="metric-trend trend-up">
+                <span>👁️ Alcance Total</span>
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col4:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-label">TASA DE ENGAGEMENT</div>
-        <div class="metric-value">{engagement_rate:.2f}%</div>
-        <div class="metric-trend trend-up">
-            <span>💬 Interacción</span>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">RENDIMIENTO DIARIO</div>
+            <div class="metric-value">{avg_daily_perf:.1f}</div>
+            <div class="metric-trend trend-up">
+                <span>🚀 Views/Día</span>
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+    
+    with col5:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">TASA DE ENGAGEMENT</div>
+            <div class="metric-value">{engagement_rate:.2f}%</div>
+            <div class="metric-trend trend-up">
+                <span>💬 Interacción</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+else:
+    # Mostrar 4 métricas para otras plataformas
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">TOTAL CONTENIDOS</div>
+            <div class="metric-value">{total_posts}</div>
+            <div class="metric-trend trend-up">
+                <span>📈 Contenido Activo</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">VISUALIZACIONES TOTALES</div>
+            <div class="metric-value">{total_views:,}</div>
+            <div class="metric-trend trend-up">
+                <span>👁️ Alcance Total</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">RENDIMIENTO DIARIO</div>
+            <div class="metric-value">{avg_daily_perf:.1f}</div>
+            <div class="metric-trend trend-up">
+                <span>🚀 Views/Día</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col4:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">TASA DE ENGAGEMENT</div>
+            <div class="metric-value">{engagement_rate:.2f}%</div>
+            <div class="metric-trend trend-up">
+                <span>💬 Interacción</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# SECCIÓN: GRÁFICA DE SEGUIDORES (solo para GENERAL y TikTok)
+if (selected_platform == "general" or selected_platform == "tiktok") and not df_followers.empty and 'Fecha' in df_followers.columns and 'Seguidores_Totales' in df_followers.columns:
+    st.markdown("""
+    <div class="performance-chart">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 22px;">
+                📈 EVOLUCIÓN DE SEGUIDORES TIKTOK
+            </h3>
+            <div style="color: #6b7280; font-size: 13px;">
+                Total Seguidores: {:,}
+            </div>
+        </div>
+    """.format(total_followers), unsafe_allow_html=True)
+    
+    try:
+        # Crear gráfica de puntos
+        fig_followers = go.Figure()
+        
+        # Agregar puntos
+        fig_followers.add_trace(go.Scatter(
+            x=df_followers['Fecha'],
+            y=df_followers['Seguidores_Totales'],
+            mode='markers+lines',
+            name='Seguidores',
+            marker=dict(
+                size=10,
+                color='#000000',
+                symbol='circle',
+                line=dict(width=2, color='white')
+            ),
+            line=dict(color='#000000', width=2),
+            hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>👥 Seguidores: %{y:,}<extra></extra>'
+        ))
+        
+        # Configurar layout
+        fig_followers.update_layout(
+            height=400,
+            template='plotly_white',
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            margin=dict(l=40, r=40, t=40, b=40),
+            title_font=dict(size=16),
+            font=dict(size=12),
+            hovermode='x unified',
+            xaxis=dict(
+                title="Fecha",
+                gridcolor='#f1f5f9',
+                showgrid=True
+            ),
+            yaxis=dict(
+                title="Seguidores Totales",
+                range=[-5, 600],  # Eje Y de -5 a 600 como solicitado
+                gridcolor='#f1f5f9',
+                showgrid=True
+            )
+        )
+        
+        st.plotly_chart(fig_followers, use_container_width=True)
+        
+        # Estadísticas de seguidores
+        if len(df_followers) > 0:
+            col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+            
+            with col_f1:
+                latest_followers = df_followers['Seguidores_Totales'].iloc[-1] if len(df_followers) > 0 else 0
+                st.metric("👥 Último registro", f"{latest_followers:,}")
+            
+            with col_f2:
+                max_followers = df_followers['Seguidores_Totales'].max() if len(df_followers) > 0 else 0
+                max_date = df_followers.loc[df_followers['Seguidores_Totales'].idxmax(), 'Fecha']
+                st.metric("📈 Máximo seguidores", f"{max_followers:,}", delta=max_date.strftime('%d/%m'))
+            
+            with col_f3:
+                min_followers = df_followers['Seguidores_Totales'].min() if len(df_followers) > 0 else 0
+                min_date = df_followers.loc[df_followers['Seguidores_Totales'].idxmin(), 'Fecha']
+                st.metric("📉 Mínimo seguidores", f"{min_followers:,}", delta=min_date.strftime('%d/%m'))
+            
+            with col_f4:
+                avg_followers = df_followers['Seguidores_Totales'].mean() if len(df_followers) > 0 else 0
+                st.metric("📊 Promedio", f"{avg_followers:,.0f}")
+    
+    except Exception as e:
+        st.warning(f"Error al generar gráfica de seguidores: {str(e)}")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # SECCIÓN 1: PERFORMANCE OVER TIME - GRÁFICA MULTI-LÍNEA MEJORADA
 st.markdown("""
@@ -994,6 +1184,10 @@ if not df.empty:
     if 'comentarios' in display_df.columns:
         column_order.append('comentarios')
     
+    # AGREGAR COLUMNA DE SEGUIDORES_TOTALES SI EXISTE
+    if 'Seguidores_Totales' in display_df.columns:
+        column_order.append('Seguidores_Totales')
+    
     if 'rendimiento_por_dia' in display_df.columns:
         column_order.append('rendimiento_por_dia')
     
@@ -1018,6 +1212,7 @@ if not df.empty:
         'visualizaciones': '👁️ VISUALIZACIONES',
         'me_gusta': '❤️ LIKES',
         'comentarios': '💬 COMENTARIOS',
+        'Seguidores_Totales': '👥 SEGUIDORES TOTALES',  # NUEVA COLUMNA
         'rendimiento_por_dia': '🚀 REND/DÍA',
         'dias_desde_publicacion': '📅 DÍAS PUBLICADO',
         'semana': '📅 SEMANA',
@@ -1045,6 +1240,13 @@ if not df.empty:
         column_config['💬 COMENTARIOS'] = st.column_config.NumberColumn(
             format="%d",
             help="Número total de comentarios"
+        )
+    
+    # AGREGAR CONFIGURACIÓN PARA SEGUIDORES TOTALES
+    if '👥 SEGUIDORES TOTALES' in display_df.columns:
+        column_config['👥 SEGUIDORES TOTALES'] = st.column_config.NumberColumn(
+            format="%d",
+            help="Seguidores totales del contenido"
         )
     
     if '🚀 REND/DÍA' in display_df.columns:
@@ -1086,6 +1288,27 @@ if not df.empty:
     with col_table4:
         avg_perf = display_df['🚀 REND/DÍA'].mean() if '🚀 REND/DÍA' in display_df.columns else 0
         st.metric("📊 Rendimiento promedio", f"{avg_perf:.1f}")
+    
+    # AGREGAR ESTADÍSTICA DE SEGUIDORES SI EXISTE
+    if '👥 SEGUIDORES TOTALES' in display_df.columns:
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        col_followers1, col_followers2, col_followers3, col_followers4 = st.columns(4)
+        
+        with col_followers1:
+            total_seguidores = display_df['👥 SEGUIDORES TOTALES'].sum() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
+            st.metric("👥 Total Seguidores", f"{total_seguidores:,}")
+        
+        with col_followers2:
+            avg_seguidores = display_df['👥 SEGUIDORES TOTALES'].mean() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
+            st.metric("👥 Promedio/Post", f"{avg_seguidores:,.0f}")
+        
+        with col_followers3:
+            max_seguidores = display_df['👥 SEGUIDORES TOTALES'].max() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
+            st.metric("👥 Máximo", f"{max_seguidores:,}")
+        
+        with col_followers4:
+            min_seguidores = display_df['👥 SEGUIDORES TOTALES'].min() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
+            st.metric("👥 Mínimo", f"{min_seguidores:,}")
     
 else:
     st.info("No hay datos para mostrar en la tabla")
@@ -1216,6 +1439,11 @@ with col_analysis2:
         if 'comentarios' in df.columns:
             metrics_detailed.append(('💬 Avg. Comments/Post', f"{df['comentarios'].mean():.1f}"))
             metrics_detailed.append(('💬 Max Comments', f"{df['comentarios'].max():,}"))
+        
+        # Métricas de seguidores si existen
+        if 'Seguidores_Totales' in df.columns:
+            metrics_detailed.append(('👥 Avg. Followers/Post', f"{df['Seguidores_Totales'].mean():.0f}"))
+            metrics_detailed.append(('👥 Total Followers', f"{df['Seguidores_Totales'].sum():,}"))
         
         # Métricas de tiempo
         if 'dias_desde_publicacion' in df.columns:
