@@ -21,6 +21,7 @@ st.set_page_config(
 #############################################
 BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
 FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
+PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
 
 def cargar_datos_backend():
     try:
@@ -109,6 +110,33 @@ def cargar_datos_seguidores():
         st.error(f"Error al conectar con el backend de seguidores: {str(e)}")
         return pd.DataFrame()
 
+def cargar_datos_pauta():
+    """Carga datos de pauta publicitaria"""
+    try:
+        r = requests.get(PAUTA_URL, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        
+        # Convertir a DataFrame
+        df_pauta = pd.DataFrame(data.get("data", []))
+        
+        # Procesar datos si existen
+        if not df_pauta.empty:
+            # Formatear coste anuncio (sin decimales)
+            if "coste_anuncio" in df_pauta.columns:
+                df_pauta["coste_anuncio"] = pd.to_numeric(df_pauta["coste_anuncio"], errors="coerce").fillna(0).astype(int)
+            
+            # Formatear otras columnas
+            for col in ["visualizaciones_videos", "nuevos_seguidores", "visualizaciones_perfil"]:
+                if col in df_pauta.columns:
+                    df_pauta[col] = pd.to_numeric(df_pauta[col], errors="coerce").fillna(0).astype(int)
+        
+        return df_pauta
+        
+    except Exception as e:
+        st.error(f"Error al conectar con el backend de pauta: {str(e)}")
+        return pd.DataFrame()
+
 #############################################
 # FIN CONEXIÓN BACKEND REAL
 #############################################
@@ -119,6 +147,7 @@ def cargar_datos():
     """Carga datos desde el backend y separa por plataforma"""
     df = cargar_datos_backend()
     df_followers = cargar_datos_seguidores()
+    df_pauta = cargar_datos_pauta()
     
     if df.empty:
         # Datos de respaldo si falla el backend
@@ -154,6 +183,15 @@ def cargar_datos():
             'Seguidores_Totales': range(400, 430)
         })
         
+        # Datos de pauta de ejemplo
+        df_pauta = pd.DataFrame({
+            'coste_anuncio': [641140],
+            'visualizaciones_videos': [180500],
+            'nuevos_seguidores': [4170],
+            'visualizaciones_perfil': [628],
+            'rango_fechas': ['10/19/2025 - 12/18/2025']
+        })
+        
     else:
         # Primero, asegurarnos de que la columna 'red' existe y está limpia
         if 'red' in df.columns:
@@ -177,13 +215,16 @@ def cargar_datos():
             df_data['dias_desde_publicacion'] = df_data['dias_desde_publicacion'].apply(lambda x: max(x, 1))
             df_data['rendimiento_por_dia'] = df_data['visualizaciones'] / df_data['dias_desde_publicacion']
     
-    return df, youtobe_data, tiktok_data, df_followers
+    return df, youtobe_data, tiktok_data, df_followers, df_pauta
 
-# Estilos CSS mejorados (se mantiene igual)
+# Estilos CSS mejorados con reducción de espacio
 st.markdown("""
 <style>
-/* Main container */
-.main { padding: 0; }
+/* Main container - REDUCIDO ESPACIO SUPERIOR */
+.main { 
+    padding: 0;
+    padding-top: 0.5rem !important;
+}
 
 /* Sidebar styling - AZUL PROFESIONAL */
 [data-testid="stSidebar"] {
@@ -192,7 +233,7 @@ st.markdown("""
 }
 
 [data-testid="stSidebar"] > div:first-child {
-    padding-top: 2rem;
+    padding-top: 1.5rem;
 }
 
 /* Social media buttons - MEJORADO */
@@ -230,7 +271,7 @@ st.markdown("""
 .metric-card {
     background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     border-radius: 16px;
-    padding: 25px 20px;
+    padding: 22px 18px;
     box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
     border: 1px solid #e5e7eb;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -250,15 +291,15 @@ st.markdown("""
 }
 
 .metric-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+    transform: translateY(-6px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
 }
 
 .metric-value {
-    font-size: 36px;
+    font-size: 32px;
     font-weight: 800;
     color: #1f2937;
-    margin: 15px 0 5px 0;
+    margin: 12px 0 5px 0;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
@@ -271,7 +312,7 @@ st.markdown("""
 }
 
 .metric-trend {
-    font-size: 13px;
+    font-size: 12px;
     display: flex;
     align-items: center;
     margin-top: 8px;
@@ -281,16 +322,23 @@ st.markdown("""
 .trend-up { color: #10b981; }
 .trend-down { color: #ef4444; }
 
-/* Header principal */
+/* Header principal - REDUCIDO */
 .dashboard-header {
     background: linear-gradient(135deg, #1e40af 0%, #3B82F6 100%);
-    border-radius: 20px;
-    padding: 35px;
+    border-radius: 18px;
+    padding: 25px 30px;
     color: white;
-    margin-bottom: 30px;
-    box-shadow: 0 15px 35px rgba(59, 130, 246, 0.25);
+    margin-bottom: 20px;
+    box-shadow: 0 12px 28px rgba(59, 130, 246, 0.25);
     position: relative;
     overflow: hidden;
+}
+
+.dashboard-header h1 {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1.2;
 }
 
 .dashboard-header::before {
@@ -305,6 +353,57 @@ st.markdown("""
     opacity: 0.1;
 }
 
+/* Tarjetas de pauta publicitaria */
+.pauta-card {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 14px;
+    padding: 20px 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.pauta-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981 0%, #3B82F6 100%);
+}
+
+.pauta-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.pauta-value {
+    font-size: 26px;
+    font-weight: 800;
+    color: #1f2937;
+    margin: 10px 0 3px 0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+.pauta-label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+}
+
+.pauta-period {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 5px;
+    font-weight: 500;
+}
+
 /* Tabs mejorados */
 .stTabs [data-baseweb="tab-list"] {
     gap: 4px;
@@ -316,7 +415,7 @@ st.markdown("""
 
 .stTabs [data-baseweb="tab"] {
     border-radius: 8px;
-    padding: 12px 20px;
+    padding: 10px 18px;
     background: transparent;
     color: #64748b;
     font-weight: 500;
@@ -333,19 +432,19 @@ st.markdown("""
 /* Chart containers */
 .performance-chart {
     background: white;
-    border-radius: 18px;
-    padding: 25px;
+    border-radius: 16px;
+    padding: 22px;
     box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
-    margin: 20px 0;
+    margin: 15px 0;
     border: 1px solid #e5e7eb;
 }
 
 .data-table-container {
     background: white;
-    border-radius: 18px;
-    padding: 25px;
+    border-radius: 16px;
+    padding: 22px;
     box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
-    margin: 20px 0;
+    margin: 15px 0;
     border: 1px solid #e5e7eb;
 }
 
@@ -385,10 +484,10 @@ st.markdown("""
 /* Sidebar titles */
 .sidebar-title {
     color: #cbd5e1 !important;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
-    margin-bottom: 12px;
-    margin-top: 25px;
+    margin-bottom: 10px;
+    margin-top: 20px;
     letter-spacing: 0.5px;
     text-transform: uppercase;
 }
@@ -396,9 +495,9 @@ st.markdown("""
 /* Status containers */
 .status-container {
     background: rgba(255, 255, 255, 0.05);
-    padding: 12px 16px;
-    border-radius: 10px;
-    margin-bottom: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 6px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     transition: all 0.3s;
 }
@@ -416,7 +515,7 @@ st.markdown("""
 
 .dataframe th {
     background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-    padding: 14px 16px;
+    padding: 12px 14px;
     text-align: left;
     font-weight: 600;
     color: #374151;
@@ -426,7 +525,7 @@ st.markdown("""
 }
 
 .dataframe td {
-    padding: 12px 16px;
+    padding: 10px 14px;
     border-bottom: 1px solid #e5e7eb;
     color: #4b5563;
 }
@@ -443,9 +542,9 @@ st.markdown("""
 .platform-badge {
     display: inline-flex;
     align-items: center;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 18px;
+    font-size: 11px;
     font-weight: 600;
     margin: 2px;
 }
@@ -455,10 +554,10 @@ st.markdown("""
     border: 4px solid #f3f3f3;
     border-top: 4px solid #3B82F6;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     animation: spin 1s linear infinite;
-    margin: 20px auto;
+    margin: 15px auto;
 }
 
 @keyframes spin {
@@ -468,10 +567,10 @@ st.markdown("""
 
 /* Backend status */
 .backend-status {
-    padding: 10px 15px;
-    border-radius: 10px;
-    margin: 15px 0;
-    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 12px 0;
+    font-size: 12px;
     font-weight: 500;
 }
 
@@ -489,14 +588,16 @@ st.markdown("""
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-    .metric-value { font-size: 28px; }
-    .dashboard-header { padding: 25px; }
+    .metric-value { font-size: 26px; }
+    .pauta-value { font-size: 22px; }
+    .dashboard-header { padding: 20px; }
+    .dashboard-header h1 { font-size: 26px; }
 }
 
 /* Data table improvements */
 .full-table {
     width: 100%;
-    max-height: 600px;
+    max-height: 550px;
     overflow-y: auto;
 }
 
@@ -522,16 +623,16 @@ st.markdown("""
 .platform-header {
     display: flex;
     align-items: center;
-    margin-bottom: 30px;
-    padding: 20px;
+    margin-bottom: 20px;
+    padding: 18px;
     background: rgba(var(--platform-color-rgb), 0.05);
-    border-radius: 18px;
-    border-left: 6px solid var(--platform-color);
+    border-radius: 16px;
+    border-left: 5px solid var(--platform-color);
 }
 
 .platform-icon {
-    font-size: 32px;
-    margin-right: 20px;
+    font-size: 28px;
+    margin-right: 18px;
     color: var(--platform-color);
 }
 
@@ -542,31 +643,31 @@ st.markdown("""
 .platform-title h2 {
     margin: 0;
     color: var(--platform-color);
-    font-size: 28px;
+    font-size: 24px;
 }
 
 .platform-title p {
-    margin: 8px 0 0 0;
+    margin: 6px 0 0 0;
     color: #6b7280;
-    font-size: 14px;
+    font-size: 13px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .platform-badge-container {
     margin-left: auto;
     display: flex;
-    gap: 15px;
+    gap: 12px;
     align-items: center;
 }
 
 .platform-badge-style {
     background: rgba(var(--platform-color-rgb), 0.1);
     color: var(--platform-color);
-    padding: 10px 24px;
-    border-radius: 24px;
-    font-size: 15px;
+    padding: 8px 20px;
+    border-radius: 22px;
+    font-size: 14px;
     font-weight: 700;
     border: 2px solid rgba(var(--platform-color-rgb), 0.2);
 }
@@ -574,20 +675,20 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cargar datos
-df_all, youtobe_df, tiktok_df, df_followers = cargar_datos()
+df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
 
 # Sidebar
 with st.sidebar:
     st.markdown("""
-    <div style="text-align: center; margin-bottom: 30px; padding: 0 10px;">
+    <div style="text-align: center; margin-bottom: 25px; padding: 0 10px;">
         <div style="background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%); 
-                    width: 60px; height: 60px; border-radius: 16px; 
+                    width: 55px; height: 55px; border-radius: 14px; 
                     display: flex; align-items: center; justify-content: center; 
-                    margin: 0 auto 15px auto; font-size: 28px;">
+                    margin: 0 auto 12px auto; font-size: 26px;">
             📊
         </div>
-        <h2 style="color: white; margin-bottom: 5px; font-size: 22px;">DASHBOARD PRO</h2>
-        <p style="color: #94a3b8; font-size: 13px; margin: 0;">Social Media Analytics v3.1</p>
+        <h2 style="color: white; margin-bottom: 4px; font-size: 20px;">DASHBOARD PRO</h2>
+        <p style="color: #94a3b8; font-size: 12px; margin: 0;">Social Media Analytics v3.2</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -622,7 +723,7 @@ with st.sidebar:
             st.session_state["selected_platform"] = platform_key
             st.rerun()
     
-    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
     
     # Filtros de tiempo cuando no está en modo GENERAL
     if selected_platform != "general":
@@ -672,11 +773,11 @@ with st.sidebar:
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
 st.markdown(f"""
 <div class="dashboard-header">
-    <h1 style="margin: 0; font-size: 38px; font-weight: 800;">📊 SOCIAL MEDIA DASHBOARD PRO</h1>
-    <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 16px; font-weight: 400;">
+    <h1>📊 SOCIAL MEDIA DASHBOARD PRO</h1>
+    <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 15px; font-weight: 400;">
         Analytics en Tiempo Real • Monitoreo de Performance • Insights Inteligentes
     </p>
-    <div style="position: absolute; bottom: 20px; right: 30px; font-size: 14px; opacity: 0.8;">
+    <div style="position: absolute; bottom: 15px; right: 25px; font-size: 13px; opacity: 0.8;">
         Actualizado: {current_time}
     </div>
 </div>
@@ -751,7 +852,7 @@ total_comments = df['comentarios'].sum() if 'comentarios' in df.columns else 0
 total_followers = 0
 if (selected_platform == "general" or selected_platform == "tiktok") and not df_followers.empty:
     if 'Seguidores_Totales' in df_followers.columns:
-        total_followers = int(df_followers['Seguidores_Totales'].sum())
+        total_followers = int(df_followers['Seguidores_Totales'].iloc[-1]) if len(df_followers) > 0 else 0
 
 if 'rendimiento_por_dia' in df.columns:
     avg_daily_perf = df['rendimiento_por_dia'].mean()
@@ -765,28 +866,109 @@ else:
 
 current_time_short = datetime.now().strftime('%H:%M')
 
-# CORREGIDO: Mostrar información de la plataforma usando componentes de Streamlit
+# Información de la plataforma
 col_header1, col_header2, col_header3 = st.columns([1, 3, 1])
 
 with col_header1:
-    st.markdown(f'<div style="font-size: 42px; text-align: center; color: {platform_color};">{platform_icon}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="font-size: 38px; text-align: center; color: {platform_color};">{platform_icon}</div>', unsafe_allow_html=True)
 
 with col_header2:
-    st.markdown(f'<h2 style="margin: 0; color: {platform_color}; font-size: 28px; text-align: center;">{platform_name} ANALYTICS</h2>', unsafe_allow_html=True)
-    st.markdown(f'<p style="margin: 5px 0 0 0; color: #6b7280; font-size: 14px; text-align: center;">{total_posts} contenidos analizados • Última actualización: {current_time_short}</p>', unsafe_allow_html=True)
+    st.markdown(f'<h2 style="margin: 0; color: {platform_color}; font-size: 26px; text-align: center;">{platform_name} ANALYTICS</h2>', unsafe_allow_html=True)
+    st.markdown(f'<p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">{total_posts} contenidos analizados • Última actualización: {current_time_short}</p>', unsafe_allow_html=True)
     if selected_platform != "general":
-        st.markdown(f'<p style="margin: 2px 0 0 0; color: #9ca3af; font-size: 12px; text-align: center;">Filtro: {st.session_state.get("tiempo_filtro", "Todo el período")}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p style="margin: 2px 0 0 0; color: #9ca3af; font-size: 11px; text-align: center;">Filtro: {st.session_state.get("tiempo_filtro", "Todo el período")}</p>', unsafe_allow_html=True)
 
 with col_header3:
     st.markdown(f'''
-    <div style="background: {platform_color}15; color: {platform_color}; padding: 10px 20px; 
-                border-radius: 20px; font-size: 14px; font-weight: 600; text-align: center; 
+    <div style="background: {platform_color}15; color: {platform_color}; padding: 8px 18px; 
+                border-radius: 18px; font-size: 13px; font-weight: 600; text-align: center; 
                 border: 1px solid {platform_color}30;">
         {total_posts} {platform_name} Posts
     </div>
     ''', unsafe_allow_html=True)
 
-# Métricas principales - AGREGADA MÉTRICA DE SEGUIDORES
+# ============================================================================
+# SECCIÓN: MÉTRICAS DE PAUTA PUBLICITARIA (solo para GENERAL y TikTok)
+# ============================================================================
+if (selected_platform == "general" or selected_platform == "tiktok") and not df_pauta.empty:
+    # Extraer datos de pauta
+    pauta_data = df_pauta.iloc[0] if len(df_pauta) > 0 else {}
+    
+    # Formatear valores según especificaciones
+    def format_number(num):
+        """Formatea números con separador de miles"""
+        try:
+            return f"{int(num):,}".replace(",", ".")
+        except:
+            return "0"
+    
+    # Obtener valores con manejo de errores
+    coste_anuncio = format_number(pauta_data.get('coste_anuncio', 0))
+    visualizaciones_videos = format_number(pauta_data.get('visualizaciones_videos', 0))
+    nuevos_seguidores = format_number(pauta_data.get('nuevos_seguidores', 0))
+    visualizaciones_perfil = format_number(pauta_data.get('visualizaciones_perfil', 0))
+    rango_fechas = pauta_data.get('rango_fechas', 'N/D')
+    
+    st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
+                border-radius: 16px; padding: 20px; margin-bottom: 20px; 
+                border-left: 5px solid #0ea5e9;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #0369a1; font-size: 20px; display: flex; align-items: center; gap: 8px;">
+                📢 MÉTRICAS DE PAUTA PUBLICITARIA
+            </h3>
+            <div style="color: #64748b; font-size: 12px; background: white; padding: 5px 12px; border-radius: 15px; border: 1px solid #cbd5e1;">
+                Período: {rango_fechas}
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Mostrar 4 tarjetas de métricas de pauta
+    col_pauta1, col_pauta2, col_pauta3, col_pauta4 = st.columns(4)
+    
+    with col_pauta1:
+        st.markdown(f"""
+        <div class="pauta-card">
+            <div class="pauta-label">COSTE ANUNCIO</div>
+            <div class="pauta-value">${coste_anuncio}</div>
+            <div class="pauta-period">Inversión total en pesos</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_pauta2:
+        st.markdown(f"""
+        <div class="pauta-card">
+            <div class="pauta-label">VISUALIZACIONES VIDEOS</div>
+            <div class="pauta-value">{visualizaciones_videos}</div>
+            <div class="pauta-period">Reproducciones totales</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_pauta3:
+        st.markdown(f"""
+        <div class="pauta-card">
+            <div class="pauta-label">NUEVOS SEGUIDORES</div>
+            <div class="pauta-value">{nuevos_seguidores}</div>
+            <div class="pauta-period">Audiencia ganada</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_pauta4:
+        st.markdown(f"""
+        <div class="pauta-card">
+            <div class="pauta-label">VISUALIZACIONES PERFIL</div>
+            <div class="pauta-value">{visualizaciones_perfil}</div>
+            <div class="pauta-period">Visitas al perfil</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ============================================================================
+# FIN SECCIÓN PAUTA PUBLICITARIA
+# ============================================================================
+
+# Métricas principales
 if selected_platform == "general" or selected_platform == "tiktok":
     # Mostrar 5 métricas cuando es GENERAL o TikTok
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -897,11 +1079,11 @@ else:
 if (selected_platform == "general" or selected_platform == "tiktok") and not df_followers.empty and 'Fecha' in df_followers.columns and 'Seguidores_Totales' in df_followers.columns:
     st.markdown("""
     <div class="performance-chart">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-            <h3 style="margin: 0; color: #1f2937; font-size: 22px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
                 📈 EVOLUCIÓN DE SEGUIDORES TIKTOK
             </h3>
-            <div style="color: #6b7280; font-size: 13px;">
+            <div style="color: #6b7280; font-size: 12px;">
                 Total Seguidores: {:,}
             </div>
         </div>
@@ -918,7 +1100,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
             mode='markers+lines',
             name='Seguidores',
             marker=dict(
-                size=10,
+                size=8,
                 color='#000000',
                 symbol='circle',
                 line=dict(width=2, color='white')
@@ -929,7 +1111,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
         
         # Configurar layout
         fig_followers.update_layout(
-            height=400,
+            height=380,
             template='plotly_white',
             plot_bgcolor='white',
             paper_bgcolor='white',
@@ -944,7 +1126,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
             ),
             yaxis=dict(
                 title="Seguidores Totales",
-                range=[-5, 600],  # Eje Y de -5 a 600 como solicitado
+                range=[-5, 600],
                 gridcolor='#f1f5f9',
                 showgrid=True
             )
@@ -982,11 +1164,11 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
 # SECCIÓN 1: PERFORMANCE OVER TIME - GRÁFICA MULTI-LÍNEA MEJORADA
 st.markdown("""
 <div class="performance-chart">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-        <h3 style="margin: 0; color: #1f2937; font-size: 22px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
             📈 PERFORMANCE OVER TIME - EVOLUCIÓN DETALLADA
         </h3>
-        <div style="color: #6b7280; font-size: 13px;">
+        <div style="color: #6b7280; font-size: 12px;">
             Gráfica multi-línea interactiva
         </div>
     </div>
@@ -1088,7 +1270,7 @@ try:
         
         # Actualizar layout
         fig.update_layout(
-            height=800,
+            height=750,
             showlegend=False,
             template='plotly_white',
             plot_bgcolor='white',
@@ -1142,16 +1324,16 @@ st.markdown("</div>", unsafe_allow_html=True)
 # SECCIÓN 2: CONTENT PERFORMANCE DATA - TABLA COMPLETA
 st.markdown("""
 <div class="data-table-container">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
-            <h3 style="margin: 0; color: #1f2937; font-size: 22px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
                 📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA
             </h3>
-            <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 14px;">
+            <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px;">
                 Lista completa de contenidos con todos los detalles
             </p>
         </div>
-        <div style="color: #6b7280; font-size: 13px; background: #f8fafc; padding: 8px 16px; border-radius: 20px; border: 1px solid #e5e7eb;">
+        <div style="color: #6b7280; font-size: 12px; background: #f8fafc; padding: 6px 14px; border-radius: 18px; border: 1px solid #e5e7eb;">
             {total_posts} contenidos totales
         </div>
     </div>
@@ -1212,7 +1394,7 @@ if not df.empty:
         'visualizaciones': '👁️ VISUALIZACIONES',
         'me_gusta': '❤️ LIKES',
         'comentarios': '💬 COMENTARIOS',
-        'Seguidores_Totales': '👥 SEGUIDORES TOTALES',  # NUEVA COLUMNA
+        'Seguidores_Totales': '👥 SEGUIDORES TOTALES',
         'rendimiento_por_dia': '🚀 REND/DÍA',
         'dias_desde_publicacion': '📅 DÍAS PUBLICADO',
         'semana': '📅 SEMANA',
@@ -1267,7 +1449,7 @@ if not df.empty:
         use_container_width=True,
         hide_index=True,
         column_config=column_config,
-        height=600
+        height=550
     )
     
     # Estadísticas de la tabla
@@ -1291,7 +1473,7 @@ if not df.empty:
     
     # AGREGAR ESTADÍSTICA DE SEGUIDORES SI EXISTE
     if '👥 SEGUIDORES TOTALES' in display_df.columns:
-        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
         col_followers1, col_followers2, col_followers3, col_followers4 = st.columns(4)
         
         with col_followers1:
@@ -1321,8 +1503,8 @@ col_analysis1, col_analysis2 = st.columns(2)
 with col_analysis1:
     st.markdown("""
     <div class="performance-chart" style="height: 100%;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 18px;">
                 📊 PERFORMANCE ANALYTICS
             </h3>
         </div>
@@ -1355,7 +1537,7 @@ with col_analysis1:
         )])
         
         fig_pie.update_layout(
-            height=350,
+            height=320,
             showlegend=False,
             template='plotly_white',
             margin=dict(l=20, r=20, t=40, b=20),
@@ -1372,32 +1554,32 @@ with col_analysis1:
         low_perf_pct = (low_perf / total_posts * 100) if total_posts > 0 else 0
         
         st.markdown(f"""
-        <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); 
+        <div style="margin-top: 18px; padding: 18px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); 
                     border-radius: 12px; border-left: 4px solid #3B82F6;">
-            <h4 style="margin: 0 0 15px 0; color: #374151; font-size: 16px;">📈 ANÁLISIS DE PERFORMANCE</h4>
-            <div style="color: #4b5563; font-size: 14px;">
-                <div style="margin-bottom: 8px;">
-                    <span style="display: inline-block; width: 180px;">🟢 Alto rendimiento:</span>
+            <h4 style="margin: 0 0 12px 0; color: #374151; font-size: 15px;">📈 ANÁLISIS DE PERFORMANCE</h4>
+            <div style="color: #4b5563; font-size: 13px;">
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">🟢 Alto rendimiento:</span>
                     <span style="font-weight: 700; color: #10b981;">{high_perf} posts ({high_perf_pct:.1f}%)</span>
                 </div>
-                <div style="margin-bottom: 8px;">
-                    <span style="display: inline-block; width: 180px;">🟡 Medio-Alto:</span>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">🟡 Medio-Alto:</span>
                     <span style="font-weight: 700; color: #f59e0b;">{medium_high_perf} posts ({medium_high_pct:.1f}%)</span>
                 </div>
-                <div style="margin-bottom: 8px;">
-                    <span style="display: inline-block; width: 180px;">🟠 Medio-Bajo:</span>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">🟠 Medio-Bajo:</span>
                     <span style="font-weight: 700; color: #f97316;">{medium_low_perf} posts ({medium_low_pct:.1f}%)</span>
                 </div>
-                <div style="margin-bottom: 8px;">
-                    <span style="display: inline-block; width: 180px;">🔴 Bajo rendimiento:</span>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">🔴 Bajo rendimiento:</span>
                     <span style="font-weight: 700; color: #ef4444;">{low_perf} posts ({low_perf_pct:.1f}%)</span>
                 </div>
-                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
-                    <span style="display: inline-block; width: 180px;">📊 Rendimiento promedio:</span>
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                    <span style="display: inline-block; width: 160px;">📊 Rendimiento promedio:</span>
                     <span style="font-weight: 700; color: #3B82F6;">{df['rendimiento_por_dia'].mean():.1f} views/día</span>
                 </div>
-                <div style="margin-top: 8px;">
-                    <span style="display: inline-block; width: 180px;">🚀 Mejor rendimiento:</span>
+                <div style="margin-top: 6px;">
+                    <span style="display: inline-block; width: 160px;">🚀 Mejor rendimiento:</span>
                     <span style="font-weight: 700; color: #8b5cf6;">{df['rendimiento_por_dia'].max():.1f} views/día</span>
                 </div>
             </div>
@@ -1412,8 +1594,8 @@ with col_analysis1:
 with col_analysis2:
     st.markdown("""
     <div class="performance-chart" style="height: 100%;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 18px;">
                 📈 KEY METRICS - MÉTRICAS CLAVE
             </h3>
         </div>
@@ -1475,13 +1657,13 @@ with col_analysis2:
             
             st.markdown(f"""
             <div style="display: flex; justify-content: space-between; align-items: center; 
-                        padding: 14px 16px; background: {bg_color}; 
-                        border-radius: 8px; margin: 4px 0; border: 1px solid #e5e7eb;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 18px;">{icon}</span>
-                    <span style="color: #4b5563; font-size: 14px; font-weight: 500;">{metric_name}</span>
+                        padding: 12px 14px; background: {bg_color}; 
+                        border-radius: 8px; margin: 3px 0; border: 1px solid #e5e7eb;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">{icon}</span>
+                    <span style="color: #4b5563; font-size: 13px; font-weight: 500;">{metric_name}</span>
                 </div>
-                <span style="font-weight: 700; color: #1f2937; font-size: 15px;">
+                <span style="font-weight: 700; color: #1f2937; font-size: 14px;">
                     {value}
                 </span>
             </div>
@@ -1489,10 +1671,10 @@ with col_analysis2:
         
         # Análisis de engagement avanzado
         st.markdown("""
-        <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
+        <div style="margin-top: 18px; padding: 18px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
                     border-radius: 12px; border-left: 4px solid #0ea5e9;">
-            <h4 style="margin: 0 0 12px 0; color: #374151; font-size: 16px;">📊 ANÁLISIS DE ENGAGEMENT AVANZADO</h4>
-            <div style="color: #4b5563; font-size: 14px;">
+            <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 15px;">📊 ANÁLISIS DE ENGAGEMENT AVANZADO</h4>
+            <div style="color: #4b5563; font-size: 13px;">
         """, unsafe_allow_html=True)
         
         engagement_html = ""
@@ -1502,16 +1684,16 @@ with col_analysis2:
             comment_rate = (total_comments / total_views * 100) if 'comentarios' in df.columns else 0
             
             engagement_html += f"""
-                <div style="margin-bottom: 8px;">
-                    <span style="display: inline-block; width: 180px;">👍 Tasa de Likes:</span>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">👍 Tasa de Likes:</span>
                     <span style="font-weight: 700; color: #10b981;">{like_rate:.2f}%</span>
                 </div>
-                <div style="margin-bottom: 8px;">
-                    <span style="display: inline-block; width: 180px;">💬 Tasa de Comentarios:</span>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">💬 Tasa de Comentarios:</span>
                     <span style="font-weight: 700; color: #3B82F6;">{comment_rate:.2f}%</span>
                 </div>
-                <div style="margin-bottom: 8px;">
-                    <span style="display: inline-block; width: 180px;">📊 Total Engagement:</span>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">📊 Total Engagement:</span>
                     <span style="font-weight: 700; color: #8b5cf6;">{(like_rate + comment_rate):.2f}%</span>
                 </div>
             """
@@ -1519,8 +1701,8 @@ with col_analysis2:
         if total_likes > 0 and total_comments > 0:
             like_to_comment_ratio = total_likes / total_comments
             engagement_html += f"""
-                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
-                    <span style="display: inline-block; width: 180px;">⚖️ Ratio Likes/Comments:</span>
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                    <span style="display: inline-block; width: 160px;">⚖️ Ratio Likes/Comments:</span>
                     <span style="font-weight: 700; color: #EC4899;">{like_to_comment_ratio:.1f}</span>
                 </div>
             """
@@ -1538,10 +1720,10 @@ with col_analysis2:
 # Footer
 current_time_full = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 st.markdown(f"""
-<div style="text-align: center; color: #6b7280; font-size: 13px; padding: 30px; 
-            border-top: 1px solid #e5e7eb; margin-top: 40px;">
-    <div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 15px; flex-wrap: wrap;">
-        <span>Social Media Dashboard PRO v3.1</span>
+<div style="text-align: center; color: #6b7280; font-size: 12px; padding: 25px; 
+            border-top: 1px solid #e5e7eb; margin-top: 30px;">
+    <div style="display: flex; justify-content: center; gap: 25px; margin-bottom: 12px; flex-wrap: wrap;">
+        <span>Social Media Dashboard PRO v3.2</span>
         <span>•</span>
         <span>Data from Backend API</span>
         <span>•</span>
@@ -1549,7 +1731,7 @@ st.markdown(f"""
         <span>•</span>
         <span>Updated in Real-time</span>
     </div>
-    <div style="font-size: 12px; color: #9ca3af;">
+    <div style="font-size: 11px; color: #9ca3af;">
         © 2025 Social Media Analytics Platform • Connected to: <strong>{BACKEND_URL}</strong> • {current_time_full}
     </div>
 </div>
