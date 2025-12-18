@@ -134,7 +134,6 @@ def cargar_datos_pauta():
         return df_pauta
         
     except Exception as e:
-        st.error(f"Error al conectar con el backend de pauta: {str(e)}")
         return pd.DataFrame()
 
 #############################################
@@ -322,37 +321,6 @@ st.markdown("""
 .trend-up { color: #10b981; }
 .trend-down { color: #ef4444; }
 
-/* Header principal - REDUCIDO */
-.dashboard-header {
-    background: linear-gradient(135deg, #1e40af 0%, #3B82F6 100%);
-    border-radius: 18px;
-    padding: 25px 30px;
-    color: white;
-    margin-bottom: 20px;
-    box-shadow: 0 12px 28px rgba(59, 130, 246, 0.25);
-    position: relative;
-    overflow: hidden;
-}
-
-.dashboard-header h1 {
-    margin: 0;
-    font-size: 32px;
-    font-weight: 800;
-    line-height: 1.2;
-}
-
-.dashboard-header::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
-    background-size: 30px 30px;
-    opacity: 0.1;
-}
-
 /* Tarjetas de pauta publicitaria */
 .pauta-card {
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
@@ -402,6 +370,37 @@ st.markdown("""
     color: #9ca3af;
     margin-top: 5px;
     font-weight: 500;
+}
+
+/* Header principal - REDUCIDO */
+.dashboard-header {
+    background: linear-gradient(135deg, #1e40af 0%, #3B82F6 100%);
+    border-radius: 18px;
+    padding: 25px 30px;
+    color: white;
+    margin-bottom: 20px;
+    box-shadow: 0 12px 28px rgba(59, 130, 246, 0.25);
+    position: relative;
+    overflow: hidden;
+}
+
+.dashboard-header h1 {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.dashboard-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+    background-size: 30px 30px;
+    opacity: 0.1;
 }
 
 /* Tabs mejorados */
@@ -688,7 +687,7 @@ with st.sidebar:
             📊
         </div>
         <h2 style="color: white; margin-bottom: 4px; font-size: 20px;">DASHBOARD PRO</h2>
-        <p style="color: #94a3b8; font-size: 12px; margin: 0;">Social Media Analytics v3.2</p>
+        <p style="color: #94a3b8; font-size: 12px; margin: 0;">Social Media Analytics v3.1</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -852,7 +851,7 @@ total_comments = df['comentarios'].sum() if 'comentarios' in df.columns else 0
 total_followers = 0
 if (selected_platform == "general" or selected_platform == "tiktok") and not df_followers.empty:
     if 'Seguidores_Totales' in df_followers.columns:
-        total_followers = int(df_followers['Seguidores_Totales'].iloc[-1]) if len(df_followers) > 0 else 0
+        total_followers = int(df_followers['Seguidores_Totales'].sum())
 
 if 'rendimiento_por_dia' in df.columns:
     avg_daily_perf = df['rendimiento_por_dia'].mean()
@@ -894,7 +893,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
     # Extraer datos de pauta
     pauta_data = df_pauta.iloc[0] if len(df_pauta) > 0 else {}
     
-    # Formatear valores según especificaciones
+    # Función para formatear números con separador de miles
     def format_number(num):
         """Formatea números con separador de miles"""
         try:
@@ -1723,7 +1722,7 @@ st.markdown(f"""
 <div style="text-align: center; color: #6b7280; font-size: 12px; padding: 25px; 
             border-top: 1px solid #e5e7eb; margin-top: 30px;">
     <div style="display: flex; justify-content: center; gap: 25px; margin-bottom: 12px; flex-wrap: wrap;">
-        <span>Social Media Dashboard PRO v3.2</span>
+        <span>Social Media Dashboard PRO v3.1</span>
         <span>•</span>
         <span>Data from Backend API</span>
         <span>•</span>
