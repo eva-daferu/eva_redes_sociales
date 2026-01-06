@@ -139,9 +139,14 @@ def cargar_datos_pauta():
                 if col in df_pauta.columns:
                     df_pauta[col] = pd.to_numeric(df_pauta[col], errors="coerce").fillna(0).astype(int)
             
-            # Procesar fecha
+            # Procesar fecha - FORMATO CORRECTO PARA CRUCE
             if "fecha" in df_pauta.columns:
-                df_pauta["fecha"] = pd.to_datetime(df_pauta["fecha"], errors="coerce")
+                # Intentar múltiples formatos de fecha
+                df_pauta["fecha"] = pd.to_datetime(
+                    df_pauta["fecha"], 
+                    errors='coerce',
+                    dayfirst=True  # Asumir día primero
+                )
         
         return df_pauta
         
@@ -1110,7 +1115,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
     
     try:
         # Preparar datos de pauta si existen
-        if not df_pauta.empty and 'fecha' in df_pauta.columns:
+        if not df_pauta.empty:
             # Asegurar que tenemos las columnas necesarias de pauta
             if 'Costo' in df_pauta.columns:
                 df_pauta['coste_anuncio'] = df_pauta['Costo']
@@ -1129,10 +1134,39 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                 'nuevos_seguidores_pauta': 'sum'
             }).reset_index()
             
-            # Fusionar por fecha
-            df_merged = pd.merge(df_followers, df_pauta_agg, left_on='Fecha', right_on='fecha', how='left')
+            # Fusionar por fecha - CORRECCIÓN: USAR OUTER JOIN PARA VER TODAS LAS FECHAS
+            df_merged = pd.merge(df_followers, df_pauta_agg, left_on='Fecha', right_on='fecha', how='outer')
+            
+            # Ordenar por fecha
+            df_merged = df_merged.sort_values('Fecha')
+            
+            # Rellenar valores faltantes
+            if 'Seguidores_Totales' in df_merged.columns:
+                df_merged['Seguidores_Totales'] = df_merged['Seguidores_Totales'].fillna(method='ffill').fillna(0)
+            
+            if 'coste_anuncio' in df_merged.columns:
+                df_merged['coste_anuncio'] = df_merged['coste_anuncio'].fillna(0)
+            
+            if 'visualizaciones_videos' in df_merged.columns:
+                df_merged['visualizaciones_videos'] = df_merged['visualizaciones_videos'].fillna(0)
+            
+            if 'nuevos_seguidores_pauta' in df_merged.columns:
+                df_merged['nuevos_seguidores_pauta'] = df_merged['nuevos_seguidores_pauta'].fillna(0)
         else:
             df_merged = df_followers.copy()
+            df_merged['coste_anuncio'] = 0
+            df_merged['visualizaciones_videos'] = 0
+            df_merged['nuevos_seguidores_pauta'] = 0
+        
+        # DEBUG: Mostrar datos para verificar
+        with st.expander("🔍 Ver datos de pauta cargados", expanded=False):
+            st.write("**Datos de pauta originales:**")
+            st.dataframe(df_pauta)
+            st.write("**Datos de pauta agrupados por fecha:**")
+            if 'df_pauta_agg' in locals():
+                st.dataframe(df_pauta_agg)
+            st.write("**Datos fusionados (primeras 20 filas):**")
+            st.dataframe(df_merged.head(20))
         
         # Crear gráfica de 4 líneas
         fig_followers = go.Figure()
@@ -1157,7 +1191,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
         if 'nuevos_seguidores_pauta' in df_merged.columns:
             fig_followers.add_trace(go.Scatter(
                 x=df_merged['Fecha'],
-                y=df_merged['nuevos_seguidores_pauta'].fillna(0),
+                y=df_merged['nuevos_seguidores_pauta'],
                 mode='lines+markers',
                 name='👥 Seguidores Pauta',
                 marker=dict(
@@ -1174,7 +1208,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
         if 'coste_anuncio' in df_merged.columns:
             fig_followers.add_trace(go.Bar(
                 x=df_merged['Fecha'],
-                y=df_merged['coste_anuncio'].fillna(0),
+                y=df_merged['coste_anuncio'],
                 name='💰 Costo Pauta',
                 marker=dict(
                     color='#ef4444',
@@ -1188,7 +1222,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
         if 'visualizaciones_videos' in df_merged.columns:
             fig_followers.add_trace(go.Scatter(
                 x=df_merged['Fecha'],
-                y=df_merged['visualizaciones_videos'].fillna(0),
+                y=df_merged['visualizaciones_videos'],
                 mode='lines+markers',
                 name='👁️ Visualizaciones Pauta',
                 marker=dict(
@@ -1208,7 +1242,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
             plot_bgcolor='white',
             paper_bgcolor='white',
             margin=dict(l=40, r=40, t=40, b=40),
-            hovermode='closest',  # Cambiado para evitar duplicación de fecha
+            hovermode='x unified',  # Cambiado de vuelta para mostrar toda la información
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
@@ -1271,15 +1305,6 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
     
     except Exception as e:
         st.warning(f"Error al generar gráfica combinada: {str(e)}")
-        # Para depuración
-        with st.expander("🔍 Ver datos de depuración", expanded=False):
-            st.write("**Datos de followers:**")
-            st.dataframe(df_followers.head(10))
-            st.write("**Datos de pauta:**")
-            st.dataframe(df_pauta.head(10))
-            if 'df_merged' in locals():
-                st.write("**Datos fusionados:**")
-                st.dataframe(df_merged.head(20))
     
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1400,7 +1425,7 @@ try:
             margin=dict(l=40, r=40, t=100, b=40),
             title_font=dict(size=16),
             font=dict(size=12),
-            hovermode='closest'
+            hovermode='x unified'
         )
         
         # Actualizar ejes
@@ -1482,10 +1507,10 @@ if not df.empty:
     if 'visualizaciones' in display_df.columns:
         column_order.append('visualizaciones')
     
-    if 'me_gusta' in display_df.columns:
+    if 'me_gusta' in df.columns:
         column_order.append('me_gusta')
     
-    if 'comentarios' in display_df.columns:
+    if 'comentarios' in df.columns:
         column_order.append('comentarios')
     
     # AGREGAR COLUMNA DE SEGUIDORES_TOTALES SI EXISTE
