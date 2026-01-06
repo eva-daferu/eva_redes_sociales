@@ -1110,8 +1110,6 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
     
     try:
         # Preparar datos de pauta si existen
-        df_merged = df_followers.copy()
-        
         if not df_pauta.empty and 'fecha' in df_pauta.columns:
             # Asegurar que tenemos las columnas necesarias de pauta
             if 'Costo' in df_pauta.columns:
@@ -1124,8 +1122,17 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
             # Convertir fecha en pauta al mismo formato que en followers
             df_pauta['fecha'] = pd.to_datetime(df_pauta['fecha'], errors='coerce')
             
+            # Agrupar por fecha para sumar valores duplicados
+            df_pauta_agg = df_pauta.groupby('fecha').agg({
+                'coste_anuncio': 'sum',
+                'visualizaciones_videos': 'sum',
+                'nuevos_seguidores_pauta': 'sum'
+            }).reset_index()
+            
             # Fusionar por fecha
-            df_merged = pd.merge(df_followers, df_pauta, left_on='Fecha', right_on='fecha', how='left')
+            df_merged = pd.merge(df_followers, df_pauta_agg, left_on='Fecha', right_on='fecha', how='left')
+        else:
+            df_merged = df_followers.copy()
         
         # Crear gráfica de 4 líneas
         fig_followers = go.Figure()
@@ -1146,36 +1153,33 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
             hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>👥 Seguidores Totales: %{y:,}<extra></extra>'
         ))
         
-        # 2. Nuevos Seguidores de Pauta (si existe)
+        # 2. Seguidores Pauta (si existe)
         if 'nuevos_seguidores_pauta' in df_merged.columns:
             fig_followers.add_trace(go.Scatter(
                 x=df_merged['Fecha'],
                 y=df_merged['nuevos_seguidores_pauta'].fillna(0),
                 mode='lines+markers',
-                name='📈 Nuevos Seguidores (Pauta)',
+                name='👥 Seguidores Pauta',
                 marker=dict(
                     size=6,
                     color='#10b981',
                     symbol='diamond'
                 ),
                 line=dict(color='#10b981', width=2, dash='dot'),
-                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>📈 Nuevos Seguidores: %{y:,}<extra></extra>',
+                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>👥 Seguidores Pauta: %{y:,}<extra></extra>',
                 yaxis='y1'
             ))
         
-        # 3. Costo de Pauta (eje secundario)
+        # 3. Costo de Pauta (barras, eje secundario)
         if 'coste_anuncio' in df_merged.columns:
-            fig_followers.add_trace(go.Scatter(
+            fig_followers.add_trace(go.Bar(
                 x=df_merged['Fecha'],
                 y=df_merged['coste_anuncio'].fillna(0),
-                mode='lines+markers',
                 name='💰 Costo Pauta',
                 marker=dict(
-                    size=6,
                     color='#ef4444',
-                    symbol='square'
+                    opacity=0.7
                 ),
-                line=dict(color='#ef4444', width=2),
                 hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>💰 Costo Pauta: $%{y:,}<extra></extra>',
                 yaxis='y2'
             ))
@@ -1186,7 +1190,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                 x=df_merged['Fecha'],
                 y=df_merged['visualizaciones_videos'].fillna(0),
                 mode='lines+markers',
-                name='👁️ Visualizaciones (Pauta)',
+                name='👁️ Visualizaciones Pauta',
                 marker=dict(
                     size=6,
                     color='#3B82F6',
@@ -1197,14 +1201,14 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                 yaxis='y2'
             ))
         
-        # Configurar layout con eje secundario - CORREGIDO: usar title_font en lugar de titlefont
+        # Configurar layout con eje secundario
         fig_followers.update_layout(
-            height=400,
+            height=450,
             template='plotly_white',
             plot_bgcolor='white',
             paper_bgcolor='white',
             margin=dict(l=40, r=40, t=40, b=40),
-            hovermode='x unified',
+            hovermode='closest',  # Cambiado para evitar duplicación de fecha
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
@@ -1215,17 +1219,17 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
             xaxis=dict(
                 title="Fecha",
                 gridcolor='#f1f5f9',
-                showgrid=True
+                showgrid=True,
+                tickformat='%d/%m/%Y'
             ),
             yaxis=dict(
                 title="Seguidores",
-                range=[-5, 600],
                 gridcolor='#f1f5f9',
                 showgrid=True,
                 title_font=dict(color='#000000')
             ),
             yaxis2=dict(
-                title="Costo / Visualizaciones",
+                title="Costo ($) / Visualizaciones",
                 overlaying='y',
                 side='right',
                 gridcolor='rgba(241, 245, 249, 0.5)',
@@ -1247,9 +1251,9 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
             with col_f2:
                 if 'nuevos_seguidores_pauta' in df_merged.columns:
                     total_nuevos_seguidores = df_merged['nuevos_seguidores_pauta'].sum()
-                    st.metric("📈 Nuevos seguidores (Pauta)", f"{total_nuevos_seguidores:,}")
+                    st.metric("👥 Seguidores Pauta", f"{total_nuevos_seguidores:,}")
                 else:
-                    st.metric("📈 Nuevos seguidores", "N/D")
+                    st.metric("👥 Seguidores Pauta", "N/D")
             
             with col_f3:
                 if 'coste_anuncio' in df_merged.columns:
@@ -1267,6 +1271,15 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
     
     except Exception as e:
         st.warning(f"Error al generar gráfica combinada: {str(e)}")
+        # Para depuración
+        with st.expander("🔍 Ver datos de depuración", expanded=False):
+            st.write("**Datos de followers:**")
+            st.dataframe(df_followers.head(10))
+            st.write("**Datos de pauta:**")
+            st.dataframe(df_pauta.head(10))
+            if 'df_merged' in locals():
+                st.write("**Datos fusionados:**")
+                st.dataframe(df_merged.head(20))
     
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1387,7 +1400,7 @@ try:
             margin=dict(l=40, r=40, t=100, b=40),
             title_font=dict(size=16),
             font=dict(size=12),
-            hovermode='x unified'
+            hovermode='closest'
         )
         
         # Actualizar ejes
