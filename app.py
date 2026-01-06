@@ -1158,16 +1158,6 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
             df_merged['visualizaciones_videos'] = 0
             df_merged['nuevos_seguidores_pauta'] = 0
         
-        # DEBUG: Mostrar datos para verificar
-        with st.expander("🔍 Ver datos de pauta cargados", expanded=False):
-            st.write("**Datos de pauta originales:**")
-            st.dataframe(df_pauta)
-            st.write("**Datos de pauta agrupados por fecha:**")
-            if 'df_pauta_agg' in locals():
-                st.dataframe(df_pauta_agg)
-            st.write("**Datos fusionados (primeras 20 filas):**")
-            st.dataframe(df_merged.head(20))
-        
         # Crear gráfica de 4 líneas
         fig_followers = go.Figure()
         
@@ -1184,7 +1174,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                 line=dict(width=2, color='white')
             ),
             line=dict(color='#000000', width=3),
-            hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>👥 Seguidores Totales: %{y:,}<extra></extra>'
+            hovertemplate='<b>%{x|%d/%m/%Y}</b><br>Seguidores Totales: %{y:,}<extra></extra>'
         ))
         
         # 2. Seguidores Pauta (si existe)
@@ -1200,7 +1190,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                     symbol='diamond'
                 ),
                 line=dict(color='#10b981', width=2, dash='dot'),
-                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>👥 Seguidores Pauta: %{y:,}<extra></extra>',
+                hovertemplate='Seguidores Pauta: %{y:,}<extra></extra>',
                 yaxis='y1'
             ))
         
@@ -1214,7 +1204,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                     color='#ef4444',
                     opacity=0.7
                 ),
-                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>💰 Costo Pauta: $%{y:,}<extra></extra>',
+                hovertemplate='Costo Pauta: $%{y:,}<extra></extra>',
                 yaxis='y2'
             ))
         
@@ -1231,7 +1221,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                     symbol='triangle-up'
                 ),
                 line=dict(color='#3B82F6', width=2, dash='dash'),
-                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>👁️ Visualizaciones Pauta: %{y:,}<extra></extra>',
+                hovertemplate='Visualizaciones Pauta: %{y:,}<extra></extra>',
                 yaxis='y2'
             ))
         
@@ -1242,7 +1232,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
             plot_bgcolor='white',
             paper_bgcolor='white',
             margin=dict(l=40, r=40, t=40, b=40),
-            hovermode='x unified',  # Cambiado de vuelta para mostrar toda la información
+            hovermode='x unified',
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
