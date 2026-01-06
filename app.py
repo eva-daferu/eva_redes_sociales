@@ -1121,6 +1121,9 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
             if 'Seguidores' in df_pauta.columns:
                 df_pauta['nuevos_seguidores_pauta'] = df_pauta['Seguidores']
             
+            # Convertir fecha en pauta al mismo formato que en followers
+            df_pauta['fecha'] = pd.to_datetime(df_pauta['fecha'], errors='coerce')
+            
             # Fusionar por fecha
             df_merged = pd.merge(df_followers, df_pauta, left_on='Fecha', right_on='fecha', how='left')
         
@@ -1194,15 +1197,13 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                 yaxis='y2'
             ))
         
-        # Configurar layout con eje secundario
+        # Configurar layout con eje secundario - CORREGIDO: usar title_font en lugar de titlefont
         fig_followers.update_layout(
             height=400,
             template='plotly_white',
             plot_bgcolor='white',
             paper_bgcolor='white',
             margin=dict(l=40, r=40, t=40, b=40),
-            title_font=dict(size=16),
-            font=dict(size=12),
             hovermode='x unified',
             legend=dict(
                 orientation="h",
@@ -1221,7 +1222,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                 range=[-5, 600],
                 gridcolor='#f1f5f9',
                 showgrid=True,
-                titlefont=dict(color='#000000')
+                title_font=dict(color='#000000')
             ),
             yaxis2=dict(
                 title="Costo / Visualizaciones",
@@ -1229,7 +1230,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                 side='right',
                 gridcolor='rgba(241, 245, 249, 0.5)',
                 showgrid=False,
-                titlefont=dict(color='#ef4444')
+                title_font=dict(color='#ef4444')
             )
         )
         
