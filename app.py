@@ -1,16 +1,19 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from datetime import datetime, timedelta
+from datetime import datetime
 import warnings
 import requests
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patheffects as pe
+from io import BytesIO
 
 warnings.filterwarnings('ignore')
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Social Media Dashboard PRO",
+    page_title="Social Media Dashboard",
     layout="wide",
     page_icon="📊",
     initial_sidebar_state="expanded"
@@ -20,10 +23,11 @@ st.set_page_config(
 # CONEXIÓN A BACKEND REAL
 #############################################
 BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
-FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
-PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
+FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/FollowerHistory.xlsx"
+PAUTA_URL = "https://pahubisas.pythonanywhere.com/base_pautas.xlsx"
 
 def cargar_datos_backend():
+    """Carga datos principales desde el backend"""
     try:
         r = requests.get(BACKEND_URL, timeout=20)
         r.raise_for_status()
@@ -41,1130 +45,543 @@ def cargar_datos_backend():
             )
 
         # Convertir números
-        num_cols = ["vistas", "comentarios", "me_gusta_numero", "visualizaciones", 
-                   "me_gusta", "comentarios_num", "Seguidores_Totales"]
+        num_cols = ["visualizaciones", "me_gusta", "comentarios"]
         for col in num_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
-        # Asegurar columnas estándar
-        if "visualizaciones" not in df.columns and "vistas" in df.columns:
-            df["visualizaciones"] = df["vistas"]
-        
-        if "me_gusta" not in df.columns and "me_gusta_numero" in df.columns:
-            df["me_gusta"] = df["me_gusta_numero"]
-        
-        if "comentarios" not in df.columns and "comentarios_num" in df.columns:
-            df["comentarios"] = df["comentarios_num"]
-
-        # Filtros calculados
-        if "fecha_publicacion" in df.columns:
-            hoy = pd.Timestamp.now()
-            df["dias"] = (hoy - df["fecha_publicacion"]).dt.days.fillna(0).astype(int)
-            df["dias_desde_publicacion"] = df["dias"].apply(lambda x: max(x, 1))
-            df["rendimiento_por_dia"] = df["visualizaciones"] / df["dias_desde_publicacion"]
-            df["semana"] = df["fecha_publicacion"].dt.isocalendar().week.fillna(0).astype(int)
-            df["meses"] = df["fecha_publicacion"].dt.month.fillna(0).astype(int)
-
         # Red fija si no existe
-        if "red" not in df.columns and "platform" in df.columns:
-            df["red"] = df["platform"]
-        elif "red" not in df.columns:
-            df["red"] = "desconocido"
-
-        # Tipo fijo si no existe
-        if "tipo" not in df.columns:
-            df["tipo"] = "general"
+        if "red" not in df.columns:
+            df["red"] = "tiktok"
 
         return df
 
     except Exception as e:
-        st.error(f"Error al conectar con el backend de datos: {str(e)}")
+        st.error(f"Error al conectar con el backend: {str(e)}")
         return pd.DataFrame()
 
-def cargar_datos_seguidores():
-    """Carga datos de seguidores desde el endpoint específico"""
+def cargar_datos_inversion():
+    """Carga datos de inversión desde archivos Excel"""
     try:
-        r = requests.get(FOLLOWERS_URL, timeout=20)
-        r.raise_for_status()
-        data = r.json()
+        # Descargar archivos desde PythonAnywhere
+        followers_response = requests.get(FOLLOWERS_URL, timeout=30)
+        pautas_response = requests.get(PAUTA_URL, timeout=30)
         
-        # Convertir a DataFrame
-        df_followers = pd.DataFrame(data.get("data", []))
+        if followers_response.status_code != 200 or pautas_response.status_code != 200:
+            return pd.DataFrame(), pd.DataFrame()
         
-        # Procesar datos
-        if "Fecha" in df_followers.columns:
-            df_followers["Fecha"] = pd.to_datetime(
-                df_followers["Fecha"],
-                dayfirst=True,
-                errors="coerce"
-            )
+        # Leer archivos Excel desde bytes
+        fh_df = pd.read_excel(BytesIO(followers_response.content))
+        bp_df = pd.read_excel(BytesIO(pautas_response.content))
         
-        # Convertir números
-        if "Seguidores_Totales" in df_followers.columns:
-            df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors="coerce")
-        
-        return df_followers
+        return fh_df, bp_df
         
     except Exception as e:
-        st.error(f"Error al conectar con el backend de seguidores: {str(e)}")
-        return pd.DataFrame()
+        st.error(f"Error al cargar datos de inversión: {str(e)}")
+        return pd.DataFrame(), pd.DataFrame()
 
-def cargar_datos_pauta():
-    """Carga datos de pauta publicitaria"""
-    try:
-        r = requests.get(PAUTA_URL, timeout=20)
-        r.raise_for_status()
-        data = r.json()
-        
-        # Convertir a DataFrame
-        df_pauta = pd.DataFrame(data.get("data", []))
-        
-        # Procesar datos si existen
-        if not df_pauta.empty:
-            # Asegurar nombres de columnas
-            if 'Costo' in df_pauta.columns:
-                df_pauta['coste_anuncio'] = df_pauta['Costo']
-            if 'Visualizaciones' in df_pauta.columns:
-                df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
-            if 'Seguidores' in df_pauta.columns:
-                df_pauta['nuevos_seguidores'] = df_pauta['Seguidores']
-            
-            # Formatear coste anuncio (sin decimales)
-            if "coste_anuncio" in df_pauta.columns:
-                df_pauta["coste_anuncio"] = pd.to_numeric(df_pauta["coste_anuncio"], errors="coerce").fillna(0).astype(int)
-            
-            # Formatear otras columnas
-            for col in ["visualizaciones_videos", "nuevos_seguidores"]:
-                if col in df_pauta.columns:
-                    df_pauta[col] = pd.to_numeric(df_pauta[col], errors="coerce").fillna(0).astype(int)
-            
-            # Procesar fecha - FORMATO CORRECTO PARA CRUCE
-            if "fecha" in df_pauta.columns:
-                # Intentar múltiples formatos de fecha
-                df_pauta["fecha"] = pd.to_datetime(
-                    df_pauta["fecha"], 
-                    errors='coerce',
-                    dayfirst=True  # Asumir día primero
-                )
-        
-        return df_pauta
-        
-    except Exception as e:
-        return pd.DataFrame()
-
-#############################################
-# FIN CONEXIÓN BACKEND REAL
-#############################################
-
-# Función para cargar datos con caché
-@st.cache_data(ttl=300)  # 5 minutos de caché
-def cargar_datos():
-    """Carga datos desde el backend y separa por plataforma"""
-    df = cargar_datos_backend()
-    df_followers = cargar_datos_seguidores()
-    df_pauta = cargar_datos_pauta()
-    
-    if df.empty:
-        # Datos de respaldo si falla el backend
-        st.warning("Usando datos de respaldo. El backend no está disponible.")
-        
-        # Datos de ejemplo
-        youtobe_data = pd.DataFrame({
-            'titulo': ['Amazonía al borde', 'El costo oculto de botar comida'],
-            'fecha_publicacion': ['01/10/2025', '23/09/2025'],
-            'visualizaciones': [18, 22],
-            'me_gusta': [0, 0],
-            'comentarios': [0, 0],
-            'Seguidores_Totales': [0, 0],
-            'red': ['youtobe', 'youtobe']
-        })
-        
-        tiktok_data = pd.DataFrame({
-            'titulo': ['Especie única en Colombia', 'Una peli que te volará la mente'],
-            'fecha_publicacion': ['03/12/2025', '28/11/2025'],
-            'visualizaciones': [127, 5669],
-            'me_gusta': [19, 211],
-            'comentarios': [2, 5],
-            'Seguidores_Totales': [450, 450],
-            'red': ['tiktok', 'tiktok']
-        })
-        
-        youtobe_data['fecha_publicacion'] = pd.to_datetime(youtobe_data['fecha_publicacion'], dayfirst=True)
-        tiktok_data['fecha_publicacion'] = pd.to_datetime(tiktok_data['fecha_publicacion'], dayfirst=True)
-        
-        # Datos de seguidores de ejemplo
-        df_followers = pd.DataFrame({
-            'Fecha': pd.date_range(start='2024-01-01', periods=30, freq='D'),
-            'Seguidores_Totales': range(400, 430)
-        })
-        
-        # Datos de pauta de ejemplo
-        df_pauta = pd.DataFrame({
-            'coste_anuncio': [641140],
-            'visualizaciones_videos': [180500],
-            'nuevos_seguidores': [4170],
-            'fecha': ['2025-10-19']
-        })
-        
+# Función para convertir valores a números
+def to_num(v):
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return np.nan
+    if isinstance(v, (int, float, np.integer, np.floating)):
+        return float(v)
+    s = str(v).strip()
+    if s == "":
+        return np.nan
+    s = s.replace("$", "").replace("COP", "").replace("cop", "").replace(" ", "")
+    if "," in s and "." in s:
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", "")
     else:
-        # Primero, asegurarnos de que la columna 'red' existe y está limpia
-        if 'red' in df.columns:
-            df['red'] = df['red'].astype(str).str.lower().str.strip()
+        if "," in s and "." not in s:
+            s = s.replace(",", ".")
+    try:
+        return float(s)
+    except Exception:
+        return np.nan
+
+#############################################
+# FUNCIONES PARA NUEVAS GRÁFICAS
+#############################################
+
+def generar_grafica_inversion(fh_df, bp_df):
+    """Genera la gráfica de inversión vs seguidores"""
+    try:
+        # Parámetros básicos
+        STEP = 15000
+        IMPACT_DAYS = 3
+        USE_IMPACT = True
+        BREAK_X = 80000.0
+        K = 0.28
         
-        # Filtrar usando comparación exacta
-        youtobe_data = df[df['red'] == 'youtobe'].copy()
+        # Procesar datos de seguidores
+        fh_df["Fecha"] = pd.to_datetime(fh_df["Fecha"], dayfirst=True, errors="coerce")
+        bp_df["fecha"] = pd.to_datetime(bp_df["fecha"], dayfirst=True, errors="coerce")
         
-        # Si no encuentra 'youtobe', buscar 'youtube' como alternativa
-        if youtobe_data.empty:
-            youtobe_data = df[df['red'] == 'youtube'].copy()
+        # Convertir numéricos
+        if "Costo" in bp_df.columns:
+            bp_df["Costo"] = bp_df["Costo"].apply(to_num).astype("float64")
         
-        # Para TikTok
-        tiktok_data = df[df['red'] == 'tiktok'].copy()
-    
-    # Calcular métricas comunes para ambos datasets
-    for df_data in [youtobe_data, tiktok_data]:
-        if not df_data.empty and 'fecha_publicacion' in df_data.columns:
-            hoy = pd.Timestamp.now()
-            df_data['dias_desde_publicacion'] = (hoy - df_data['fecha_publicacion']).dt.days
-            df_data['dias_desde_publicacion'] = df_data['dias_desde_publicacion'].apply(lambda x: max(x, 1))
-            df_data['rendimiento_por_dia'] = df_data['visualizaciones'] / df_data['dias_desde_publicacion']
-    
-    return df, youtobe_data, tiktok_data, df_followers, df_pauta
+        if "Seguidores_Totales" in fh_df.columns:
+            fh_df["Seguidores_Totales"] = fh_df["Seguidores_Totales"].apply(to_num).astype("float64")
+        
+        # Calcular neto diario
+        fh_df = fh_df.dropna(subset=["Fecha"]).sort_values("Fecha").reset_index(drop=True)
+        fh_df["Neto_Diario_Real"] = fh_df["Seguidores_Totales"].diff()
+        fh_df.loc[fh_df["Neto_Diario_Real"] <= 0, "Neto_Diario_Real"] = np.nan
+        
+        fh_df = fh_df.rename(columns={"Fecha": "fecha"})
+        fh_df = fh_df[["fecha", "Seguidores_Totales", "Neto_Diario_Real"]].copy()
+        
+        # Unir datos
+        df = pd.merge(bp_df, fh_df, on="fecha", how="left").sort_values("fecha").reset_index(drop=True)
+        
+        # Calcular impacto
+        if IMPACT_DAYS < 1:
+            IMPACT_DAYS = 1
+            
+        neto = df["Neto_Diario_Real"].astype("float64")
+        impact = np.full(len(df), np.nan, dtype="float64")
+        for i in range(len(df)):
+            s = 0.0
+            ok = False
+            for k in range(IMPACT_DAYS):
+                j = i + k
+                if j >= len(df):
+                    break
+                v = neto.iloc[j]
+                if pd.notna(v) and v > 0:
+                    s += float(v)
+                    ok = True
+            impact[i] = s if ok else np.nan
+        
+        df["Seguidores_Impacto"] = impact
+        RESULT_COL = "Seguidores_Impacto" if USE_IMPACT else "Neto_Diario_Real"
+        
+        # Filtrar datos válidos
+        cand = df[(df["Costo"] > 0) & (df[RESULT_COL].notna()) & (df[RESULT_COL] > 0)].copy()
+        if cand.empty:
+            return None
+        
+        # Agrupar por rangos de inversión
+        cmin = float(cand["Costo"].min())
+        cmax = float(cand["Costo"].max())
+        start = float(np.floor(cmin / STEP) * STEP)
+        end = float(np.ceil(cmax / STEP) * STEP) + STEP
+        bins = np.arange(start, end + 1, STEP)
+        
+        cand["Costo_bin"] = pd.cut(cand["Costo"], bins=bins, include_lowest=True, right=False)
+        
+        curve = cand.groupby("Costo_bin", observed=True).agg(
+            Inversion_promedio=("Costo", "mean"),
+            Seguidores_promedio=(RESULT_COL, "mean"),
+            Dias=("Costo", "count"),
+        ).reset_index(drop=True).sort_values("Inversion_promedio").reset_index(drop=True)
+        
+        # Crear gráfica
+        plt.rcParams.update({
+            "figure.facecolor": "#060913",
+            "axes.facecolor": "#0b1020",
+            "axes.edgecolor": "#334155",
+            "axes.labelcolor": "#e0e7ff",
+            "xtick.color": "#c7d2fe",
+            "ytick.color": "#c7d2fe",
+            "text.color": "#e0e7ff",
+            "grid.alpha": 0.22,
+            "grid.linewidth": 0.8,
+            "font.size": 11
+        })
+        
+        fig, ax = plt.subplots(figsize=(18, 6.0), dpi=175)
+        ax.grid(True)
+        
+        # Función para compresión del eje X
+        def x_warp(x):
+            x = float(x)
+            if x <= BREAK_X:
+                return x
+            return BREAK_X + (x - BREAK_X) * K
+        
+        # Preparar datos para gráfica
+        cand["xw"] = cand["Costo"].apply(x_warp)
+        curve["xw"] = curve["Inversion_promedio"].apply(x_warp)
+        
+        # Líneas de rango
+        for x_real in bins:
+            if x_real >= (np.floor(cmin/STEP)*STEP) - 1e-9 and x_real <= (np.ceil(cmax/STEP)*STEP) + 1e-9:
+                ax.axvline(x_warp(x_real), linewidth=1.0, linestyle="--", alpha=0.18, color="#cbd5e1", zorder=1)
+        
+        # Scatter plot de días reales
+        ax.scatter(cand["xw"], cand[RESULT_COL], s=30, alpha=0.12, color="#60a5fa", label="Días reales", zorder=2)
+        
+        # Línea de tendencia
+        ax.plot(curve["xw"], curve["Seguidores_promedio"], linewidth=2.8, alpha=0.95, color="#38bdf8",
+                label="Promedio esperado (por nivel inversión)", zorder=5)
+        
+        # Puntos de la curva
+        ax.scatter(
+            curve["xw"], curve["Seguidores_promedio"],
+            s=120, alpha=0.98, color="#f59e0b",
+            label="Puntos promedio",
+            zorder=6
+        )
+        
+        # Configurar ejes
+        xmin_w = x_warp(float(np.nanmin(cand["Costo"])))
+        xmax_w = x_warp(float(np.nanmax(cand["Costo"])))
+        pad = (xmax_w - xmin_w) * 0.04 if xmax_w > xmin_w else 1.0
+        
+        # Etiquetas de eje X
+        edge_ticks_real = np.unique(bins)
+        edge_ticks_real = [x for x in edge_ticks_real if (x >= (np.floor(cmin/STEP)*STEP) - 1e-9 and x <= (np.ceil(cmax/STEP)*STEP) + 1e-9)]
+        edge_ticks_w = [x_warp(x) for x in edge_ticks_real]
+        
+        def fmt_k(x):
+            if x is None or (isinstance(x, float) and np.isnan(x)):
+                return "—"
+            try:
+                return f"{int(round(float(x)/1000.0))}k"
+            except Exception:
+                return "—"
+        
+        edge_tick_labels = [fmt_k(x) for x in edge_ticks_real]
+        
+        MAX_X_TICKS = 12
+        stride = 1 if len(edge_ticks_real) <= MAX_X_TICKS else 2
+        edge_ticks_real = edge_ticks_real[::stride]
+        edge_ticks_w = edge_ticks_w[::stride]
+        edge_tick_labels = edge_tick_labels[::stride]
+        
+        ax.set_xticks(edge_ticks_w)
+        ax.set_xticklabels(edge_tick_labels, rotation=0)
+        ax.set_xlim(xmin_w - pad, xmax_w + pad)
+        
+        # Títulos y etiquetas
+        impact_label = f"Impacto {IMPACT_DAYS}d" if USE_IMPACT else "Neto día"
+        ax.set_title("📈 Inversión vs Seguidores (curva por niveles)")
+        ax.set_ylabel(f"Seguidores ({impact_label})")
+        
+        # Leyenda
+        leg = ax.legend(loc="upper left", frameon=True)
+        leg.get_frame().set_facecolor("#0b1020")
+        leg.get_frame().set_edgecolor("#334155")
+        for t in leg.get_texts():
+            t.set_color("#e0e7ff")
+        
+        plt.tight_layout()
+        return fig
+        
+    except Exception as e:
+        st.error(f"Error al generar gráfica: {str(e)}")
+        return None
 
-# Estilos CSS mejorados con reducción de espacio
-st.markdown("""
-<style>
-/* Main container - REDUCIDO ESPACIO SUPERIOR */
-.main { 
-    padding: 0;
-    padding-top: 0.5rem !important;
-}
+def generar_mapa_calor(fh_df, bp_df):
+    """Genera el heatmap de CPS por día/semana"""
+    try:
+        # Procesar datos
+        fh_df["Fecha"] = pd.to_datetime(fh_df["Fecha"], dayfirst=True, errors="coerce")
+        bp_df["fecha"] = pd.to_datetime(bp_df["fecha"], dayfirst=True, errors="coerce")
+        
+        # Convertir numéricos
+        for col in ["Costo", "Visualizaciones", "Seguidores"]:
+            if col in bp_df.columns:
+                bp_df[col] = bp_df[col].apply(to_num).astype("float64")
+        
+        fh_df["Seguidores_Totales"] = fh_df["Seguidores_Totales"].apply(to_num).astype("float64")
+        
+        # Calcular neto diario
+        fh_df = fh_df.rename(columns={"Fecha": "fecha", "Seguidores_Totales": "Neto_Diario_Real"})
+        fh_df = fh_df[["fecha", "Neto_Diario_Real"]].copy()
+        
+        # Unir datos
+        df = pd.merge(bp_df, fh_df, on="fecha", how="left").sort_values("fecha").reset_index(drop=True)
+        
+        # Día de semana y semana ISO
+        dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        df["Dia_Semana"] = df["fecha"].dt.dayofweek.map(lambda i: dias[int(i)] if pd.notna(i) else np.nan)
+        
+        iso = df["fecha"].dt.isocalendar()
+        df["ISO_Year"] = iso["year"].astype(int)
+        df["ISO_Week"] = iso["week"].astype(int)
+        df["WeekKey"] = df["ISO_Year"].astype(str) + "-W" + df["ISO_Week"].astype(str).str.zfill(2)
+        
+        # Agregación para heatmap
+        g = df[(df["Costo"] > 0) & (df["Neto_Diario_Real"].notna())].copy()
+        g["Seg_pos"] = np.where(g["Neto_Diario_Real"] > 0, g["Neto_Diario_Real"], 0.0)
+        
+        agg = g.groupby(["Dia_Semana", "WeekKey"], as_index=False).agg(
+            Costo_sum=("Costo", "sum"),
+            Seguidores_sum=("Neto_Diario_Real", "sum"),
+            Seguidores_pos_sum=("Seg_pos", "sum")
+        )
+        
+        agg["CPS_cell"] = np.where(
+            agg["Seguidores_pos_sum"] > 0,
+            agg["Costo_sum"] / agg["Seguidores_pos_sum"],
+            np.nan
+        )
+        
+        # Pivot tables
+        pivot_cps = agg.pivot(index="Dia_Semana", columns="WeekKey", values="CPS_cell").reindex(dias)
+        pivot_seg = agg.pivot(index="Dia_Semana", columns="WeekKey", values="Seguidores_sum").reindex(dias)
+        
+        vals_cps = pivot_cps.values.astype(float)
+        vals_seg = pivot_seg.values.astype(float)
+        
+        # Normalizar colores (recorte p5–p95)
+        flat = vals_cps[np.isfinite(vals_cps)]
+        if flat.size == 0:
+            return None
+        
+        p5 = np.nanpercentile(flat, 5)
+        p95 = np.nanpercentile(flat, 95)
+        vals_cps_clip = np.clip(vals_cps, p5, p95)
+        
+        # Crear heatmap
+        plt.rcParams.update({
+            "figure.facecolor": "#060913",
+            "axes.facecolor": "#0b1020",
+            "axes.edgecolor": "#334155",
+            "axes.labelcolor": "#e0e7ff",
+            "xtick.color": "#c7d2fe",
+            "ytick.color": "#c7d2fe",
+            "text.color": "#e0e7ff",
+            "font.size": 11
+        })
+        
+        weeks = list(pivot_cps.columns)
+        n_rows = len(dias)
+        n_cols = len(weeks)
+        
+        fig = plt.figure(figsize=(22, 7), dpi=190)
+        gs = fig.add_gridspec(1, 2, width_ratios=[4.6, 1.4], wspace=0.08)
+        
+        # Heatmap principal
+        ax = fig.add_subplot(gs[0, 0])
+        im = ax.imshow(vals_cps_clip, aspect="auto")
+        
+        ax.set_title(
+            "🗺️ Mapa de Calor - CPS (Costo/Seguidor) + Seguidores\nCPS bajo = mejor | Negro = sin datos",
+            pad=14
+        )
+        
+        ax.set_yticks(range(n_rows))
+        ax.set_yticklabels(dias)
+        
+        ax.set_xticks(range(n_cols))
+        ax.set_xticklabels(weeks, rotation=45, ha="right")
+        
+        ax.set_xticks(np.arange(-.5, n_cols, 1), minor=True)
+        ax.set_yticks(np.arange(-.5, n_rows, 1), minor=True)
+        ax.grid(which="minor", linewidth=0.6, alpha=0.15)
+        ax.tick_params(which="minor", bottom=False, left=False)
+        
+        # Texto en celdas
+        txt_fx = [pe.withStroke(linewidth=1.2, foreground=(0, 0, 0, 0.45))]
+        
+        def fmt_int_or_dash(x):
+            if x is None or (isinstance(x, float) and np.isnan(x)):
+                return "—"
+            try:
+                return f"{int(round(float(x))):,}".replace(",", ".")
+            except Exception:
+                return "—"
+        
+        for i in range(n_rows):
+            for j in range(n_cols):
+                cps_v = vals_cps[i, j]
+                seg_v = vals_seg[i, j]
+                if np.isfinite(cps_v) or np.isfinite(seg_v):
+                    line1 = f"CPS {fmt_int_or_dash(cps_v)}"
+                    line2 = f"Seg {fmt_int_or_dash(seg_v)}"
+                    t = ax.text(
+                        j, i,
+                        f"{line1}\n{line2}",
+                        ha="center", va="center",
+                        fontsize=7.7,
+                        color="white",
+                        alpha=1.0
+                    )
+                    t.set_path_effects(txt_fx)
+        
+        # Barra de color
+        cbar = plt.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
+        cbar.set_label("CPS (recortado p5–p95)")
+        
+        # Barras derecha (resumen por día)
+        axr = fig.add_subplot(gs[0, 1])
+        axr.grid(True, axis="x", alpha=0.18)
+        
+        # Calcular resumen por día
+        sum_day = g.groupby("Dia_Semana", as_index=False).agg(
+            Costo_sum=("Costo", "sum"),
+            Seguidores_sum=("Neto_Diario_Real", "sum"),
+            Seguidores_pos_sum=("Seg_pos", "sum")
+        )
+        
+        sum_day["CPS_total_dia"] = np.where(
+            sum_day["Seguidores_pos_sum"] > 0,
+            sum_day["Costo_sum"] / sum_day["Seguidores_pos_sum"],
+            np.nan
+        )
+        
+        sum_day = sum_day.set_index("Dia_Semana").reindex(dias).reset_index()
+        
+        ypos = np.arange(n_rows)
+        cps_day = sum_day["CPS_total_dia"].to_numpy(dtype=float)
+        seg_day = sum_day["Seguidores_sum"].to_numpy(dtype=float)
+        
+        axr.barh(ypos, cps_day, alpha=0.75)
+        axr.set_yticks(ypos)
+        axr.set_yticklabels([""] * n_rows)
+        axr.set_xlabel("CPS total por día")
+        axr.set_title("Resumen por día", pad=10)
+        
+        # Texto en barras
+        for i in range(n_rows):
+            cpsv = cps_day[i]
+            segv = seg_day[i]
+            line = f"CPS {fmt_int_or_dash(cpsv)} | Seg {fmt_int_or_dash(segv)}"
+            x_text = 0 if not np.isfinite(cpsv) else cpsv
+            tt = axr.text(
+                x_text, i,
+                f"  {line}",
+                va="center", ha="left",
+                fontsize=9,
+                color="white",
+                alpha=1.0
+            )
+            tt.set_path_effects(txt_fx)
+        
+        plt.tight_layout()
+        return fig
+        
+    except Exception as e:
+        st.error(f"Error al generar heatmap: {str(e)}")
+        return None
 
-/* Sidebar styling - AZUL PROFESIONAL */
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-    border-right: 1px solid #334155;
-}
-
-[data-testid="stSidebar"] > div:first-child {
-    padding-top: 1.5rem;
-}
-
-/* Social media buttons - MEJORADO */
-.stButton > button {
-    display: flex;
-    align-items: center;
-    padding: 12px 20px;
-    margin: 6px 0;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #e2e8f0;
-    font-size: 15px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    width: 100%;
-    text-align: left;
-    justify-content: flex-start;
-}
-
-.stButton > button:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
-    transform: translateX(5px);
-}
-
-.stButton > button[kind="primary"] {
-    background: rgba(59, 130, 246, 0.2);
-    border-color: #3B82F6;
-    color: #3B82F6;
-}
-
-/* Metrics cards - MEJORADAS */
-.metric-card {
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-    border-radius: 16px;
-    padding: 22px 18px;
-    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    height: 100%;
-    position: relative;
-    overflow: hidden;
-}
-
-.metric-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 100%);
-}
-
-.metric-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
-}
-
-.metric-value {
-    font-size: 32px;
-    font-weight: 800;
-    color: #1f2937;
-    margin: 12px 0 5px 0;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-}
-
-.metric-label {
-    font-size: 13px;
-    color: #6b7280;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-}
-
-.metric-trend {
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    margin-top: 8px;
-    font-weight: 500;
-}
-
-.trend-up { color: #10b981; }
-.trend-down { color: #ef4444; }
-
-/* Tarjetas de pauta publicitaria */
-.pauta-card {
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    border-radius: 14px;
-    padding: 20px 15px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
-    border: 1px solid #e2e8f0;
-    transition: all 0.3s ease;
-    height: 100%;
-    position: relative;
-    overflow: hidden;
-}
-
-.pauta-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #10b981 0%, #3B82F6 100%);
-}
-
-.pauta-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-}
-
-.pauta-value {
-    font-size: 26px;
-    font-weight: 800;
-    color: #1f2937;
-    margin: 10px 0 3px 0;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-}
-
-.pauta-label {
-    font-size: 12px;
-    color: #6b7280;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.7px;
-}
-
-.pauta-period {
-    font-size: 11px;
-    color: #9ca3af;
-    margin-top: 5px;
-    font-weight: 500;
-}
-
-/* Header principal - REDUCIDO */
-.dashboard-header {
-    background: linear-gradient(135deg, #1e40af 0%, #3B82F6 100%);
-    border-radius: 18px;
-    padding: 25px 30px;
-    color: white;
-    margin-bottom: 20px;
-    box-shadow: 0 12px 28px rgba(59, 130, 246, 0.25);
-    position: relative;
-    overflow: hidden;
-}
-
-.dashboard-header h1 {
-    margin: 0;
-    font-size: 32px;
-    font-weight: 800;
-    line-height: 1.2;
-}
-
-.dashboard-header::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
-    background-size: 30px 30px;
-    opacity: 0.1;
-}
-
-/* Tabs mejorados */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 4px;
-    background: #f1f5f9;
-    padding: 6px;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-}
-
-.stTabs [data-baseweb="tab"] {
-    border-radius: 8px;
-    padding: 10px 18px;
-    background: transparent;
-    color: #64748b;
-    font-weight: 500;
-    transition: all 0.3s;
-}
-
-.stTabs [aria-selected="true"] {
-    background: white;
-    color: #3B82F6;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    font-weight: 600;
-}
-
-/* Chart containers */
-.performance-chart {
-    background: white;
-    border-radius: 16px;
-    padding: 22px;
-    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
-    margin: 15px 0;
-    border: 1px solid #e5e7eb;
-}
-
-.data-table-container {
-    background: white;
-    border-radius: 16px;
-    padding: 22px;
-    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
-    margin: 15px 0;
-    border: 1px solid #e5e7eb;
-}
-
-/* Platform-specific colors */
-.youtube-color { color: #FF0000; }
-.tiktok-color { color: #000000; }
-.facebook-color { color: #1877F2; }
-.twitter-color { color: #1DA1F2; }
-.instagram-color { color: #E4405F; }
-.linkedin-color { color: #0A66C2; }
-
-/* Status indicators */
-.status-connected {
-    color: #10b981;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.status-disconnected {
-    color: #ef4444;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.status-warning {
-    color: #f59e0b;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-/* Sidebar titles */
-.sidebar-title {
-    color: #cbd5e1 !important;
-    font-size: 15px;
-    font-weight: 600;
-    margin-bottom: 10px;
-    margin-top: 20px;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-}
-
-/* Status containers */
-.status-container {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 10px 14px;
-    border-radius: 8px;
-    margin-bottom: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    transition: all 0.3s;
-}
-
-.status-container:hover {
-    background: rgba(255, 255, 255, 0.08);
-}
-
-/* Custom table */
-.dataframe {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-}
-
-.dataframe th {
-    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-    padding: 12px 14px;
-    text-align: left;
-    font-weight: 600;
-    color: #374151;
-    border-bottom: 2px solid #e5e7eb;
-    position: sticky;
-    top: 0;
-}
-
-.dataframe td {
-    padding: 10px 14px;
-    border-bottom: 1px solid #e5e7eb;
-    color: #4b5563;
-}
-
-.dataframe tr:hover {
-    background: #f9fafb;
-}
-
-.dataframe tr:last-child td {
-    border-bottom: none;
-}
-
-/* Badges */
-.platform-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 5px 10px;
-    border-radius: 18px;
-    font-size: 11px;
-    font-weight: 600;
-    margin: 2px;
-}
-
-/* Loader */
-.loader {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #3B82F6;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    animation: spin 1s linear infinite;
-    margin: 15px auto;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Backend status */
-.backend-status {
-    padding: 8px 12px;
-    border-radius: 8px;
-    margin: 12px 0;
-    font-size: 12px;
-    font-weight: 500;
-}
-
-.backend-connected {
-    background: rgba(16, 185, 129, 0.1);
-    color: #10b981;
-    border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.backend-disconnected {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .metric-value { font-size: 26px; }
-    .pauta-value { font-size: 22px; }
-    .dashboard-header { padding: 20px; }
-    .dashboard-header h1 { font-size: 26px; }
-}
-
-/* Data table improvements */
-.full-table {
-    width: 100%;
-    max-height: 550px;
-    overflow-y: auto;
-}
-
-.full-table th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-
-/* Filter buttons */
-.filter-btn {
-    margin: 2px;
-    border-radius: 8px;
-}
-
-.filter-btn.active {
-    background-color: #3B82F6;
-    color: white;
-    border-color: #3B82F6;
-}
-
-/* Platform header styles */
-.platform-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 20px;
-    padding: 18px;
-    background: rgba(var(--platform-color-rgb), 0.05);
-    border-radius: 16px;
-    border-left: 5px solid var(--platform-color);
-}
-
-.platform-icon {
-    font-size: 28px;
-    margin-right: 18px;
-    color: var(--platform-color);
-}
-
-.platform-title {
-    flex: 1;
-}
-
-.platform-title h2 {
-    margin: 0;
-    color: var(--platform-color);
-    font-size: 24px;
-}
-
-.platform-title p {
-    margin: 6px 0 0 0;
-    color: #6b7280;
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.platform-badge-container {
-    margin-left: auto;
-    display: flex;
-    gap: 12px;
-    align-items: center;
-}
-
-.platform-badge-style {
-    background: rgba(var(--platform-color-rgb), 0.1);
-    color: var(--platform-color);
-    padding: 8px 20px;
-    border-radius: 22px;
-    font-size: 14px;
-    font-weight: 700;
-    border: 2px solid rgba(var(--platform-color-rgb), 0.2);
-}
-</style>
-""", unsafe_allow_html=True)
+#############################################
+# CARGA DE DATOS
+#############################################
 
 # Cargar datos
-df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
+df = cargar_datos_backend()
+fh_df, bp_df = cargar_datos_inversion()
 
-# Sidebar
-with st.sidebar:
-    st.markdown("""
-    <div style="text-align: center; margin-bottom: 25px; padding: 0 10px;">
-        <div style="background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%); 
-                    width: 55px; height: 55px; border-radius: 14px; 
-                    display: flex; align-items: center; justify-content: center; 
-                    margin: 0 auto 12px auto; font-size: 26px;">
-            📊
-        </div>
-        <h2 style="color: white; margin-bottom: 4px; font-size: 20px;">DASHBOARD PRO</h2>
-        <p style="color: #94a3b8; font-size: 12px; margin: 0;">Social Media Analytics v3.1</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Estado del backend
+# Filtrar solo TikTok
+tiktok_df = df[df['red'] == 'tiktok'].copy() if not df.empty else pd.DataFrame()
+
+# Calcular métricas básicas
+total_contenidos = len(tiktok_df) if not tiktok_df.empty else 0
+total_visualizaciones = tiktok_df['visualizaciones'].sum() if not tiktok_df.empty and 'visualizaciones' in tiktok_df.columns else 0
+
+# Calcular métricas de inversión
+coste_anuncio = 0
+visualizaciones_videos = 0
+nuevos_seguidores = 0
+total_seguidores = 0
+
+if not bp_df.empty:
+    if 'Costo' in bp_df.columns:
+        coste_anuncio = bp_df['Costo'].sum()
+    if 'Visualizaciones' in bp_df.columns:
+        visualizaciones_videos = bp_df['Visualizaciones'].sum()
+    if 'Seguidores' in bp_df.columns:
+        nuevos_seguidores = bp_df['Seguidores'].sum()
+
+if not fh_df.empty:
+    if 'Seguidores_Totales' in fh_df.columns:
+        total_seguidores = fh_df['Seguidores_Totales'].iloc[-1] if len(fh_df) > 0 else 0
+
+# Formatear números para display
+def format_number(num):
     try:
-        backend_test = requests.get(BACKEND_URL, timeout=5)
-        if backend_test.status_code == 200:
-            st.markdown('<div class="backend-status backend-connected">✅ Backend Conectado</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Error: {backend_test.status_code}</div>', unsafe_allow_html=True)
-    except Exception as e:
-        st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Offline</div>', unsafe_allow_html=True)
-    
-    st.markdown('<p class="sidebar-title">🔗 Panel Professional</p>', unsafe_allow_html=True)
-    
-    # Botones de plataformas con botón GENERAL
-    platforms = {
-        "general": ("🌐 GENERAL", "#3B82F6"),
-        "facebook": ("📘 Facebook", "#1877F2"),
-        "twitter": ("🐦 Twitter", "#1DA1F2"),
-        "instagram": ("📷 Instagram", "#E4405F"),
-        "linkedin": ("💼 LinkedIn", "#0A66C2"),
-        "youtube": ("▶️ YouTube", "#FF0000"),
-        "tiktok": ("🎵 TikTok", "#000000")
-    }
-    
-    selected_platform = st.session_state.get("selected_platform", "general")
-    
-    for platform_key, (platform_name, platform_color) in platforms.items():
-        if st.button(platform_name, key=f"{platform_key}_btn", use_container_width=True):
-            selected_platform = platform_key
-            st.session_state["selected_platform"] = platform_key
-            st.rerun()
-    
-    st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
-    
-    # Filtros de tiempo cuando no está en modo GENERAL
-    if selected_platform != "general":
-        st.markdown('<p class="sidebar-title">📅 Filtros de Tiempo</p>', unsafe_allow_html=True)
-        
-        tiempo_filtro = st.selectbox(
-            "Seleccionar período:",
-            ["Últimos 7 días", "Últimos 30 días", "Últimos 90 días", "Todo el período"],
-            key="tiempo_filtro"
-        )
-    
-    st.markdown('<p class="sidebar-title">📈 Status Conexiones</p>', unsafe_allow_html=True)
-    
-    # Estado de conexiones basado en datos reales
-    connection_status = []
-    
-    # YouTube/Youtobe
-    youtube_connected = not youtobe_df.empty
-    connection_status.append(("YouTube", "connected" if youtube_connected else "disconnected"))
-    
-    # TikTok
-    tiktok_connected = not tiktok_df.empty
-    connection_status.append(("TikTok", "connected" if tiktok_connected else "disconnected"))
-    
-    # Otras plataformas
-    connection_status.extend([
-        ("Facebook", "disconnected"),
-        ("Twitter", "disconnected"),
-        ("Instagram", "disconnected"),
-        ("LinkedIn", "disconnected")
-    ])
-    
-    for platform, status in connection_status:
-        icon = "🔴" if status == "disconnected" else "🟡" if status == "warning" else "🟢"
-        status_class = "status-disconnected" if status == "disconnected" else "status-warning" if status == "warning" else "status-connected"
-        
-        st.markdown(f"""
-        <div class="status-container">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #e2e8f0;">{platform}</span>
-                <span class="{status_class}">{icon} {status.title()}</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        return f"{int(num):,}".replace(",", ".")
+    except:
+        return "0"
 
-# Contenido principal
-current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
-st.markdown(f"""
-<div class="dashboard-header">
-    <h1>📊 SOCIAL MEDIA DASHBOARD PRO</h1>
-    <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 15px; font-weight: 400;">
-        Analytics en Tiempo Real • Monitoreo de Performance • Insights Inteligentes
-    </p>
-    <div style="position: absolute; bottom: 15px; right: 25px; font-size: 13px; opacity: 0.8;">
-        Actualizado: {current_time}
-    </div>
-</div>
-""", unsafe_allow_html=True)
+#############################################
+# INTERFAZ PRINCIPAL - SIMPLIFICADA
+#############################################
 
-# Determinar datos según plataforma seleccionada
-if selected_platform == "general":
-    platform_name = "GENERAL"
-    platform_color = "#3B82F6"
-    platform_icon = "🌐"
-    df = df_all
-elif selected_platform == "youtube":
-    platform_name = "YouTube"
-    platform_color = "#FF0000"
-    platform_icon = "▶️"
-    df = youtobe_df
-elif selected_platform == "tiktok":
-    platform_name = "TikTok"
-    platform_color = "#000000"
-    platform_icon = "🎵"
-    df = tiktok_df
-else:
-    # Para otras plataformas (Facebook, Twitter, etc.) usar datos de YouTube temporalmente
-    platform_config = {
-        "facebook": ("Facebook", "#1877F2", "📘", youtobe_df),
-        "twitter": ("Twitter", "#1DA1F2", "🐦", youtobe_df),
-        "instagram": ("Instagram", "#E4405F", "📷", youtobe_df),
-        "linkedin": ("LinkedIn", "#0A66C2", "💼", youtobe_df)
-    }
-    platform_name, platform_color, platform_icon, df = platform_config.get(
-        selected_platform, 
-        ("YouTube", "#FF0000", "▶️", youtobe_df)
+st.title("📊 Dashboard Social Media - TikTok")
+
+# Métricas principales en 2 filas
+st.subheader("📈 Métricas Principales")
+
+# Primera fila de métricas
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric(
+        label="💰 Coste Anuncio",
+        value=f"${format_number(coste_anuncio)}",
+        help="Inversión total en publicidad"
     )
 
-# Aplicar filtro de tiempo si no está en modo GENERAL
-if selected_platform != "general" and 'fecha_publicacion' in df.columns:
-    hoy = pd.Timestamp.now()
-    
-    if 'tiempo_filtro' in st.session_state:
-        if st.session_state.tiempo_filtro == "Últimos 7 días":
-            fecha_limite = hoy - timedelta(days=7)
-            df = df[df['fecha_publicacion'] >= fecha_limite]
-        elif st.session_state.tiempo_filtro == "Últimos 30 días":
-            fecha_limite = hoy - timedelta(days=30)
-            df = df[df['fecha_publicacion'] >= fecha_limite]
-        elif st.session_state.tiempo_filtro == "Últimos 90 días":
-            fecha_limite = hoy - timedelta(days=90)
-            df = df[df['fecha_publicacion'] >= fecha_limite]
-        # "Todo el período" no aplica filtro
+with col2:
+    st.metric(
+        label="👁️ Visualizaciones Videos",
+        value=format_number(visualizaciones_videos),
+        help="Visualizaciones generadas por pauta"
+    )
 
-# Verificar si hay datos
-if df.empty:
-    st.error(f"⚠️ No hay datos disponibles para {platform_name}")
-    
-    if selected_platform != "general":
-        with st.expander("🔍 Información de Depuración", expanded=False):
-            st.write(f"**Plataforma seleccionada:** {selected_platform}")
-            st.write(f"**Total registros en dataset:** {len(df_all)}")
-            st.write(f"**Total registros YouTube/Youtobe:** {len(youtobe_df)}")
-            st.write(f"**Total registros TikTok:** {len(tiktok_df)}")
-    
-    st.info("Conectando al backend para cargar datos en tiempo real...")
-    st.stop()
+with col3:
+    st.metric(
+        label="📈 Nuevos Seguidores",
+        value=format_number(nuevos_seguidores),
+        help="Seguidores ganados por pauta"
+    )
 
-# Calcular métricas clave
-total_posts = len(df)
-total_views = df['visualizaciones'].sum() if 'visualizaciones' in df.columns else 0
-total_likes = df['me_gusta'].sum() if 'me_gusta' in df.columns else 0
-total_comments = df['comentarios'].sum() if 'comentarios' in df.columns else 0
+# Segunda fila de métricas
+col4, col5, col6 = st.columns(3)
 
-# Calcular total de seguidores (solo para GENERAL y TikTok)
-total_followers = 0
-if (selected_platform == "general" or selected_platform == "tiktok") and not df_followers.empty:
-    if 'Seguidores_Totales' in df_followers.columns:
-        total_followers = int(df_followers['Seguidores_Totales'].sum())
+with col4:
+    st.metric(
+        label="👥 Total Seguidores",
+        value=format_number(total_seguidores),
+        help="Seguidores totales en TikTok"
+    )
 
-if 'rendimiento_por_dia' in df.columns:
-    avg_daily_perf = df['rendimiento_por_dia'].mean()
-else:
-    avg_daily_perf = 0
+with col5:
+    st.metric(
+        label="🎬 Total Contenidos",
+        value=format_number(total_contenidos),
+        help="Videos publicados en TikTok"
+    )
 
-if total_views > 0:
-    engagement_rate = ((total_likes + total_comments) / total_views * 100)
-else:
-    engagement_rate = 0
+with col6:
+    st.metric(
+        label="👁️ Visualizaciones Totales",
+        value=format_number(total_visualizaciones),
+        help="Visualizaciones totales en TikTok"
+    )
 
-current_time_short = datetime.now().strftime('%H:%M')
+# Separador
+st.markdown("---")
 
-# Información de la plataforma
-col_header1, col_header2, col_header3 = st.columns([1, 3, 1])
+#############################################
+# GRÁFICA DE EVOLUCIÓN DE SEGUIDORES
+#############################################
 
-with col_header1:
-    st.markdown(f'<div style="font-size: 38px; text-align: center; color: {platform_color};">{platform_icon}</div>', unsafe_allow_html=True)
+st.subheader("📈 Evolución de Seguidores TikTok")
 
-with col_header2:
-    st.markdown(f'<h2 style="margin: 0; color: {platform_color}; font-size: 26px; text-align: center;">{platform_name} ANALYTICS</h2>', unsafe_allow_html=True)
-    st.markdown(f'<p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">{total_posts} contenidos analizados • Última actualización: {current_time_short}</p>', unsafe_allow_html=True)
-    if selected_platform != "general":
-        st.markdown(f'<p style="margin: 2px 0 0 0; color: #9ca3af; font-size: 11px; text-align: center;">Filtro: {st.session_state.get("tiempo_filtro", "Todo el período")}</p>', unsafe_allow_html=True)
-
-with col_header3:
-    st.markdown(f'''
-    <div style="background: {platform_color}15; color: {platform_color}; padding: 8px 18px; 
-                border-radius: 18px; font-size: 13px; font-weight: 600; text-align: center; 
-                border: 1px solid {platform_color}30;">
-        {total_posts} {platform_name} Posts
-    </div>
-    ''', unsafe_allow_html=True)
-
-# ============================================================================
-# SECCIÓN: MÉTRICAS DE PAUTA PUBLICITARIA (solo para GENERAL y TikTok)
-# ============================================================================
-if (selected_platform == "general" or selected_platform == "tiktok") and not df_pauta.empty:
-    # Calcular sumas por columnas
-    coste_anuncio_sum = 0
-    visualizaciones_videos_sum = 0
-    nuevos_seguidores_sum = 0
-    
-    if 'coste_anuncio' in df_pauta.columns:
-        coste_anuncio_sum = df_pauta['coste_anuncio'].sum()
-    
-    if 'visualizaciones_videos' in df_pauta.columns:
-        visualizaciones_videos_sum = df_pauta['visualizaciones_videos'].sum()
-    
-    if 'nuevos_seguidores' in df_pauta.columns:
-        nuevos_seguidores_sum = df_pauta['nuevos_seguidores'].sum()
-    
-    # Función para formatear números con separador de miles
-    def format_number(num):
-        """Formatea números con separador de miles"""
-        try:
-            return f"{int(num):,}".replace(",", ".")
-        except:
-            return "0"
-    
-    # Formatear valores
-    coste_anuncio = format_number(coste_anuncio_sum)
-    visualizaciones_videos = format_number(visualizaciones_videos_sum)
-    nuevos_seguidores = format_number(nuevos_seguidores_sum)
-    
-    # Obtener rango de fechas si existe
-    rango_fechas = 'N/D'
-    if 'fecha' in df_pauta.columns and not df_pauta.empty:
-        fechas = df_pauta['fecha'].dropna()
-        if not fechas.empty:
-            min_fecha = fechas.min().strftime('%d/%m/%Y')
-            max_fecha = fechas.max().strftime('%d/%m/%Y')
-            rango_fechas = f"{min_fecha} - {max_fecha}"
-    
-    st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
-    st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
-                border-radius: 16px; padding: 20px; margin-bottom: 20px; 
-                border-left: 5px solid #0ea5e9;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin: 0; color: #0369a1; font-size: 20px; display: flex; align-items: center; gap: 8px;">
-                📢 MÉTRICAS DE PAUTA PUBLICITARIA (SUMAS)
-            </h3>
-            <div style="color: #64748b; font-size: 12px; background: white; padding: 5px 12px; border-radius: 15px; border: 1px solid #cbd5e1;">
-                Período: {rango_fechas}
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Mostrar 3 tarjetas de métricas de pauta (eliminada VISUALIZACIONES PERFIL)
-    col_pauta1, col_pauta2, col_pauta3 = st.columns(3)
-    
-    with col_pauta1:
-        st.markdown(f"""
-        <div class="pauta-card">
-            <div class="pauta-label">COSTE ANUNCIO</div>
-            <div class="pauta-value">${coste_anuncio}</div>
-            <div class="pauta-period">Suma total en pesos</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col_pauta2:
-        st.markdown(f"""
-        <div class="pauta-card">
-            <div class="pauta-label">VISUALIZACIONES VIDEOS</div>
-            <div class="pauta-value">{visualizaciones_videos}</div>
-            <div class="pauta-period">Suma de reproducciones</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col_pauta3:
-        st.markdown(f"""
-        <div class="pauta-card">
-            <div class="pauta-label">NUEVOS SEGUIDORES</div>
-            <div class="pauta-value">{nuevos_seguidores}</div>
-            <div class="pauta-period">Suma de audiencia ganada</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-# ============================================================================
-# FIN SECCIÓN PAUTA PUBLICITARIA
-# ============================================================================
-
-# Métricas principales
-if selected_platform == "general" or selected_platform == "tiktok":
-    # Mostrar 5 métricas cuando es GENERAL o TikTok
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">TOTAL SEGUIDORES</div>
-            <div class="metric-value">{total_followers:,}</div>
-            <div class="metric-trend trend-up">
-                <span>👥 TikTok Followers</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">TOTAL CONTENIDOS</div>
-            <div class="metric-value">{total_posts}</div>
-            <div class="metric-trend trend-up">
-                <span>📈 Contenido Activo</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">VISUALIZACIONES TOTALES</div>
-            <div class="metric-value">{total_views:,}</div>
-            <div class="metric-trend trend-up">
-                <span>👁️ Alcance Total</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">RENDIMIENTO DIARIO</div>
-            <div class="metric-value">{avg_daily_perf:.1f}</div>
-            <div class="metric-trend trend-up">
-                <span>🚀 Views/Día</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col5:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">TASA DE ENGAGEMENT</div>
-            <div class="metric-value">{engagement_rate:.2f}%</div>
-            <div class="metric-trend trend-up">
-                <span>💬 Interacción</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-else:
-    # Mostrar 4 métricas para otras plataformas
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">TOTAL CONTENIDOS</div>
-            <div class="metric-value">{total_posts}</div>
-            <div class="metric-trend trend-up">
-                <span>📈 Contenido Activo</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">VISUALIZACIONES TOTALES</div>
-            <div class="metric-value">{total_views:,}</div>
-            <div class="metric-trend trend-up">
-                <span>👁️ Alcance Total</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col3:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">RENDIMIENTO DIARIO</div>
-            <div class="metric-value">{avg_daily_perf:.1f}</div>
-            <div class="metric-trend trend-up">
-                <span>🚀 Views/Día</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col4:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">TASA DE ENGAGEMENT</div>
-            <div class="metric-value">{engagement_rate:.2f}%</div>
-            <div class="metric-trend trend-up">
-                <span>💬 Interacción</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-# SECCIÓN: GRÁFICA DE SEGUIDORES Y PAUTA (solo para GENERAL y TikTok)
-if (selected_platform == "general" or selected_platform == "tiktok") and not df_followers.empty and 'Fecha' in df_followers.columns and 'Seguidores_Totales' in df_followers.columns:
-    st.markdown("""
-    <div class="performance-chart">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
-                📈 EVOLUCIÓN DE SEGUIDORES TIKTOK Y MÉTRICAS DE PAUTA
-            </h3>
-            <div style="color: #6b7280; font-size: 12px;">
-                Total Seguidores: {:,}
-            </div>
-        </div>
-    """.format(total_followers), unsafe_allow_html=True)
-    
+if not fh_df.empty and 'Fecha' in fh_df.columns and 'Seguidores_Totales' in fh_df.columns:
     try:
-        # Preparar datos de pauta si existen
-        if not df_pauta.empty:
-            # Asegurar que tenemos las columnas necesarias de pauta
-            if 'Costo' in df_pauta.columns:
-                df_pauta['coste_anuncio'] = df_pauta['Costo']
-            if 'Visualizaciones' in df_pauta.columns:
-                df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
-            if 'Seguidores' in df_pauta.columns:
-                df_pauta['nuevos_seguidores_pauta'] = df_pauta['Seguidores']
-            
-            # Convertir fecha en pauta al mismo formato que en followers
-            df_pauta['fecha'] = pd.to_datetime(df_pauta['fecha'], errors='coerce')
-            
-            # Agrupar por fecha para sumar valores duplicados
-            df_pauta_agg = df_pauta.groupby('fecha').agg({
-                'coste_anuncio': 'sum',
-                'visualizaciones_videos': 'sum',
-                'nuevos_seguidores_pauta': 'sum'
-            }).reset_index()
-            
-            # Fusionar por fecha - CORRECCIÓN: USAR OUTER JOIN PARA VER TODAS LAS FECHAS
-            df_merged = pd.merge(df_followers, df_pauta_agg, left_on='Fecha', right_on='fecha', how='outer')
-            
-            # Ordenar por fecha
-            df_merged = df_merged.sort_values('Fecha')
-            
-            # Rellenar valores faltantes
-            if 'Seguidores_Totales' in df_merged.columns:
-                df_merged['Seguidores_Totales'] = df_merged['Seguidores_Totales'].fillna(method='ffill').fillna(0)
-            
-            if 'coste_anuncio' in df_merged.columns:
-                df_merged['coste_anuncio'] = df_merged['coste_anuncio'].fillna(0)
-            
-            if 'visualizaciones_videos' in df_merged.columns:
-                df_merged['visualizaciones_videos'] = df_merged['visualizaciones_videos'].fillna(0)
-            
-            if 'nuevos_seguidores_pauta' in df_merged.columns:
-                df_merged['nuevos_seguidores_pauta'] = df_merged['nuevos_seguidores_pauta'].fillna(0)
-        else:
-            df_merged = df_followers.copy()
-            df_merged['coste_anuncio'] = 0
-            df_merged['visualizaciones_videos'] = 0
-            df_merged['nuevos_seguidores_pauta'] = 0
+        # Procesar datos para gráfica
+        fh_df["Fecha"] = pd.to_datetime(fh_df["Fecha"], dayfirst=True, errors="coerce")
+        fh_df = fh_df.sort_values("Fecha")
         
-        # Crear gráfica de 4 líneas
+        # Crear gráfica
         fig_followers = go.Figure()
         
-        # 1. Seguidores Totales (línea principal)
+        # Línea de seguidores
         fig_followers.add_trace(go.Scatter(
-            x=df_merged['Fecha'],
-            y=df_merged['Seguidores_Totales'],
+            x=fh_df['Fecha'],
+            y=fh_df['Seguidores_Totales'],
             mode='lines+markers',
             name='👥 Seguidores Totales',
             marker=dict(
@@ -1174,72 +591,17 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                 line=dict(width=2, color='white')
             ),
             line=dict(color='#000000', width=3),
-            hovertemplate='<b>%{x|%d/%m/%Y}</b><br>Seguidores Totales: %{y:,}<extra></extra>'
+            hovertemplate='<b>%{x|%d/%m/%Y}</b><br>Seguidores: %{y:,}<extra></extra>'
         ))
         
-        # 2. Seguidores Pauta (si existe)
-        if 'nuevos_seguidores_pauta' in df_merged.columns:
-            fig_followers.add_trace(go.Scatter(
-                x=df_merged['Fecha'],
-                y=df_merged['nuevos_seguidores_pauta'],
-                mode='lines+markers',
-                name='👥 Seguidores Pauta',
-                marker=dict(
-                    size=6,
-                    color='#10b981',
-                    symbol='diamond'
-                ),
-                line=dict(color='#10b981', width=2, dash='dot'),
-                hovertemplate='Seguidores Pauta: %{y:,}<extra></extra>',
-                yaxis='y1'
-            ))
-        
-        # 3. Costo de Pauta (barras, eje secundario)
-        if 'coste_anuncio' in df_merged.columns:
-            fig_followers.add_trace(go.Bar(
-                x=df_merged['Fecha'],
-                y=df_merged['coste_anuncio'],
-                name='💰 Costo Pauta',
-                marker=dict(
-                    color='#ef4444',
-                    opacity=0.7
-                ),
-                hovertemplate='Costo Pauta: $%{y:,}<extra></extra>',
-                yaxis='y2'
-            ))
-        
-        # 4. Visualizaciones de Pauta (eje secundario)
-        if 'visualizaciones_videos' in df_merged.columns:
-            fig_followers.add_trace(go.Scatter(
-                x=df_merged['Fecha'],
-                y=df_merged['visualizaciones_videos'],
-                mode='lines+markers',
-                name='👁️ Visualizaciones Pauta',
-                marker=dict(
-                    size=6,
-                    color='#3B82F6',
-                    symbol='triangle-up'
-                ),
-                line=dict(color='#3B82F6', width=2, dash='dash'),
-                hovertemplate='Visualizaciones Pauta: %{y:,}<extra></extra>',
-                yaxis='y2'
-            ))
-        
-        # Configurar layout con eje secundario
+        # Configurar layout
         fig_followers.update_layout(
-            height=450,
+            height=500,
             template='plotly_white',
             plot_bgcolor='white',
             paper_bgcolor='white',
             margin=dict(l=40, r=40, t=40, b=40),
             hovermode='x unified',
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            ),
             xaxis=dict(
                 title="Fecha",
                 gridcolor='#f1f5f9',
@@ -1249,627 +611,131 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
             yaxis=dict(
                 title="Seguidores",
                 gridcolor='#f1f5f9',
-                showgrid=True,
-                title_font=dict(color='#000000')
-            ),
-            yaxis2=dict(
-                title="Costo ($) / Visualizaciones",
-                overlaying='y',
-                side='right',
-                gridcolor='rgba(241, 245, 249, 0.5)',
-                showgrid=False,
-                title_font=dict(color='#ef4444')
+                showgrid=True
             )
         )
         
         st.plotly_chart(fig_followers, use_container_width=True)
         
-        # Estadísticas de seguidores y pauta
-        if len(df_merged) > 0:
-            col_f1, col_f2, col_f3, col_f4 = st.columns(4)
-            
-            with col_f1:
-                latest_followers = df_merged['Seguidores_Totales'].iloc[-1] if len(df_merged) > 0 else 0
-                st.metric("👥 Últimos seguidores", f"{latest_followers:,}")
-            
-            with col_f2:
-                if 'nuevos_seguidores_pauta' in df_merged.columns:
-                    total_nuevos_seguidores = df_merged['nuevos_seguidores_pauta'].sum()
-                    st.metric("👥 Seguidores Pauta", f"{total_nuevos_seguidores:,}")
-                else:
-                    st.metric("👥 Seguidores Pauta", "N/D")
-            
-            with col_f3:
-                if 'coste_anuncio' in df_merged.columns:
-                    total_costo = df_merged['coste_anuncio'].sum()
-                    st.metric("💰 Costo total pauta", f"${total_costo:,}")
-                else:
-                    st.metric("💰 Costo pauta", "N/D")
-            
-            with col_f4:
-                if 'visualizaciones_videos' in df_merged.columns:
-                    total_visualizaciones = df_merged['visualizaciones_videos'].sum()
-                    st.metric("👁️ Visualizaciones pauta", f"{total_visualizaciones:,}")
-                else:
-                    st.metric("👁️ Visualizaciones", "N/D")
-    
     except Exception as e:
-        st.warning(f"Error al generar gráfica combinada: {str(e)}")
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# SECCIÓN 1: PERFORMANCE OVER TIME - GRÁFICA MULTI-LÍNEA MEJORADA
-st.markdown("""
-<div class="performance-chart">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
-            📈 PERFORMANCE OVER TIME - EVOLUCIÓN DETALLADA
-        </h3>
-        <div style="color: #6b7280; font-size: 12px;">
-            Gráfica multi-línea interactiva
-        </div>
-    </div>
-""", unsafe_allow_html=True)
-
-try:
-    if not df.empty and 'fecha_publicacion' in df.columns:
-        # Crear DataFrame para gráficas diarias
-        df_sorted = df.sort_values('fecha_publicacion')
-        
-        # Agrupar por fecha
-        daily_stats = df_sorted.groupby('fecha_publicacion').agg({
-            'visualizaciones': 'sum',
-            'me_gusta': 'sum',
-            'comentarios': 'sum',
-            'rendimiento_por_dia': 'mean'
-        }).reset_index()
-        
-        # Crear gráfica multi-línea con subplots
-        fig = make_subplots(
-            rows=2, cols=2,
-            subplot_titles=(
-                '📊 Evolución Diaria de Visualizaciones',
-                '❤️ Evolución Diaria de Likes',
-                '💬 Evolución Diaria de Comentarios',
-                '🚀 Rendimiento Promedio Diario'
-            ),
-            specs=[
-                [{'type': 'scatter'}, {'type': 'scatter'}],
-                [{'type': 'scatter'}, {'type': 'scatter'}]
-            ],
-            vertical_spacing=0.15,
-            horizontal_spacing=0.15
-        )
-        
-        # 1. Visualizaciones
-        fig.add_trace(
-            go.Scatter(
-                x=daily_stats['fecha_publicacion'],
-                y=daily_stats['visualizaciones'],
-                mode='lines+markers',
-                name='Visualizaciones',
-                line=dict(color='#3B82F6', width=3),
-                marker=dict(size=6, color='#3B82F6'),
-                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>👁️ Views: %{y:,}<extra></extra>',
-                fill='tozeroy',
-                fillcolor='rgba(59, 130, 246, 0.1)'
-            ),
-            row=1, col=1
-        )
-        
-        # 2. Likes
-        fig.add_trace(
-            go.Scatter(
-                x=daily_stats['fecha_publicacion'],
-                y=daily_stats['me_gusta'],
-                mode='lines+markers',
-                name='Likes',
-                line=dict(color='#10b981', width=3),
-                marker=dict(size=6, color='#10b981'),
-                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>❤️ Likes: %{y:,}<extra></extra>',
-                fill='tozeroy',
-                fillcolor='rgba(16, 185, 129, 0.1)'
-            ),
-            row=1, col=2
-        )
-        
-        # 3. Comentarios
-        fig.add_trace(
-            go.Scatter(
-                x=daily_stats['fecha_publicacion'],
-                y=daily_stats['comentarios'],
-                mode='lines+markers',
-                name='Comentarios',
-                line=dict(color='#8b5cf6', width=3),
-                marker=dict(size=6, color='#8b5cf6'),
-                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>💬 Comments: %{y:,}<extra></extra>',
-                fill='tozeroy',
-                fillcolor='rgba(139, 92, 246, 0.1)'
-            ),
-            row=2, col=1
-        )
-        
-        # 4. Rendimiento diario
-        fig.add_trace(
-            go.Scatter(
-                x=daily_stats['fecha_publicacion'],
-                y=daily_stats['rendimiento_por_dia'],
-                mode='lines+markers',
-                name='Rendimiento/Día',
-                line=dict(color='#f59e0b', width=3),
-                marker=dict(size=6, color='#f59e0b'),
-                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>🚀 Perf/Día: %{y:.1f}<extra></extra>',
-                fill='tozeroy',
-                fillcolor='rgba(245, 158, 11, 0.1)'
-            ),
-            row=2, col=2
-        )
-        
-        # Actualizar layout
-        fig.update_layout(
-            height=750,
-            showlegend=False,
-            template='plotly_white',
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            margin=dict(l=40, r=40, t=100, b=40),
-            title_font=dict(size=16),
-            font=dict(size=12),
-            hovermode='x unified'
-        )
-        
-        # Actualizar ejes
-        fig.update_xaxes(title_text="Fecha", row=1, col=1)
-        fig.update_yaxes(title_text="Visualizaciones", row=1, col=1)
-        fig.update_xaxes(title_text="Fecha", row=1, col=2)
-        fig.update_yaxes(title_text="Likes", row=1, col=2)
-        fig.update_xaxes(title_text="Fecha", row=2, col=1)
-        fig.update_yaxes(title_text="Comentarios", row=2, col=1)
-        fig.update_xaxes(title_text="Fecha", row=2, col=2)
-        fig.update_yaxes(title_text="Rendimiento/Día", row=2, col=2)
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Estadísticas resumidas debajo del gráfico
-        col_stats1, col_stats2, col_stats3, col_stats4 = st.columns(4)
-        
-        with col_stats1:
-            max_views_day = daily_stats.loc[daily_stats['visualizaciones'].idxmax(), 'fecha_publicacion']
-            max_views = daily_stats['visualizaciones'].max()
-            st.metric("📅 Día con más Views", max_views_day.strftime('%d/%m/%Y'), f"{max_views:,}")
-        
-        with col_stats2:
-            max_likes_day = daily_stats.loc[daily_stats['me_gusta'].idxmax(), 'fecha_publicacion']
-            max_likes = daily_stats['me_gusta'].max()
-            st.metric("📅 Día con más Likes", max_likes_day.strftime('%d/%m/%Y'), f"{max_likes:,}")
-        
-        with col_stats3:
-            max_comments_day = daily_stats.loc[daily_stats['comentarios'].idxmax(), 'fecha_publicacion']
-            max_comments = daily_stats['comentarios'].max()
-            st.metric("📅 Día con más Comments", max_comments_day.strftime('%d/%m/%Y'), f"{max_comments:,}")
-        
-        with col_stats4:
-            max_perf_day = daily_stats.loc[daily_stats['rendimiento_por_dia'].idxmax(), 'fecha_publicacion']
-            max_perf = daily_stats['rendimiento_por_dia'].max()
-            st.metric("📅 Mejor rendimiento/día", max_perf_day.strftime('%d/%m/%Y'), f"{max_perf:.1f}")
-        
-except Exception as e:
-    st.warning(f"Error al generar gráficas: {str(e)}")
-
-st.markdown("</div>", unsafe_allow_html=True)
-
-# SECCIÓN 2: CONTENT PERFORMANCE DATA - TABLA COMPLETA
-st.markdown("""
-<div class="data-table-container">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <div>
-            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
-                📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA
-            </h3>
-            <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px;">
-                Lista completa de contenidos con todos los detalles
-            </p>
-        </div>
-        <div style="color: #6b7280; font-size: 12px; background: #f8fafc; padding: 6px 14px; border-radius: 18px; border: 1px solid #e5e7eb;">
-            {total_posts} contenidos totales
-        </div>
-    </div>
-""".format(total_posts=total_posts), unsafe_allow_html=True)
-
-if not df.empty:
-    # Preparar DataFrame para mostrar
-    display_df = df.copy()
-    
-    # Seleccionar y ordenar columnas
-    column_order = []
-    
-    if 'titulo' in display_df.columns:
-        column_order.append('titulo')
-        display_df['titulo'] = display_df['titulo'].fillna('Sin título')
-    
-    if 'fecha_publicacion' in display_df.columns:
-        column_order.append('fecha_publicacion')
-        display_df['fecha_publicacion'] = display_df['fecha_publicacion'].dt.strftime('%d/%m/%Y %H:%M')
-    
-    if 'red' in display_df.columns:
-        column_order.append('red')
-    
-    if 'visualizaciones' in display_df.columns:
-        column_order.append('visualizaciones')
-    
-    if 'me_gusta' in df.columns:
-        column_order.append('me_gusta')
-    
-    if 'comentarios' in df.columns:
-        column_order.append('comentarios')
-    
-    # AGREGAR COLUMNA DE SEGUIDORES_TOTALES SI EXISTE
-    if 'Seguidores_Totales' in display_df.columns:
-        column_order.append('Seguidores_Totales')
-    
-    if 'rendimiento_por_dia' in display_df.columns:
-        column_order.append('rendimiento_por_dia')
-    
-    if 'dias_desde_publicacion' in display_df.columns:
-        column_order.append('dias_desde_publicacion')
-    
-    if 'semana' in display_df.columns:
-        column_order.append('semana')
-    
-    if 'meses' in display_df.columns:
-        column_order.append('meses')
-    
-    # Filtrar solo columnas existentes
-    column_order = [col for col in column_order if col in display_df.columns]
-    display_df = display_df[column_order]
-    
-    # Renombrar columnas para mejor visualización
-    rename_dict = {
-        'titulo': '📝 TÍTULO',
-        'fecha_publicacion': '📅 FECHA PUBLICACIÓN',
-        'red': '🌐 PLATAFORMA',
-        'visualizaciones': '👁️ VISUALIZACIONES',
-        'me_gusta': '❤️ LIKES',
-        'comentarios': '💬 COMENTARIOS',
-        'Seguidores_Totales': '👥 SEGUIDORES TOTALES',
-        'rendimiento_por_dia': '🚀 REND/DÍA',
-        'dias_desde_publicacion': '📅 DÍAS PUBLICADO',
-        'semana': '📅 SEMANA',
-        'meses': '📅 MES'
-    }
-    
-    display_df = display_df.rename(columns={k: v for k, v in rename_dict.items() if k in display_df.columns})
-    
-    # Configurar columnas para mejor visualización
-    column_config = {}
-    
-    if '👁️ VISUALIZACIONES' in display_df.columns:
-        column_config['👁️ VISUALIZACIONES'] = st.column_config.NumberColumn(
-            format="%d",
-            help="Número total de visualizaciones"
-        )
-    
-    if '❤️ LIKES' in display_df.columns:
-        column_config['❤️ LIKES'] = st.column_config.NumberColumn(
-            format="%d",
-            help="Número total de likes"
-        )
-    
-    if '💬 COMENTARIOS' in display_df.columns:
-        column_config['💬 COMENTARIOS'] = st.column_config.NumberColumn(
-            format="%d",
-            help="Número total de comentarios"
-        )
-    
-    # AGREGAR CONFIGURACIÓN PARA SEGUIDORES TOTALES
-    if '👥 SEGUIDORES TOTALES' in display_df.columns:
-        column_config['👥 SEGUIDORES TOTALES'] = st.column_config.NumberColumn(
-            format="%d",
-            help="Seguidores totales del contenido"
-        )
-    
-    if '🚀 REND/DÍA' in display_df.columns:
-        column_config['🚀 REND/DÍA'] = st.column_config.NumberColumn(
-            format="%.1f",
-            help="Rendimiento promedio por día"
-        )
-    
-    if '📝 TÍTULO' in display_df.columns:
-        column_config['📝 TÍTULO'] = st.column_config.TextColumn(
-            width="large",
-            help="Título del contenido"
-        )
-    
-    # Mostrar tabla completa con paginación
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config=column_config,
-        height=550
-    )
-    
-    # Estadísticas de la tabla
-    col_table1, col_table2, col_table3, col_table4 = st.columns(4)
-    
-    with col_table1:
-        avg_views = display_df['👁️ VISUALIZACIONES'].mean() if '👁️ VISUALIZACIONES' in display_df.columns else 0
-        st.metric("📊 Views promedio", f"{avg_views:,.0f}")
-    
-    with col_table2:
-        avg_likes = display_df['❤️ LIKES'].mean() if '❤️ LIKES' in display_df.columns else 0
-        st.metric("📊 Likes promedio", f"{avg_likes:,.0f}")
-    
-    with col_table3:
-        avg_comments = display_df['💬 COMENTARIOS'].mean() if '💬 COMENTARIOS' in display_df.columns else 0
-        st.metric("📊 Comments promedio", f"{avg_comments:,.0f}")
-    
-    with col_table4:
-        avg_perf = display_df['🚀 REND/DÍA'].mean() if '🚀 REND/DÍA' in display_df.columns else 0
-        st.metric("📊 Rendimiento promedio", f"{avg_perf:.1f}")
-    
-    # AGREGAR ESTADÍSTICA DE SEGUIDORES SI EXISTE
-    if '👥 SEGUIDORES TOTALES' in display_df.columns:
-        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
-        col_followers1, col_followers2, col_followers3, col_followers4 = st.columns(4)
-        
-        with col_followers1:
-            total_seguidores = display_df['👥 SEGUIDORES TOTALES'].sum() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
-            st.metric("👥 Total Seguidores", f"{total_seguidores:,}")
-        
-        with col_followers2:
-            avg_seguidores = display_df['👥 SEGUIDORES TOTALES'].mean() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
-            st.metric("👥 Promedio/Post", f"{avg_seguidores:,.0f}")
-        
-        with col_followers3:
-            max_seguidores = display_df['👥 SEGUIDORES TOTALES'].max() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
-            st.metric("👥 Máximo", f"{max_seguidores:,}")
-        
-        with col_followers4:
-            min_seguidores = display_df['👥 SEGUIDORES TOTALES'].min() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
-            st.metric("👥 Mínimo", f"{min_seguidores:,}")
-    
+        st.warning(f"No se pudo generar la gráfica: {str(e)}")
 else:
-    st.info("No hay datos para mostrar en la tabla")
+    st.info("No hay datos de seguidores disponibles")
 
-st.markdown("</div>", unsafe_allow_html=True)
+# Separador
+st.markdown("---")
 
-# SECCIÓN 3: ANÁLISIS DETALLADO EN DOS COLUMNAS
-col_analysis1, col_analysis2 = st.columns(2)
+#############################################
+# PESTAÑAS CON NUEVAS GRÁFICAS Y TABLA
+#############################################
 
-with col_analysis1:
-    st.markdown("""
-    <div class="performance-chart" style="height: 100%;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-            <h3 style="margin: 0; color: #1f2937; font-size: 18px;">
-                📊 PERFORMANCE ANALYTICS
-            </h3>
-        </div>
-    """, unsafe_allow_html=True)
+tab1, tab2, tab3 = st.tabs(["📋 Tabla de Contenidos", "📈 Inversión vs Seguidores", "🗺️ Mapa de Calor CPS"])
+
+# Tab 1: Tabla de contenidos
+with tab1:
+    st.subheader("📋 Contenidos de TikTok")
     
-    if not df.empty and 'rendimiento_por_dia' in df.columns:
-        # Análisis de distribución por rendimiento
-        q75 = df['rendimiento_por_dia'].quantile(0.75)
-        q50 = df['rendimiento_por_dia'].quantile(0.50)
-        q25 = df['rendimiento_por_dia'].quantile(0.25)
+    if not tiktok_df.empty:
+        # Seleccionar columnas relevantes
+        display_cols = []
+        if 'titulo' in tiktok_df.columns:
+            display_cols.append('titulo')
+        if 'fecha_publicacion' in tiktok_df.columns:
+            display_cols.append('fecha_publicacion')
+        if 'visualizaciones' in tiktok_df.columns:
+            display_cols.append('visualizaciones')
+        if 'me_gusta' in tiktok_df.columns:
+            display_cols.append('me_gusta')
+        if 'comentarios' in tiktok_df.columns:
+            display_cols.append('comentarios')
         
-        high_perf = len(df[df['rendimiento_por_dia'] > q75])
-        medium_high_perf = len(df[(df['rendimiento_por_dia'] > q50) & (df['rendimiento_por_dia'] <= q75)])
-        medium_low_perf = len(df[(df['rendimiento_por_dia'] > q25) & (df['rendimiento_por_dia'] <= q50)])
-        low_perf = len(df[df['rendimiento_por_dia'] <= q25])
+        display_df = tiktok_df[display_cols].copy()
         
-        # Gráfico de pastel
-        labels = ['🟢 Alto', '🟡 Medio-Alto', '🟠 Medio-Bajo', '🔴 Bajo']
-        values = [high_perf, medium_high_perf, medium_low_perf, low_perf]
-        colors = ['#10b981', '#f59e0b', '#f97316', '#ef4444']
+        # Formatear fecha
+        if 'fecha_publicacion' in display_df.columns:
+            display_df['fecha_publicacion'] = pd.to_datetime(display_df['fecha_publicacion'])
+            display_df['fecha_publicacion'] = display_df['fecha_publicacion'].dt.strftime('%d/%m/%Y')
         
-        fig_pie = go.Figure(data=[go.Pie(
-            labels=labels,
-            values=values,
-            hole=0.4,
-            marker=dict(colors=colors),
-            textinfo='label+percent',
-            textposition='outside',
-            hovertemplate='<b>%{label}</b><br>Cantidad: %{value}<br>Porcentaje: %{percent}<extra></extra>'
-        )])
+        # Renombrar columnas
+        rename_dict = {
+            'titulo': 'Título',
+            'fecha_publicacion': 'Fecha',
+            'visualizaciones': 'Vistas',
+            'me_gusta': 'Likes',
+            'comentarios': 'Comentarios'
+        }
+        display_df = display_df.rename(columns=rename_dict)
         
-        fig_pie.update_layout(
-            height=320,
-            showlegend=False,
-            template='plotly_white',
-            margin=dict(l=20, r=20, t=40, b=20),
-            title_text="Distribución por Nivel de Rendimiento",
-            title_font=dict(size=14)
+        # Mostrar tabla
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            height=400,
+            hide_index=True
         )
-        
-        st.plotly_chart(fig_pie, use_container_width=True)
-        
-        # Estadísticas detalladas
-        high_perf_pct = (high_perf / total_posts * 100) if total_posts > 0 else 0
-        medium_high_pct = (medium_high_perf / total_posts * 100) if total_posts > 0 else 0
-        medium_low_pct = (medium_low_perf / total_posts * 100) if total_posts > 0 else 0
-        low_perf_pct = (low_perf / total_posts * 100) if total_posts > 0 else 0
-        
-        st.markdown(f"""
-        <div style="margin-top: 18px; padding: 18px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); 
-                    border-radius: 12px; border-left: 4px solid #3B82F6;">
-            <h4 style="margin: 0 0 12px 0; color: #374151; font-size: 15px;">📈 ANÁLISIS DE PERFORMANCE</h4>
-            <div style="color: #4b5563; font-size: 13px;">
-                <div style="margin-bottom: 6px;">
-                    <span style="display: inline-block; width: 160px;">🟢 Alto rendimiento:</span>
-                    <span style="font-weight: 700; color: #10b981;">{high_perf} posts ({high_perf_pct:.1f}%)</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="display: inline-block; width: 160px;">🟡 Medio-Alto:</span>
-                    <span style="font-weight: 700; color: #f59e0b;">{medium_high_perf} posts ({medium_high_pct:.1f}%)</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="display: inline-block; width: 160px;">🟠 Medio-Bajo:</span>
-                    <span style="font-weight: 700; color: #f97316;">{medium_low_perf} posts ({medium_low_pct:.1f}%)</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="display: inline-block; width: 160px;">🔴 Bajo rendimiento:</span>
-                    <span style="font-weight: 700; color: #ef4444;">{low_perf} posts ({low_perf_pct:.1f}%)</span>
-                </div>
-                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
-                    <span style="display: inline-block; width: 160px;">📊 Rendimiento promedio:</span>
-                    <span style="font-weight: 700; color: #3B82F6;">{df['rendimiento_por_dia'].mean():.1f} views/día</span>
-                </div>
-                <div style="margin-top: 6px;">
-                    <span style="display: inline-block; width: 160px;">🚀 Mejor rendimiento:</span>
-                    <span style="font-weight: 700; color: #8b5cf6;">{df['rendimiento_por_dia'].max():.1f} views/día</span>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
     else:
-        st.info("No hay datos para análisis de performance")
-    
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.info("No hay datos de contenidos disponibles")
 
-with col_analysis2:
-    st.markdown("""
-    <div class="performance-chart" style="height: 100%;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-            <h3 style="margin: 0; color: #1f2937; font-size: 18px;">
-                📈 KEY METRICS - MÉTRICAS CLAVE
-            </h3>
-        </div>
-    """, unsafe_allow_html=True)
+# Tab 2: Gráfica de inversión vs seguidores
+with tab2:
+    st.subheader("📈 Análisis de Inversión vs Seguidores")
     
-    if not df.empty:
-        # Calcular métricas detalladas
-        metrics_detailed = []
-        
-        # Métricas de visualizaciones
-        if 'visualizaciones' in df.columns:
-            metrics_detailed.append(('👁️ Avg. Views/Post', f"{df['visualizaciones'].mean():.0f}"))
-            metrics_detailed.append(('👁️ Median Views', f"{df['visualizaciones'].median():.0f}"))
-            metrics_detailed.append(('👁️ Std Dev Views', f"{df['visualizaciones'].std():.0f}"))
-            metrics_detailed.append(('👁️ Min Views', f"{df['visualizaciones'].min():,}"))
-            metrics_detailed.append(('👁️ Max Views', f"{df['visualizaciones'].max():,}"))
-        
-        # Métricas de engagement
-        if 'me_gusta' in df.columns:
-            metrics_detailed.append(('❤️ Avg. Likes/Post', f"{df['me_gusta'].mean():.1f}"))
-            metrics_detailed.append(('❤️ Max Likes', f"{df['me_gusta'].max():,}"))
-        
-        if 'comentarios' in df.columns:
-            metrics_detailed.append(('💬 Avg. Comments/Post', f"{df['comentarios'].mean():.1f}"))
-            metrics_detailed.append(('💬 Max Comments', f"{df['comentarios'].max():,}"))
-        
-        # Métricas de seguidores si existen
-        if 'Seguidores_Totales' in df.columns:
-            metrics_detailed.append(('👥 Avg. Followers/Post', f"{df['Seguidores_Totales'].mean():.0f}"))
-            metrics_detailed.append(('👥 Total Followers', f"{df['Seguidores_Totales'].sum():,}"))
-        
-        # Métricas de tiempo
-        if 'dias_desde_publicacion' in df.columns:
-            metrics_detailed.append(('📅 Avg. Content Age', f"{df['dias_desde_publicacion'].mean():.0f} días"))
-            metrics_detailed.append(('📅 Newest Post', f"{df['dias_desde_publicacion'].min()} días"))
-            metrics_detailed.append(('📅 Oldest Post', f"{df['dias_desde_publicacion'].max()} días"))
-        
-        # Métricas de rendimiento
-        if 'rendimiento_por_dia' in df.columns:
-            metrics_detailed.append(('🚀 Avg. Daily Perf.', f"{df['rendimiento_por_dia'].mean():.1f}"))
-            metrics_detailed.append(('🚀 Median Daily Perf.', f"{df['rendimiento_por_dia'].median():.1f}"))
-        
-        # Engagement rate detallado
-        metrics_detailed.append(('💬 Engagement Rate', f"{engagement_rate:.2f}%"))
-        
-        if total_views > 0 and total_likes > 0:
-            like_to_view_ratio = (total_likes / total_views) * 100
-            metrics_detailed.append(('👍 Like/View Ratio', f"{like_to_view_ratio:.2f}%"))
-        
-        if total_comments > 0 and total_likes > 0:
-            comment_to_like_ratio = (total_comments / total_likes) * 100
-            metrics_detailed.append(('💬 Comment/Like Ratio', f"{comment_to_like_ratio:.2f}%"))
-        
-        # Mostrar métricas en tabla mejorada
-        for i, (metric, value) in enumerate(metrics_detailed):
-            bg_color = "#ffffff" if i % 2 == 0 else "#f8fafc"
-            icon = metric.split(' ')[0]
-            metric_name = ' '.join(metric.split(' ')[1:])
-            
-            st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; align-items: center; 
-                        padding: 12px 14px; background: {bg_color}; 
-                        border-radius: 8px; margin: 3px 0; border: 1px solid #e5e7eb;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 16px;">{icon}</span>
-                    <span style="color: #4b5563; font-size: 13px; font-weight: 500;">{metric_name}</span>
-                </div>
-                <span style="font-weight: 700; color: #1f2937; font-size: 14px;">
-                    {value}
-                </span>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Análisis de engagement avanzado
-        st.markdown("""
-        <div style="margin-top: 18px; padding: 18px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
-                    border-radius: 12px; border-left: 4px solid #0ea5e9;">
-            <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 15px;">📊 ANÁLISIS DE ENGAGEMENT AVANZADO</h4>
-            <div style="color: #4b5563; font-size: 13px;">
-        """, unsafe_allow_html=True)
-        
-        engagement_html = ""
-        
-        if total_views > 0:
-            like_rate = (total_likes / total_views * 100) if 'me_gusta' in df.columns else 0
-            comment_rate = (total_comments / total_views * 100) if 'comentarios' in df.columns else 0
-            
-            engagement_html += f"""
-                <div style="margin-bottom: 6px;">
-                    <span style="display: inline-block; width: 160px;">👍 Tasa de Likes:</span>
-                    <span style="font-weight: 700; color: #10b981;">{like_rate:.2f}%</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="display: inline-block; width: 160px;">💬 Tasa de Comentarios:</span>
-                    <span style="font-weight: 700; color: #3B82F6;">{comment_rate:.2f}%</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="display: inline-block; width: 160px;">📊 Total Engagement:</span>
-                    <span style="font-weight: 700; color: #8b5cf6;">{(like_rate + comment_rate):.2f}%</span>
-                </div>
-            """
-        
-        if total_likes > 0 and total_comments > 0:
-            like_to_comment_ratio = total_likes / total_comments
-            engagement_html += f"""
-                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
-                    <span style="display: inline-block; width: 160px;">⚖️ Ratio Likes/Comments:</span>
-                    <span style="font-weight: 700; color: #EC4899;">{like_to_comment_ratio:.1f}</span>
-                </div>
-            """
-        
-        if engagement_html:
-            st.markdown(engagement_html, unsafe_allow_html=True)
-        
-        st.markdown("</div></div>", unsafe_allow_html=True)
-    
+    if not fh_df.empty and not bp_df.empty:
+        if st.button("🔄 Generar Gráfica de Inversión"):
+            with st.spinner("Generando gráfica..."):
+                fig_inversion = generar_grafica_inversion(fh_df, bp_df)
+                if fig_inversion:
+                    st.pyplot(fig_inversion)
+                    
+                    # Opción para descargar
+                    buf = BytesIO()
+                    fig_inversion.savefig(buf, format="png", dpi=150, bbox_inches='tight')
+                    st.download_button(
+                        label="📥 Descargar Gráfica",
+                        data=buf.getvalue(),
+                        file_name=f"inversion_vs_seguidores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                        mime="image/png"
+                    )
+                else:
+                    st.warning("No se pudo generar la gráfica. Verifique los datos.")
+        else:
+            st.info("👆 Presiona el botón para generar la gráfica de inversión")
     else:
-        st.info("No hay datos para métricas clave")
+        st.warning("Se necesitan datos de seguidores y pauta para esta gráfica")
+
+# Tab 3: Mapa de calor CPS
+with tab3:
+    st.subheader("🗺️ Mapa de Calor - Costo por Seguidor (CPS)")
     
-    st.markdown("</div>", unsafe_allow_html=True)
+    if not fh_df.empty and not bp_df.empty:
+        if st.button("🔄 Generar Mapa de Calor"):
+            with st.spinner("Generando mapa de calor..."):
+                fig_heatmap = generar_mapa_calor(fh_df, bp_df)
+                if fig_heatmap:
+                    st.pyplot(fig_heatmap)
+                    
+                    # Opción para descargar
+                    buf = BytesIO()
+                    fig_heatmap.savefig(buf, format="png", dpi=150, bbox_inches='tight')
+                    st.download_button(
+                        label="📥 Descargar Mapa",
+                        data=buf.getvalue(),
+                        file_name=f"mapa_calor_cps_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                        mime="image/png"
+                    )
+                else:
+                    st.warning("No se pudo generar el mapa de calor. Verifique los datos.")
+        else:
+            st.info("👆 Presiona el botón para generar el mapa de calor")
+    else:
+        st.warning("Se necesitan datos de seguidores y pauta para esta gráfica")
 
 # Footer
-current_time_full = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+st.markdown("---")
+current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
 st.markdown(f"""
-<div style="text-align: center; color: #6b7280; font-size: 12px; padding: 25px; 
-            border-top: 1px solid #e5e7eb; margin-top: 30px;">
-    <div style="display: flex; justify-content: center; gap: 25px; margin-bottom: 12px; flex-wrap: wrap;">
-        <span>Social Media Dashboard PRO v3.1</span>
-        <span>•</span>
-        <span>Data from Backend API</span>
-        <span>•</span>
-        <span>{platform_name} Analytics</span>
-        <span>•</span>
-        <span>Updated in Real-time</span>
-    </div>
-    <div style="font-size: 11px; color: #9ca3af;">
-        © 2025 Social Media Analytics Platform • Connected to: <strong>{BACKEND_URL}</strong> • {current_time_full}
-    </div>
+<div style="text-align: center; color: #666; font-size: 12px;">
+    <p>📊 Dashboard Social Media • Datos en tiempo real • Actualizado: {current_time}</p>
+    <p><small>Conectado a: {BACKEND_URL}</small></p>
 </div>
 """, unsafe_allow_html=True)
