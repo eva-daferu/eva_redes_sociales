@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import warnings
 import requests
 import numpy as np
+import json
 
 warnings.filterwarnings('ignore')
 
@@ -158,7 +159,7 @@ def cargar_datos_pauta():
         return pd.DataFrame()
 
 #############################################
-# NUEVAS FUNCIONES PARA GRÁFICAS AVANZADAS
+# NUEVAS FUNCIONES PARA GRÁFICAS AVANZADAS - CORREGIDAS
 #############################################
 
 def cargar_datos_grafica1():
@@ -184,10 +185,10 @@ def cargar_datos_grafica2():
         return {"status": "error", "message": str(e)}
 
 def crear_grafica1_interactiva(data_grafica1):
-    """Crea la gráfica 1 interactiva con Plotly"""
+    """Crea la gráfica 1 interactiva con Plotly - CORREGIDA"""
     if data_grafica1.get("status") != "success":
         st.error(f"No se pudo cargar la gráfica 1: {data_grafica1.get('message')}")
-        return
+        return None
     
     # Extraer datos
     scatter_data = pd.DataFrame(data_grafica1.get("scatter_data", []))
@@ -198,10 +199,15 @@ def crear_grafica1_interactiva(data_grafica1):
     
     if scatter_data.empty or curve_data.empty:
         st.warning("No hay datos suficientes para generar la gráfica 1")
-        return
+        return None
     
     # Determinar columna de seguidores
     result_col = "Seguidores_Impacto" if parameters.get("USE_IMPACT", True) else "Neto_Diario_Real"
+    
+    # Asegurarse de que las columnas existan
+    if result_col not in scatter_data.columns:
+        st.error(f"La columna {result_col} no existe en los datos")
+        return None
     
     # Crear figura
     fig = go.Figure()
@@ -222,23 +228,40 @@ def crear_grafica1_interactiva(data_grafica1):
     ))
     
     # 2. Línea de curva promedio
-    fig.add_trace(go.Scatter(
-        x=curve_data["Inversion_promedio"],
-        y=curve_data["Seguidores_promedio"],
-        mode='lines+markers',
-        name='📈 Curva promedio',
-        line=dict(color='#38bdf8', width=3),
-        marker=dict(
-            size=10,
-            color='#f59e0b',
-            symbol='diamond'
-        ),
-        hovertemplate='<b>Promedio por rango</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>CPS: %{customdata:,.0f}<extra></extra>',
-        customdata=curve_data["CPS_curva"]
-    ))
+    # Filtrar valores NaN
+    curve_data_clean = curve_data.dropna(subset=["Inversion_promedio", "Seguidores_promedio"])
+    
+    if not curve_data_clean.empty:
+        # Preparar datos para hover
+        hover_texts = []
+        for _, row in curve_data_clean.iterrows():
+            cps = row.get("CPS_curva", 0)
+            dias = row.get("Dias", 0)
+            dias_meta = row.get("Dias_para_meta", "N/A")
+            hover_text = f"CPS: ${cps:,.0f}<br>Días: {dias}<br>Meta 1000 seg: {dias_meta:.1f} días"
+            hover_texts.append(hover_text)
+        
+        fig.add_trace(go.Scatter(
+            x=curve_data_clean["Inversion_promedio"],
+            y=curve_data_clean["Seguidores_promedio"],
+            mode='lines+markers',
+            name='📈 Curva promedio',
+            line=dict(color='#38bdf8', width=3),
+            marker=dict(
+                size=10,
+                color='#f59e0b',
+                symbol='diamond'
+            ),
+            hovertemplate='<b>Promedio por rango</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>%{text}<extra></extra>',
+            text=hover_texts
+        ))
     
     # 3. Punto óptimo
     if optimal_point and "Inversion_promedio" in optimal_point and "Seguidores_promedio" in optimal_point:
+        opt_cps = optimal_point.get("CPS_curva", 0)
+        opt_dias = optimal_point.get("Dias", 0)
+        opt_dias_meta = optimal_point.get("Dias_para_meta", "N/A")
+        
         fig.add_trace(go.Scatter(
             x=[optimal_point["Inversion_promedio"]],
             y=[optimal_point["Seguidores_promedio"]],
@@ -250,12 +273,13 @@ def crear_grafica1_interactiva(data_grafica1):
                 symbol='star',
                 line=dict(width=2, color='white')
             ),
-            hovertemplate='<b>PUNTO ÓPTIMO</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>CPS: %{customdata:,.0f}<extra></extra>',
-            customdata=[optimal_point.get("CPS_curva", 0)]
+            hovertemplate='<b>PUNTO ÓPTIMO</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>CPS: ${cps:,.0f}<br>Días: {dias}<br>Meta 1000 seg: {dias_meta:.1f} días<extra></extra>'.format(
+                cps=opt_cps, dias=opt_dias, dias_meta=opt_dias_meta
+            )
         ))
     
     # 4. Líneas de promedio general
-    if "INV_mean" in summary and "SEG_mean" in summary:
+    if "INV_mean" in summary and summary["INV_mean"] > 0:
         # Línea vertical de promedio de inversión
         fig.add_vline(
             x=summary["INV_mean"],
@@ -265,7 +289,8 @@ def crear_grafica1_interactiva(data_grafica1):
             annotation_text=f"Promedio INV: ${summary['INV_mean']:,.0f}",
             annotation_position="top right"
         )
-        
+    
+    if "SEG_mean" in summary and summary["SEG_mean"] > 0:
         # Línea horizontal de promedio de seguidores
         fig.add_hline(
             y=summary["SEG_mean"],
@@ -277,15 +302,18 @@ def crear_grafica1_interactiva(data_grafica1):
         )
     
     # Configurar layout
+    impact_label = "Impacto" if parameters.get("USE_IMPACT", True) else "Neto"
+    impact_days = parameters.get("IMPACT_DAYS", 0)
+    
     fig.update_layout(
         height=600,
         template='plotly_dark',
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(11, 16, 32, 0.8)',
+        paper_bgcolor='rgba(11, 16, 32, 0.8)',
         font=dict(color='white', size=12),
         title=dict(
-            text="📊 GRÁFICA 1: INVERSIÓN VS SEGUIDORES<br><sub>Análisis de eficiencia por nivel de inversión</sub>",
-            font=dict(size=24, color='white'),
+            text=f"📊 GRÁFICA 1: INVERSIÓN VS SEGUIDORES ({impact_label} {impact_days}d)<br><sub>Análisis de eficiencia por nivel de inversión</sub>",
+            font=dict(size=22, color='white'),
             x=0.5,
             xanchor='center'
         ),
@@ -293,12 +321,14 @@ def crear_grafica1_interactiva(data_grafica1):
             title="Inversión (Costo $)",
             gridcolor='rgba(255,255,255,0.1)',
             tickformat=",",
-            tickprefix="$"
+            tickprefix="$",
+            showgrid=True
         ),
         yaxis=dict(
-            title=f"Seguidores ({'Impacto' if parameters.get('USE_IMPACT') else 'Neto'} {parameters.get('IMPACT_DAYS', 0)} días)",
+            title=f"Seguidores ({impact_label})",
             gridcolor='rgba(255,255,255,0.1)',
-            tickformat=","
+            tickformat=",",
+            showgrid=True
         ),
         hovermode='closest',
         legend=dict(
@@ -311,57 +341,16 @@ def crear_grafica1_interactiva(data_grafica1):
             bordercolor='rgba(255,255,255,0.2)',
             borderwidth=1
         ),
-        margin=dict(l=50, r=50, t=100, b=50)
+        margin=dict(l=60, r=60, t=100, b=60)
     )
     
-    # Mostrar gráfica
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
-    
-    # Mostrar información adicional
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(
-            "📊 Días analizados",
-            f"{summary.get('total_dias_validos', 0):,}",
-            help="Total de días con inversión y seguidores positivos"
-        )
-    
-    with col2:
-        st.metric(
-            "💰 Inversión promedio",
-            f"${summary.get('INV_mean', 0):,.0f}",
-            help="Inversión promedio por día válido"
-        )
-    
-    with col3:
-        st.metric(
-            "👥 Seguidores promedio",
-            f"{summary.get('SEG_mean', 0):,.0f}",
-            help="Seguidores promedio por día válido"
-        )
-    
-    with col4:
-        if optimal_point:
-            st.metric(
-                "⭐ CPS óptimo",
-                f"${optimal_point.get('CPS_curva', 0):,.0f}",
-                help="Costo por seguidor en el punto óptimo"
-            )
-    
-    # Mostrar tabla de datos de la curva
-    with st.expander("📋 Ver datos detallados de la curva"):
-        display_curve = curve_data.copy()
-        display_curve["Inversion_promedio"] = display_curve["Inversion_promedio"].apply(lambda x: f"${x:,.0f}")
-        display_curve["Seguidores_promedio"] = display_curve["Seguidores_promedio"].apply(lambda x: f"{x:,.0f}")
-        display_curve["CPS_curva"] = display_curve["CPS_curva"].apply(lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A")
-        st.dataframe(display_curve, use_container_width=True)
+    return fig
 
 def crear_grafica2_interactiva(data_grafica2):
-    """Crea la gráfica 2 interactiva (Heatmap CPS) con Plotly"""
+    """Crea la gráfica 2 interactiva (Heatmap CPS) con Plotly - CORREGIDA"""
     if data_grafica2.get("status") != "success":
         st.error(f"No se pudo cargar la gráfica 2: {data_grafica2.get('message')}")
-        return
+        return None, None
     
     # Extraer datos
     heatmap_data = data_grafica2.get("heatmap_data", {})
@@ -369,20 +358,29 @@ def crear_grafica2_interactiva(data_grafica2):
     
     if not heatmap_data:
         st.warning("No hay datos suficientes para generar el heatmap")
-        return
+        return None, None
     
     cps_matrix = heatmap_data.get("cps_matrix", [])
     seg_matrix = heatmap_data.get("seg_matrix", [])
     row_labels = heatmap_data.get("row_labels", [])
     col_labels = heatmap_data.get("col_labels", [])
     
+    # Verificar que tenemos datos válidos
     if not cps_matrix or not row_labels or not col_labels:
-        st.warning("Datos del heatmap incompletos")
-        return
+        st.warning("Datos del heatmap incompletos o vacíos")
+        return None, None
     
-    # Convertir matrices a numpy arrays
-    cps_array = np.array(cps_matrix)
-    seg_array = np.array(seg_matrix)
+    # Convertir matrices a numpy arrays y manejar NaN
+    try:
+        cps_array = np.array(cps_matrix, dtype=float)
+        seg_array = np.array(seg_matrix, dtype=float)
+        
+        # Reemplazar NaN con 0 para visualización
+        cps_array_filled = np.where(np.isnan(cps_array), 0, cps_array)
+        seg_array_filled = np.where(np.isnan(seg_array), 0, seg_array)
+    except Exception as e:
+        st.error(f"Error al procesar matrices: {str(e)}")
+        return None, None
     
     # Crear texto para cada celda
     text_matrix = []
@@ -394,40 +392,77 @@ def crear_grafica2_interactiva(data_grafica2):
             if np.isnan(cps) or cps == 0:
                 row_text.append("")
             else:
-                row_text.append(f"CPS: ${cps:,.0f}<br>Seg: {seg:,.0f}")
+                # Formatear CPS sin decimales si es entero
+                if cps.is_integer():
+                    cps_formatted = f"${int(cps):,}"
+                else:
+                    cps_formatted = f"${cps:,.0f}"
+                
+                # Formatear seguidores
+                if np.isnan(seg):
+                    seg_formatted = "0"
+                elif seg.is_integer():
+                    seg_formatted = f"{int(seg):,}"
+                else:
+                    seg_formatted = f"{seg:,.0f}"
+                
+                row_text.append(f"CPS: {cps_formatted}<br>Seg: {seg_formatted}")
         text_matrix.append(row_text)
     
-    # Crear heatmap
-    fig = go.Figure(data=go.Heatmap(
-        z=cps_array,
-        x=col_labels,
-        y=row_labels,
-        colorscale='RdYlGn_r',  # Invertido: rojo (malo) a verde (bueno)
-        zmin=np.nanpercentile(cps_array[~np.isnan(cps_array)], 5) if np.any(~np.isnan(cps_array)) else 0,
-        zmax=np.nanpercentile(cps_array[~np.isnan(cps_array)], 95) if np.any(~np.isnan(cps_array)) else 100,
-        colorbar=dict(
-            title="CPS ($)",
-            titleside="right",
-            tickformat="$,.0f"
-        ),
-        hovertemplate='<b>%{y} - %{x}</b><br>CPS: $%{z:,.0f}<br>Seguidores netos: %{customdata:,.0f}<extra></extra>',
-        customdata=seg_array,
-        text=text_matrix,
-        texttemplate="%{text}",
-        textfont=dict(size=10, color="white"),
-        hoverongaps=False
-    ))
+    # Calcular rangos para la escala de colores (excluyendo ceros)
+    cps_nonzero = cps_array_filled[cps_array_filled > 0]
+    if len(cps_nonzero) > 0:
+        # Usar percentiles para evitar outliers
+        zmin = np.percentile(cps_nonzero, 5)
+        zmax = np.percentile(cps_nonzero, 95)
+    else:
+        zmin = 0
+        zmax = 100
     
-    # Configurar layout
-    fig.update_layout(
+    # Crear heatmap principal
+    try:
+        fig_heatmap = go.Figure(data=go.Heatmap(
+            z=cps_array_filled,
+            x=col_labels,
+            y=row_labels,
+            colorscale='RdYlGn_r',  # Invertido: rojo (malo) a verde (bueno)
+            zmin=zmin,
+            zmax=zmax,
+            colorbar=dict(
+                title="Costo por Seguidor ($)",
+                titleside="right",
+                tickformat="$,.0f",
+                tickvals=[zmin, (zmin+zmax)/2, zmax],
+                ticktext=[f"${zmin:,.0f}", f"${(zmin+zmax)/2:,.0f}", f"${zmax:,.0f}"]
+            ),
+            hovertemplate='<b>%{y} - %{x}</b><br>CPS: $%{z:,.0f}<br>Seguidores netos: %{customdata:,.0f}<extra></extra>',
+            customdata=seg_array_filled,
+            text=text_matrix,
+            texttemplate="%{text}",
+            textfont=dict(size=10, color="white"),
+            hoverongaps=False
+        ))
+    except Exception as e:
+        st.error(f"Error al crear heatmap: {str(e)}")
+        # Crear un heatmap simple como respaldo
+        fig_heatmap = go.Figure(data=go.Heatmap(
+            z=cps_array_filled,
+            x=col_labels,
+            y=row_labels,
+            colorscale='RdYlGn_r',
+            hovertemplate='<b>%{y} - %{x}</b><br>CPS: $%{z:,.0f}<extra></extra>'
+        ))
+    
+    # Configurar layout del heatmap
+    fig_heatmap.update_layout(
         height=600,
         template='plotly_dark',
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(11, 16, 32, 0.8)',
+        paper_bgcolor='rgba(11, 16, 32, 0.8)',
         font=dict(color='white', size=12),
         title=dict(
-            text="📈 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)<br><sub>Análisis por día de semana y semana ISO - CPS bajo = mejor</sub>",
-            font=dict(size=24, color='white'),
+            text="📈 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)<br><sub>Análisis por día de semana y semana ISO - CPS bajo = mejor eficiencia</sub>",
+            font=dict(size=22, color='white'),
             x=0.5,
             xanchor='center'
         ),
@@ -435,86 +470,92 @@ def crear_grafica2_interactiva(data_grafica2):
             title="Semana ISO",
             tickangle=45,
             gridcolor='rgba(255,255,255,0.1)',
-            side="top"
+            side="top",
+            showgrid=False
         ),
         yaxis=dict(
             title="Día de la semana",
             gridcolor='rgba(255,255,255,0.1)',
-            autorange="reversed"
+            autorange="reversed",
+            showgrid=False
         ),
-        margin=dict(l=50, r=50, t=120, b=50)
+        margin=dict(l=60, r=60, t=120, b=60)
     )
     
-    # Mostrar heatmap
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
-    
-    # Gráfico de barras para resumen por día
-    if summary_by_day:
-        df_summary = pd.DataFrame(summary_by_day)
-        
-        # Crear gráfico de barras
-        fig_bar = go.Figure()
-        
-        fig_bar.add_trace(go.Bar(
-            x=df_summary["Dia_Semana"],
-            y=df_summary["CPS_total_dia"],
-            name="CPS por día",
-            marker=dict(
-                color=df_summary["CPS_total_dia"],
-                colorscale='RdYlGn_r',
-                showscale=True,
-                cmin=np.nanpercentile(df_summary["CPS_total_dia"].dropna(), 5) if not df_summary["CPS_total_dia"].dropna().empty else 0,
-                cmax=np.nanpercentile(df_summary["CPS_total_dia"].dropna(), 95) if not df_summary["CPS_total_dia"].dropna().empty else 100,
-                colorbar=dict(
-                    title="CPS ($)",
-                    titleside="right",
-                    tickformat="$,.0f"
+    # Crear gráfico de barras para resumen por día si hay datos
+    fig_bar = None
+    if summary_by_day and len(summary_by_day) > 0:
+        try:
+            df_summary = pd.DataFrame(summary_by_day)
+            
+            # Filtrar filas con datos válidos
+            df_summary_valid = df_summary.dropna(subset=["CPS_total_dia", "Dia_Semana"])
+            
+            if not df_summary_valid.empty:
+                # Ordenar por día de semana
+                dias_order = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+                df_summary_valid["Dia_Semana"] = pd.Categorical(
+                    df_summary_valid["Dia_Semana"], 
+                    categories=dias_order, 
+                    ordered=True
                 )
-            ),
-            hovertemplate='<b>%{x}</b><br>CPS: $%{y:,.0f}<br>Seguidores: %{customdata:,.0f}<extra></extra>',
-            customdata=df_summary["Seguidores_sum"]
-        ))
-        
-        fig_bar.update_layout(
-            height=400,
-            template='plotly_dark',
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='white', size=12),
-            title=dict(
-                text="📊 RESUMEN POR DÍA DE LA SEMANA",
-                font=dict(size=20, color='white'),
-                x=0.5,
-                xanchor='center'
-            ),
-            xaxis=dict(
-                title="Día de la semana",
-                gridcolor='rgba(255,255,255,0.1)'
-            ),
-            yaxis=dict(
-                title="CPS (Costo por Seguidor $)",
-                gridcolor='rgba(255,255,255,0.1)',
-                tickprefix="$"
-            ),
-            hovermode='x unified',
-            margin=dict(l=50, r=50, t=80, b=50)
-        )
-        
-        st.plotly_chart(fig_bar, use_container_width=True)
+                df_summary_valid = df_summary_valid.sort_values("Dia_Semana")
+                
+                # Crear gráfico de barras
+                fig_bar = go.Figure()
+                
+                fig_bar.add_trace(go.Bar(
+                    x=df_summary_valid["Dia_Semana"],
+                    y=df_summary_valid["CPS_total_dia"],
+                    name="CPS por día",
+                    marker=dict(
+                        color=df_summary_valid["CPS_total_dia"],
+                        colorscale='RdYlGn_r',
+                        showscale=True,
+                        colorbar=dict(
+                            title="CPS ($)",
+                            titleside="right",
+                            tickformat="$,.0f"
+                        )
+                    ),
+                    hovertemplate='<b>%{x}</b><br>CPS: $%{y:,.0f}<br>Seguidores: %{customdata:,.0f}<extra></extra>',
+                    customdata=df_summary_valid["Seguidores_sum"]
+                ))
+                
+                fig_bar.update_layout(
+                    height=400,
+                    template='plotly_dark',
+                    plot_bgcolor='rgba(11, 16, 32, 0.8)',
+                    paper_bgcolor='rgba(11, 16, 32, 0.8)',
+                    font=dict(color='white', size=12),
+                    title=dict(
+                        text="📊 RESUMEN POR DÍA DE LA SEMANA",
+                        font=dict(size=18, color='white'),
+                        x=0.5,
+                        xanchor='center'
+                    ),
+                    xaxis=dict(
+                        title="Día de la semana",
+                        gridcolor='rgba(255,255,255,0.1)',
+                        showgrid=False
+                    ),
+                    yaxis=dict(
+                        title="CPS (Costo por Seguidor $)",
+                        gridcolor='rgba(255,255,255,0.1)',
+                        tickprefix="$",
+                        showgrid=True
+                    ),
+                    hovermode='x unified',
+                    margin=dict(l=60, r=60, t=80, b=60)
+                )
+        except Exception as e:
+            st.warning(f"Error al crear gráfico de barras: {str(e)}")
+            fig_bar = None
     
-    # Mostrar tabla de resumen por día
-    with st.expander("📋 Ver datos detallados del heatmap"):
-        if summary_by_day:
-            display_summary = pd.DataFrame(summary_by_day)
-            display_summary["Costo_sum"] = display_summary["Costo_sum"].apply(lambda x: f"${x:,.0f}")
-            display_summary["Seguidores_sum"] = display_summary["Seguidores_sum"].apply(lambda x: f"{x:,.0f}")
-            display_summary["CPS_total_dia"] = display_summary["CPS_total_dia"].apply(
-                lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A"
-            )
-            st.dataframe(display_summary, use_container_width=True)
+    return fig_heatmap, fig_bar
 
 #############################################
-# FIN NUEVAS FUNCIONES
+# FIN NUEVAS FUNCIONES CORREGIDAS
 #############################################
 
 # Función para cargar datos con caché
@@ -1155,6 +1196,74 @@ st.markdown("""
     visibility: visible;
     opacity: 1;
 }
+
+/* Mensajes de error */
+.error-message {
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid #ef4444;
+    color: white;
+}
+
+.error-message h4 {
+    margin: 0 0 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.warning-message {
+    background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid #f59e0b;
+    color: white;
+}
+
+.warning-message h4 {
+    margin: 0 0 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.success-message {
+    background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid #10b981;
+    color: white;
+}
+
+.success-message h4 {
+    margin: 0 0 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Spinner personalizado */
+.custom-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+.spinner {
+    border: 4px solid rgba(59, 130, 246, 0.1);
+    border-radius: 50%;
+    border-top: 4px solid #3B82F6;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1220,6 +1329,7 @@ with st.sidebar:
             st.session_state["show_grafica1"] = not st.session_state.get("show_grafica1", False)
             if "show_grafica2" in st.session_state:
                 st.session_state["show_grafica2"] = False
+            st.rerun()
     
     with col_graf2:
         if st.button("📊 Gráfica 2", key="grafica2_btn", use_container_width=True,
@@ -1227,6 +1337,7 @@ with st.sidebar:
             st.session_state["show_grafica2"] = not st.session_state.get("show_grafica2", False)
             if "show_grafica1" in st.session_state:
                 st.session_state["show_grafica1"] = False
+            st.rerun()
     
     # Botón para ocultar gráficas
     if st.session_state.get("show_grafica1", False) or st.session_state.get("show_grafica2", False):
@@ -1297,6 +1408,197 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ================================================================
+# SECCIÓN: GRÁFICAS AVANZADAS (si están activadas)
+# ================================================================
+
+# Gráfica 1: Inversión vs Seguidores
+if st.session_state.get("show_grafica1", False):
+    st.markdown("""
+    <div class="grafica-container">
+        <div class="grafica-title">📈 GRÁFICA 1: INVERSIÓN VS SEGUIDORES</div>
+        <div class="grafica-subtitle">
+            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Cargando datos de la gráfica 1..."):
+        data_grafica1 = cargar_datos_grafica1()
+        
+        if data_grafica1.get("status") == "success":
+            fig_grafica1 = crear_grafica1_interactiva(data_grafica1)
+            
+            if fig_grafica1:
+                st.plotly_chart(fig_grafica1, use_container_width=True, config={'displayModeBar': True})
+                
+                # Mostrar información adicional
+                summary = data_grafica1.get("summary", {})
+                optimal_point = data_grafica1.get("optimal_point", {})
+                parameters = data_grafica1.get("parameters", {})
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric(
+                        "📊 Días analizados",
+                        f"{summary.get('total_dias_validos', 0):,}",
+                        help="Total de días con inversión y seguidores positivos"
+                    )
+                
+                with col2:
+                    st.metric(
+                        "💰 Inversión promedio",
+                        f"${summary.get('INV_mean', 0):,.0f}",
+                        help="Inversión promedio por día válido"
+                    )
+                
+                with col3:
+                    st.metric(
+                        "👥 Seguidores promedio",
+                        f"{summary.get('SEG_mean', 0):,.0f}",
+                        help="Seguidores promedio por día válido"
+                    )
+                
+                with col4:
+                    if optimal_point and "CPS_curva" in optimal_point:
+                        st.metric(
+                            "⭐ CPS óptimo",
+                            f"${optimal_point.get('CPS_curva', 0):,.0f}",
+                            help="Costo por seguidor en el punto óptimo"
+                        )
+                    else:
+                        st.metric(
+                            "⭐ CPS óptimo",
+                            "N/A",
+                            help="Costo por seguidor en el punto óptimo"
+                        )
+                
+                # Mostrar tabla de datos de la curva
+                with st.expander("📋 Ver datos detallados de la curva"):
+                    curve_data = pd.DataFrame(data_grafica1.get("curve_data", []))
+                    if not curve_data.empty:
+                        display_curve = curve_data.copy()
+                        display_curve["Inversion_promedio"] = display_curve["Inversion_promedio"].apply(lambda x: f"${x:,.0f}")
+                        display_curve["Seguidores_promedio"] = display_curve["Seguidores_promedio"].apply(lambda x: f"{x:,.0f}")
+                        display_curve["CPS_curva"] = display_curve["CPS_curva"].apply(
+                            lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A"
+                        )
+                        display_curve["Dias_para_meta"] = display_curve["Dias_para_meta"].apply(
+                            lambda x: f"{x:.1f} días" if not pd.isna(x) else "N/A"
+                        )
+                        st.dataframe(display_curve, use_container_width=True)
+                    else:
+                        st.info("No hay datos de curva disponibles")
+            else:
+                st.error("No se pudo generar la gráfica 1. Verifique los datos.")
+        else:
+            st.error(f"Error al cargar datos de gráfica 1: {data_grafica1.get('message', 'Error desconocido')}")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
+
+# Gráfica 2: Heatmap CPS
+elif st.session_state.get("show_grafica2", False):
+    st.markdown("""
+    <div class="grafica-container">
+        <div class="grafica-title">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</div>
+        <div class="grafica-subtitle">
+            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Cargando datos de la gráfica 2..."):
+        data_grafica2 = cargar_datos_grafica2()
+        
+        if data_grafica2.get("status") == "success":
+            fig_heatmap, fig_bar = crear_grafica2_interactiva(data_grafica2)
+            
+            if fig_heatmap:
+                st.plotly_chart(fig_heatmap, use_container_width=True, config={'displayModeBar': True})
+                
+                # Mostrar gráfico de barras si existe
+                if fig_bar:
+                    st.plotly_chart(fig_bar, use_container_width=True)
+                
+                # Mostrar información adicional
+                heatmap_data = data_grafica2.get("heatmap_data", {})
+                summary_by_day = data_grafica2.get("summary_by_day", [])
+                
+                if summary_by_day and len(summary_by_day) > 0:
+                    df_summary = pd.DataFrame(summary_by_day)
+                    
+                    # Calcular estadísticas
+                    total_costo = df_summary["Costo_sum"].sum() if "Costo_sum" in df_summary.columns else 0
+                    total_seguidores = df_summary["Seguidores_sum"].sum() if "Seguidores_sum" in df_summary.columns else 0
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric(
+                            "💰 Inversión total",
+                            f"${total_costo:,.0f}",
+                            help="Inversión total en el período analizado"
+                        )
+                    
+                    with col2:
+                        st.metric(
+                            "👥 Seguidores totales",
+                            f"{total_seguidores:,.0f}",
+                            help="Seguidores totales en el período"
+                        )
+                    
+                    with col3:
+                        if total_seguidores > 0:
+                            cps_promedio = total_costo / total_seguidores
+                            st.metric(
+                                "📊 CPS promedio",
+                                f"${cps_promedio:,.0f}",
+                                help="Costo por seguidor promedio"
+                            )
+                        else:
+                            st.metric(
+                                "📊 CPS promedio",
+                                "N/A",
+                                help="Costo por seguidor promedio"
+                            )
+                    
+                    with col4:
+                        semanas = len(heatmap_data.get("col_labels", []))
+                        st.metric(
+                            "📅 Semanas analizadas",
+                            f"{semanas}",
+                            help="Número de semanas en el heatmap"
+                        )
+                    
+                    # Mostrar tabla de resumen por día
+                    with st.expander("📋 Ver datos detallados por día"):
+                        if not df_summary.empty:
+                            display_summary = df_summary.copy()
+                            if "Costo_sum" in display_summary.columns:
+                                display_summary["Costo_sum"] = display_summary["Costo_sum"].apply(lambda x: f"${x:,.0f}")
+                            if "Seguidores_sum" in display_summary.columns:
+                                display_summary["Seguidores_sum"] = display_summary["Seguidores_sum"].apply(lambda x: f"{x:,.0f}")
+                            if "CPS_total_dia" in display_summary.columns:
+                                display_summary["CPS_total_dia"] = display_summary["CPS_total_dia"].apply(
+                                    lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A"
+                                )
+                            st.dataframe(display_summary, use_container_width=True)
+                        else:
+                            st.info("No hay datos de resumen por día disponibles")
+                else:
+                    st.warning("No hay datos de resumen por día disponibles")
+            else:
+                st.error("No se pudo generar el heatmap. Verifique los datos.")
+        else:
+            st.error(f"Error al cargar datos de gráfica 2: {data_grafica2.get('message', 'Error desconocido')}")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
+
+# ================================================================
+# DASHBOARD NORMAL (si no se están mostrando gráficas avanzadas)
+# ================================================================
+
 # Determinar datos según plataforma seleccionada
 if selected_platform == "general":
     platform_name = "GENERAL"
@@ -1355,48 +1657,6 @@ if df.empty:
     
     st.info("Conectando al backend para cargar datos en tiempo real...")
     st.stop()
-
-# ================================================================
-# SECCIÓN: GRÁFICAS AVANZADAS (si están activadas)
-# ================================================================
-
-# Gráfica 1: Inversión vs Seguidores
-if st.session_state.get("show_grafica1", False):
-    st.markdown("""
-    <div class="grafica-container">
-        <div class="grafica-title">📈 GRÁFICA 1: INVERSIÓN VS SEGUIDORES</div>
-        <div class="grafica-subtitle">
-            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
-        </div>
-    """, unsafe_allow_html=True)
-    
-    with st.spinner("Cargando datos de la gráfica 1..."):
-        data_grafica1 = cargar_datos_grafica1()
-        crear_grafica1_interactiva(data_grafica1)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
-
-# Gráfica 2: Heatmap CPS
-elif st.session_state.get("show_grafica2", False):
-    st.markdown("""
-    <div class="grafica-container">
-        <div class="grafica-title">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</div>
-        <div class="grafica-subtitle">
-            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia
-        </div>
-    """, unsafe_allow_html=True)
-    
-    with st.spinner("Cargando datos de la gráfica 2..."):
-        data_grafica2 = cargar_datos_grafica2()
-        crear_grafica2_interactiva(data_grafica2)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
-
-# ================================================================
-# DASHBOARD NORMAL (si no se están mostrando gráficas avanzadas)
-# ================================================================
 
 # Calcular métricas clave
 total_posts = len(df)
