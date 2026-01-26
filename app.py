@@ -6,7 +6,11 @@ from datetime import datetime, timedelta
 import warnings
 import requests
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patheffects as pe
 import io
+import base64
+from PIL import Image
 
 warnings.filterwarnings('ignore')
 
@@ -22,9 +26,65 @@ st.set_page_config(
 # CONEXIÓN A BACKEND REAL
 #############################################
 BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
-FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
-PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
+FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/FollowerHistory.xlsx"
+PAUTAS_URL = "https://pahubisas.pythonanywhere.com/base_pautas.xlsx"
 
+#############################################
+# FUNCIONES HELPER PARA GRÁFICAS
+#############################################
+def to_num(v):
+    """Convierte cualquier valor a número, manejando formatos de moneda"""
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return np.nan
+    if isinstance(v, (int, float, np.integer, np.floating)):
+        return float(v)
+    s = str(v).strip()
+    if s == "":
+        return np.nan
+    s = s.replace("$", "").replace("COP", "").replace("cop", "").replace(" ", "")
+    if "," in s and "." in s:
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", "")
+    else:
+        if "," in s and "." not in s:
+            s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except Exception:
+        return np.nan
+
+def fmt_int_or_dash(x):
+    """Formatea número entero o devuelve guión"""
+    if x is None or (isinstance(x, float) and np.isnan(x)):
+        return "—"
+    try:
+        return f"{int(round(float(x))):,}".replace(",", ".")
+    except Exception:
+        return "—"
+
+def fmt_int_plain(x):
+    """Formatea número entero simple"""
+    if x is None or (isinstance(x, float) and np.isnan(x)):
+        return "—"
+    try:
+        return str(int(round(float(x))))
+    except Exception:
+        return "—"
+
+def fmt_k(x):
+    """Formatea número en miles"""
+    if x is None or (isinstance(x, float) and np.isnan(x)):
+        return "—"
+    try:
+        return f"{int(round(float(x)/1000.0))}k"
+    except Exception:
+        return "—"
+
+#############################################
+# FUNCIONES PARA CARGAR DATOS
+#############################################
 def cargar_datos_backend():
     try:
         r = requests.get(BACKEND_URL, timeout=20)
@@ -85,484 +145,282 @@ def cargar_datos_backend():
         return pd.DataFrame()
 
 def cargar_datos_seguidores():
-    """Carga datos de seguidores desde el endpoint específico"""
+    """Carga datos de seguidores directamente desde el archivo Excel"""
     try:
-        r = requests.get(FOLLOWERS_URL, timeout=20)
-        r.raise_for_status()
-        data = r.json()
-        
-        # Convertir a DataFrame
-        df_followers = pd.DataFrame(data.get("data", []))
-        
-        # Procesar datos
-        if "Fecha" in df_followers.columns:
-            df_followers["Fecha"] = pd.to_datetime(
-                df_followers["Fecha"],
-                dayfirst=True,
-                errors="coerce"
-            )
-        
-        # Convertir números
-        if "Seguidores_Totales" in df_followers.columns:
-            df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors="coerce")
-        
-        return df_followers
-        
+        # Descargar el archivo Excel
+        response = requests.get(FOLLOWERS_URL, timeout=30)
+        if response.status_code == 200:
+            df_followers = pd.read_excel(io.BytesIO(response.content))
+            
+            # Procesar datos
+            if "Fecha" in df_followers.columns:
+                df_followers["Fecha"] = pd.to_datetime(
+                    df_followers["Fecha"],
+                    dayfirst=True,
+                    errors="coerce"
+                )
+            
+            # Convertir números
+            if "Seguidores_Totales" in df_followers.columns:
+                df_followers["Seguidores_Totales"] = df_followers["Seguidores_Totales"].apply(to_num).astype("float64")
+            
+            return df_followers
+        else:
+            return pd.DataFrame()
+            
     except Exception as e:
-        st.error(f"Error al conectar con el backend de seguidores: {str(e)}")
         return pd.DataFrame()
 
 def cargar_datos_pauta():
-    """Carga datos de pauta publicitaria"""
+    """Carga datos de pauta publicitaria directamente desde el archivo Excel"""
     try:
-        r = requests.get(PAUTA_URL, timeout=20)
-        r.raise_for_status()
-        data = r.json()
-        
-        # Convertir a DataFrame
-        df_pauta = pd.DataFrame(data.get("data", []))
-        
-        # Procesar datos si existen
-        if not df_pauta.empty:
-            # Asegurar nombres de columnas
-            if 'Costo' in df_pauta.columns:
-                df_pauta['coste_anuncio'] = df_pauta['Costo']
-            if 'Visualizaciones' in df_pauta.columns:
-                df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
-            if 'Seguidores' in df_pauta.columns:
-                df_pauta['nuevos_seguidores'] = df_pauta['Seguidores']
+        # Descargar el archivo Excel
+        response = requests.get(PAUTAS_URL, timeout=30)
+        if response.status_code == 200:
+            df_pauta = pd.read_excel(io.BytesIO(response.content))
             
-            # Formatear coste anuncio (sin decimales)
-            if "coste_anuncio" in df_pauta.columns:
-                df_pauta["coste_anuncio"] = pd.to_numeric(df_pauta["coste_anuncio"], errors="coerce").fillna(0).astype(int)
+            # Procesar datos si existen
+            if not df_pauta.empty:
+                # Asegurar nombres de columnas
+                if 'Costo' in df_pauta.columns:
+                    df_pauta['coste_anuncio'] = df_pauta['Costo'].apply(to_num).astype("float64")
+                if 'Visualizaciones' in df_pauta.columns:
+                    df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones'].apply(to_num).astype("float64")
+                if 'Seguidores' in df_pauta.columns:
+                    df_pauta['nuevos_seguidores'] = df_pauta['Seguidores'].apply(to_num).astype("float64")
+                
+                # Procesar fecha
+                if "fecha" in df_pauta.columns:
+                    df_pauta["fecha"] = pd.to_datetime(
+                        df_pauta["fecha"], 
+                        errors='coerce',
+                        dayfirst=True
+                    )
             
-            # Formatear otras columnas
-            for col in ["visualizaciones_videos", "nuevos_seguidores"]:
-                if col in df_pauta.columns:
-                    df_pauta[col] = pd.to_numeric(df_pauta[col], errors="coerce").fillna(0).astype(int)
+            return df_pauta
+        else:
+            return pd.DataFrame()
             
-            # Procesar fecha - FORMATO CORRECTO PARA CRUCE
-            if "fecha" in df_pauta.columns:
-                # Intentar múltiples formatos de fecha
-                df_pauta["fecha"] = pd.to_datetime(
-                    df_pauta["fecha"], 
-                    errors='coerce',
-                    dayfirst=True  # Asumir día primero
-                )
-        
-        return df_pauta
-        
     except Exception as e:
         return pd.DataFrame()
 
 #############################################
-# FUNCIONES PARA LAS NUEVAS GRÁFICAS (CORREGIDAS)
+# FUNCIONES PARA GENERAR GRÁFICAS
 #############################################
-
-def procesar_datos_graficas():
-    """Procesa datos directamente desde los archivos Excel"""
+def generar_grafica_inversion_vs_seguidores(df_followers, df_pauta):
+    """Genera la gráfica de inversión vs seguidores (similar a grafica.txt)"""
     try:
-        # Descargar archivos Excel directamente
-        fh_response = requests.get("https://pahubisas.pythonanywhere.com/FollowerHistory.xlsx")
-        bp_response = requests.get("https://pahubisas.pythonanywhere.com/base_pautas.xlsx")
+        # Validar datos
+        if df_followers.empty or df_pauta.empty:
+            return None, "No hay datos suficientes de seguidores o pauta"
         
-        if fh_response.status_code != 200 or bp_response.status_code != 200:
-            return None, None, None
+        # Configuración de parámetros
+        STEP = 15000
+        IMPACT_DAYS = 3
+        USE_IMPACT = True
+        RESULT_COL = "Seguidores_Impacto" if USE_IMPACT else "Neto_Diario_Real"
         
-        # Leer los archivos Excel
-        fh = pd.read_excel(io.BytesIO(fh_response.content))
-        bp = pd.read_excel(io.BytesIO(bp_response.content))
+        # Procesar datos de seguidores
+        fh = df_followers.copy()
+        fh = fh.sort_values(["Fecha"]).groupby("Fecha", as_index=False).tail(1).reset_index(drop=True)
+        fh["Neto_Diario_Real"] = fh["Seguidores_Totales"].diff()
+        fh.loc[fh["Neto_Diario_Real"] <= 0, "Neto_Diario_Real"] = np.nan
+        fh = fh.rename(columns={"Fecha": "fecha"})
         
-        # Función para convertir a número
-        def to_num(v):
-            if v is None or (isinstance(v, float) and np.isnan(v)):
-                return np.nan
-            if isinstance(v, (int, float, np.integer, np.floating)):
-                return float(v)
-            s = str(v).strip()
-            if s == "":
-                return np.nan
-            s = s.replace("$", "").replace("COP", "").replace("cop", "").replace(" ", "")
-            if "," in s and "." in s:
-                if s.rfind(",") > s.rfind("."):
-                    s = s.replace(".", "").replace(",", ".")
-                else:
-                    s = s.replace(",", "")
-            else:
-                if "," in s and "." not in s:
-                    s = s.replace(".", "").replace(",", ".")
-            try:
-                return float(s)
-            except Exception:
-                return np.nan
+        # Procesar datos de pauta
+        bp = df_pauta.copy()
+        bp["Costo"] = bp["coste_anuncio"].astype("float64")
+        if "fecha" not in bp.columns:
+            return None, "No hay columna 'fecha' en datos de pauta"
         
-        # Procesar fechas
-        fh["Fecha"] = pd.to_datetime(fh["Fecha"], dayfirst=True, errors="coerce")
-        bp["fecha"] = pd.to_datetime(bp["fecha"], dayfirst=True, errors="coerce")
+        # Unir datos
+        df = pd.merge(bp, fh[["fecha", "Neto_Diario_Real"]], on="fecha", how="left")
         
-        # Convertir columnas numéricas
-        for col in ["Costo", "Visualizaciones", "Seguidores"]:
-            if col in bp.columns:
-                bp[col] = bp[col].apply(to_num).astype("float64")
-        
-        fh["Seguidores_Totales"] = fh["Seguidores_Totales"].apply(to_num).astype("float64")
-        
-        # Renombrar y unir
-        fh = fh.rename(columns={"Fecha": "fecha", "Seguidores_Totales": "Neto_Diario_Real"})
-        fh = fh[["fecha", "Neto_Diario_Real"]].copy()
-        
-        # Unir los datos
-        df = pd.merge(bp, fh, on="fecha", how="left").sort_values("fecha").reset_index(drop=True)
-        
-        return df, fh, bp
-        
-    except Exception as e:
-        st.error(f"Error procesando datos para gráficas: {str(e)}")
-        return None, None, None
-
-def crear_grafica_inversion_vs_seguidores(df, platform_name):
-    """Crea la gráfica de inversión vs seguidores IDÉNTICA a grafica.txt"""
-    try:
-        if df is None or df.empty:
-            return None
+        # Calcular impacto si es necesario
+        if USE_IMPACT:
+            neto = df["Neto_Diario_Real"].astype("float64")
+            impact = np.full(len(df), np.nan, dtype="float64")
+            for i in range(len(df)):
+                s = 0.0
+                ok = False
+                for k in range(IMPACT_DAYS):
+                    j = i + k
+                    if j >= len(df):
+                        break
+                    v = neto.iloc[j]
+                    if pd.notna(v) and v > 0:
+                        s += float(v)
+                        ok = True
+                impact[i] = s if ok else np.nan
+            df["Seguidores_Impacto"] = impact
         
         # Filtrar datos válidos
-        df_valid = df[(df["Costo"] > 0) & (df["Neto_Diario_Real"].notna())].copy()
+        cand = df[(df["Costo"] > 0) & (df[RESULT_COL].notna()) & (df[RESULT_COL] > 0)].copy()
         
-        if df_valid.empty:
-            return None
+        if cand.empty:
+            return None, "No hay datos válidos para graficar"
         
-        # Crear rangos de inversión (igual que en grafica.txt)
-        STEP = 15000
-        cmin = float(df_valid["Costo"].min())
-        cmax = float(df_valid["Costo"].max())
+        # Calcular CPS
+        cand["CPS_real"] = cand["Costo"] / cand[RESULT_COL]
+        
+        # Agrupar por rangos de inversión
+        cmin = float(cand["Costo"].min())
+        cmax = float(cand["Costo"].max())
         start = float(np.floor(cmin / STEP) * STEP)
         end = float(np.ceil(cmax / STEP) * STEP) + STEP
         bins = np.arange(start, end + 1, STEP)
         
-        df_valid["Costo_bin"] = pd.cut(df_valid["Costo"], bins=bins, include_lowest=True, right=False)
+        cand["Costo_bin"] = pd.cut(cand["Costo"], bins=bins, include_lowest=True, right=False)
         
-        # Calcular promedios por rango
-        curve = df_valid.groupby("Costo_bin", observed=True).agg(
+        curve = cand.groupby("Costo_bin", observed=True).agg(
             Inversion_promedio=("Costo", "mean"),
-            Seguidores_promedio=("Neto_Diario_Real", "mean"),
+            Seguidores_promedio=(RESULT_COL, "mean"),
             Dias=("Costo", "count"),
         ).reset_index(drop=True).sort_values("Inversion_promedio").reset_index(drop=True)
         
-        # Calcular CPS
         curve["CPS_curva"] = np.nan
         mc = (curve["Inversion_promedio"] > 0) & (curve["Seguidores_promedio"] > 0)
-        curve.loc[mc, "CPS_curva"] = (curve.loc[mc, "Inversion_promedio"] / curve.loc[mc, "Seguidores_promedio"]).astype("float64")
-        
-        # Encontrar punto óptimo (simplificado)
-        if not curve.empty:
-            opt_row = curve.loc[curve['Seguidores_promedio'].idxmax()]
-            opt_x = float(opt_row["Inversion_promedio"])
-            opt_y = float(opt_row["Seguidores_promedio"])
-            opt_cps = float(opt_row["CPS_curva"]) if not pd.isna(opt_row["CPS_curva"]) else 0
-        else:
-            opt_x, opt_y, opt_cps = 0, 0, 0
+        curve.loc[mc, "CPS_curva"] = curve.loc[mc, "Inversion_promedio"] / curve.loc[mc, "Seguidores_promedio"]
         
         # Crear gráfica
-        fig = go.Figure()
+        plt.rcParams.update({
+            "figure.facecolor": "#060913",
+            "axes.facecolor": "#0b1020",
+            "axes.edgecolor": "#334155",
+            "axes.labelcolor": "#e0e7ff",
+            "xtick.color": "#c7d2fe",
+            "ytick.color": "#c7d2fe",
+            "text.color": "#e0e7ff",
+            "grid.alpha": 0.22,
+            "grid.linewidth": 0.8,
+            "font.size": 11
+        })
         
-        # 1. Puntos reales (días individuales)
-        fig.add_trace(go.Scatter(
-            x=df_valid["Costo"],
-            y=df_valid["Neto_Diario_Real"],
-            mode='markers',
-            name='Días reales',
-            marker=dict(
-                size=8,
-                color='#60a5fa',
-                opacity=0.3,
-                line=dict(width=1, color='white')
-            ),
-            hovertemplate='<b>Costo: $%{x:,.0f}</b><br>Seguidores: %{y:,.0f}<extra></extra>'
-        ))
+        fig, ax = plt.subplots(figsize=(14, 6), dpi=150)
+        ax.grid(True)
         
-        # 2. Línea de la curva (promedios por rango)
-        fig.add_trace(go.Scatter(
-            x=curve["Inversion_promedio"],
-            y=curve["Seguidores_promedio"],
-            mode='lines+markers',
-            name='Curva promedio',
-            line=dict(color='#f59e0b', width=3),
-            marker=dict(size=10, color='#f59e0b', symbol='circle'),
-            hovertemplate='<b>Inversión: $%{x:,.0f}</b><br>Seguidores: %{y:,.0f}<br>Días: %{customdata[0]}<extra></extra>',
-            customdata=curve[['Dias']].values
-        ))
+        # Puntos reales
+        ax.scatter(cand["Costo"], cand[RESULT_COL], s=30, alpha=0.12, color="#60a5fa", 
+                   label="Días reales", zorder=2)
         
-        # 3. Punto óptimo
-        if opt_x > 0 and opt_y > 0:
-            fig.add_trace(go.Scatter(
-                x=[opt_x],
-                y=[opt_y],
-                mode='markers',
-                name='Punto óptimo',
-                marker=dict(
-                    size=20,
-                    color='#22c55e',
-                    symbol='star',
-                    line=dict(width=2, color='white')
-                ),
-                hovertemplate='<b>ÓPTIMO</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>CPS: $%{customdata[0]:,.0f}<extra></extra>',
-                customdata=[[opt_cps]]
-            ))
+        # Curva promedio
+        ax.plot(curve["Inversion_promedio"], curve["Seguidores_promedio"], 
+                linewidth=2.8, alpha=0.95, color="#38bdf8",
+                label="Promedio esperado (por nivel inversión)", zorder=5)
         
-        # 4. Líneas de promedio general
-        mean_inv = df_valid["Costo"].mean()
-        mean_seg = df_valid["Neto_Diario_Real"].mean()
+        # Puntos de la curva
+        ax.scatter(curve["Inversion_promedio"], curve["Seguidores_promedio"],
+                  s=120, alpha=0.98, color="#f59e0b",
+                  label="Puntos promedio", zorder=6)
         
-        fig.add_trace(go.Scatter(
-            x=[mean_inv, mean_inv],
-            y=[0, mean_seg],
-            mode='lines',
-            name='Promedio inversión',
-            line=dict(color='#22d3ee', width=2, dash='dot'),
-            showlegend=False,
-            hovertemplate='Promedio inversión: $%{x:,.0f}<extra></extra>'
-        ))
+        # Promedios generales
+        INV_mean = float(cand["Costo"].mean())
+        SEG_mean = float(cand[RESULT_COL].mean())
         
-        fig.add_trace(go.Scatter(
-            x=[0, mean_inv],
-            y=[mean_seg, mean_seg],
-            mode='lines',
-            name='Promedio seguidores',
-            line=dict(color='#22d3ee', width=2, dash='dot'),
-            showlegend=False,
-            hovertemplate='Promedio seguidores: %{y:,.0f}<extra></extra>'
-        ))
+        ax.axhline(SEG_mean, linewidth=2.0, linestyle=":", color="#22d3ee",
+                   label=f"Promedio SEG = {fmt_int_plain(SEG_mean)}", zorder=3)
+        ax.axvline(INV_mean, linewidth=1.8, linestyle=":", color="#22d3ee", alpha=0.75,
+                   label=f"Promedio inversión = {fmt_int_plain(INV_mean)}", zorder=3)
         
-        # Configurar layout
-        fig.update_layout(
-            title=f'📈 {platform_name} - Análisis de Inversión vs Seguidores',
-            height=600,
-            template='plotly_white',
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            hovermode='closest',
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            ),
-            xaxis=dict(
-                title="Inversión ($)",
-                tickformat="$,.0f",
-                gridcolor='#f1f5f9',
-                showgrid=True,
-                zeroline=False
-            ),
-            yaxis=dict(
-                title="Seguidores Netos",
-                gridcolor='#f1f5f9',
-                showgrid=True,
-                zeroline=False
-            ),
-            annotations=[
-                dict(
-                    x=mean_inv,
-                    y=mean_seg,
-                    xref="x",
-                    yref="y",
-                    text="Promedio",
-                    showarrow=True,
-                    arrowhead=2,
-                    ax=0,
-                    ay=-40,
-                    bgcolor="white",
-                    bordercolor="#22d3ee",
-                    borderwidth=1,
-                    borderpad=4
-                )
-            ] if mean_inv > 0 and mean_seg > 0 else []
-        )
+        # Configurar eje X
+        edge_ticks_real = np.unique(bins)
+        edge_ticks_real = [x for x in edge_ticks_real if (x >= start and x <= end)]
+        edge_tick_labels = [fmt_k(x) for x in edge_ticks_real]
         
-        # Agregar etiquetas a los puntos de la curva
-        for i, row in curve.iterrows():
-            if not pd.isna(row["Inversion_promedio"]) and not pd.isna(row["Seguidores_promedio"]):
-                fig.add_annotation(
-                    x=row["Inversion_promedio"],
-                    y=row["Seguidores_promedio"],
-                    text=f"{row['Dias']} días",
-                    showarrow=True,
-                    arrowhead=1,
-                    arrowsize=1,
-                    arrowwidth=1,
-                    arrowcolor="#f59e0b",
-                    ax=0,
-                    ay=-20,
-                    bgcolor="white",
-                    bordercolor="#f59e0b",
-                    borderwidth=1,
-                    borderpad=4,
-                    font=dict(size=10)
-                )
+        ax.set_xticks(edge_ticks_real)
+        ax.set_xticklabels(edge_tick_labels, rotation=0)
         
-        return fig
+        # Título y etiquetas
+        impact_label = f"Impacto {IMPACT_DAYS}d" if USE_IMPACT else "Neto día"
+        ax.set_title("Inversión vs Seguidores (curva por niveles)")
+        ax.set_xlabel("Inversión (miles)")
+        ax.set_ylabel(f"Seguidores ({impact_label})")
+        
+        # Leyenda
+        leg = ax.legend(loc="upper left", frameon=True)
+        leg.get_frame().set_facecolor("#0b1020")
+        leg.get_frame().set_edgecolor("#334155")
+        for t in leg.get_texts():
+            t.set_color("#e0e7ff")
+        
+        plt.tight_layout()
+        
+        # Convertir a imagen base64
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=150, facecolor='#060913')
+        buf.seek(0)
+        img_base64 = base64.b64encode(buf.getvalue()).decode()
+        plt.close()
+        
+        return img_base64, "Gráfica generada exitosamente"
         
     except Exception as e:
-        st.error(f"Error creando gráfica de inversión: {str(e)}")
-        return None
+        return None, f"Error al generar gráfica: {str(e)}"
 
-def crear_heatmap_cps(df, platform_name):
-    """Crea el heatmap de CPS IDÉNTICO a grafica2.txt"""
+def generar_grafica_heatmap_cps(df_followers, df_pauta):
+    """Genera el heatmap de CPS por día de semana y semana (similar a grafica2.txt)"""
     try:
-        if df is None or df.empty:
-            return None
+        # Validar datos
+        if df_followers.empty or df_pauta.empty:
+            return None, "No hay datos suficientes de seguidores o pauta"
         
-        # Filtrar datos válidos
-        df_valid = df[(df["Costo"] > 0) & (df["Neto_Diario_Real"].notna())].copy()
+        # Procesar datos de seguidores
+        fh = df_followers.copy()
+        fh["Fecha"] = pd.to_datetime(fh["Fecha"], dayfirst=True, errors="coerce")
+        fh["Seguidores_Totales"] = fh["Seguidores_Totales"].apply(to_num).astype("float64")
+        fh = fh.rename(columns={"Fecha": "fecha", "Seguidores_Totales": "Neto_Diario_Real"})
+        fh = fh[["fecha", "Neto_Diario_Real"]].copy()
         
-        if df_valid.empty:
-            return None
+        # Procesar datos de pauta
+        bp = df_pauta.copy()
+        bp["fecha"] = pd.to_datetime(bp["fecha"], dayfirst=True, errors="coerce")
+        bp["Costo"] = bp["coste_anuncio"].astype("float64")
         
-        # Preparar datos para heatmap
-        df_heat = df_valid.copy()
+        # Unir datos
+        df = pd.merge(bp, fh, on="fecha", how="left").sort_values("fecha").reset_index(drop=True)
         
-        # Calcular CPS
-        df_heat["CPS"] = df_heat["Costo"] / df_heat["Neto_Diario_Real"]
+        # Día de semana + semana ISO
+        dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        df["Dia_Semana"] = df["fecha"].dt.dayofweek.map(lambda i: dias[int(i)] if pd.notna(i) else np.nan)
         
-        # Extraer día de semana y semana ISO
-        df_heat["Dia_Semana"] = df_heat["fecha"].dt.day_name()
-        df_heat["ISO_Year"] = df_heat["fecha"].dt.isocalendar().year
-        df_heat["ISO_Week"] = df_heat["fecha"].dt.isocalendar().week
+        iso = df["fecha"].dt.isocalendar()
+        df["ISO_Year"] = iso["year"].astype(int)
+        df["ISO_Week"] = iso["week"].astype(int)
+        df["WeekKey"] = df["ISO_Year"].astype(str) + "-W" + df["ISO_Week"].astype(str).str.zfill(2)
         
-        # Mapear días al español
-        dias_map = {
-            'Monday': 'Lunes',
-            'Tuesday': 'Martes',
-            'Wednesday': 'Miércoles',
-            'Thursday': 'Jueves',
-            'Friday': 'Viernes',
-            'Saturday': 'Sábado',
-            'Sunday': 'Domingo'
-        }
-        df_heat["Dia_Semana"] = df_heat["Dia_Semana"].map(dias_map)
+        # Agregación para heatmap
+        g = df[(df["Costo"] > 0) & (df["Neto_Diario_Real"].notna())].copy()
+        g["Seg_pos"] = np.where(g["Neto_Diario_Real"] > 0, g["Neto_Diario_Real"], 0.0)
         
-        # Crear clave de semana
-        df_heat["WeekKey"] = df_heat["ISO_Year"].astype(str) + "-W" + df_heat["ISO_Week"].astype(str).str.zfill(2)
-        
-        # Calcular seguidores positivos (solo positivos para CPS)
-        df_heat["Seg_pos"] = np.where(df_heat["Neto_Diario_Real"] > 0, df_heat["Neto_Diario_Real"], 0.0)
-        
-        # Agregar por día y semana
-        agg = df_heat.groupby(["Dia_Semana", "WeekKey"], as_index=False).agg(
+        agg = g.groupby(["Dia_Semana", "WeekKey"], as_index=False).agg(
             Costo_sum=("Costo", "sum"),
             Seguidores_sum=("Neto_Diario_Real", "sum"),
             Seguidores_pos_sum=("Seg_pos", "sum")
         )
         
-        # Calcular CPS por celda
         agg["CPS_cell"] = np.where(
             agg["Seguidores_pos_sum"] > 0,
             agg["Costo_sum"] / agg["Seguidores_pos_sum"],
             np.nan
         )
         
-        # Crear pivot table
-        pivot_cps = agg.pivot(index="Dia_Semana", columns="WeekKey", values="CPS_cell")
-        pivot_seg = agg.pivot(index="Dia_Semana", columns="WeekKey", values="Seguidores_sum")
+        pivot_cps = agg.pivot(index="Dia_Semana", columns="WeekKey", values="CPS_cell").reindex(dias)
+        pivot_seg = agg.pivot(index="Dia_Semana", columns="WeekKey", values="Seguidores_sum").reindex(dias)
         
-        # Ordenar días de semana
-        dias_orden = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-        pivot_cps = pivot_cps.reindex(dias_orden)
-        pivot_seg = pivot_seg.reindex(dias_orden)
-        
-        # Obtener valores
         vals_cps = pivot_cps.values.astype(float)
         vals_seg = pivot_seg.values.astype(float)
         
-        # Normalizar color (recorte p5–p95 como en grafica2.txt)
+        # Normalizar color
         flat = vals_cps[np.isfinite(vals_cps)]
-        if flat.size > 0:
-            p5 = np.nanpercentile(flat, 5)
-            p95 = np.nanpercentile(flat, 95)
-            vals_cps_clip = np.clip(vals_cps, p5, p95)
-        else:
-            vals_cps_clip = vals_cps
+        if flat.size == 0:
+            return None, "No hay CPS por celda (revisa inversión y seguidores positivos)"
         
-        # Función para formatear números
-        def fmt_int_or_dash(x):
-            if x is None or (isinstance(x, float) and np.isnan(x)):
-                return "—"
-            try:
-                return f"{int(round(float(x))):,}".replace(",", ".")
-            except Exception:
-                return "—"
+        p5 = np.nanpercentile(flat, 5)
+        p95 = np.nanpercentile(flat, 95)
+        vals_cps_clip = np.clip(vals_cps, p5, p95)
         
-        # Crear texto para cada celda
-        text_matrix = []
-        for i in range(len(dias_orden)):
-            row_texts = []
-            for j in range(len(pivot_cps.columns)):
-                cps_v = vals_cps[i, j] if i < vals_cps.shape[0] and j < vals_cps.shape[1] else np.nan
-                seg_v = vals_seg[i, j] if i < vals_seg.shape[0] and j < vals_seg.shape[1] else np.nan
-                if np.isfinite(cps_v) or np.isfinite(seg_v):
-                    line1 = f"CPS {fmt_int_or_dash(cps_v)}"
-                    line2 = f"Seg {fmt_int_or_dash(seg_v)}"
-                    row_texts.append(f"{line1}<br>{line2}")
-                else:
-                    row_texts.append("")
-            text_matrix.append(row_texts)
-        
-        # Crear heatmap
-        fig = go.Figure(data=go.Heatmap(
-            z=vals_cps_clip,
-            x=pivot_cps.columns,
-            y=pivot_cps.index,
-            text=text_matrix,
-            texttemplate="%{text}",
-            textfont={"size": 10},
-            colorscale='Viridis',
-            colorbar=dict(title="CPS ($)", titleside="right"),
-            hovertemplate='<b>Día: %{y}</b><br>Semana: %{x}<br>CPS: $%{z:.0f}<extra></extra>',
-            showscale=True
-        ))
-        
-        # Layout
-        fig.update_layout(
-            title=f'🔥 {platform_name} - Heatmap CPS (Costo por Seguidor)',
-            height=600,
-            template='plotly_white',
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            xaxis=dict(
-                title="Semana (ISO)",
-                tickangle=45,
-                tickmode='array',
-                tickvals=list(range(len(pivot_cps.columns))),
-                ticktext=pivot_cps.columns,
-                gridcolor='#f1f5f9',
-                showgrid=True
-            ),
-            yaxis=dict(
-                title="Día de la Semana",
-                gridcolor='#f1f5f9',
-                showgrid=True
-            ),
-            annotations=[
-                dict(
-                    x=0.5,
-                    y=1.08,
-                    xref="paper",
-                    yref="paper",
-                    text="CPS bajo = mejor | Negro = sin inversión o sin seguidores positivos",
-                    showarrow=False,
-                    font=dict(size=12, color="#666")
-                )
-            ]
-        )
-        
-        # Agregar grid lines
-        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(0,0,0,0.1)')
-        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(0,0,0,0.1)')
-        
-        # Calcular resumen por día (barra derecha como en grafica2.txt)
-        sum_day = df_heat.groupby("Dia_Semana", as_index=False).agg(
+        # Resumen por día
+        sum_day = g.groupby("Dia_Semana", as_index=False).agg(
             Costo_sum=("Costo", "sum"),
             Seguidores_sum=("Neto_Diario_Real", "sum"),
             Seguidores_pos_sum=("Seg_pos", "sum")
@@ -574,43 +432,118 @@ def crear_heatmap_cps(df, platform_name):
             np.nan
         )
         
-        sum_day = sum_day.set_index("Dia_Semana").reindex(dias_orden).reset_index()
+        sum_day = sum_day.set_index("Dia_Semana").reindex(dias).reset_index()
         
-        # Crear gráfica de barras para resumen por día
-        fig2 = go.Figure()
+        # Crear gráfica
+        plt.rcParams.update({
+            "figure.facecolor": "#060913",
+            "axes.facecolor": "#0b1020",
+            "axes.edgecolor": "#334155",
+            "axes.labelcolor": "#e0e7ff",
+            "xtick.color": "#c7d2fe",
+            "ytick.color": "#c7d2fe",
+            "text.color": "#e0e7ff",
+            "font.size": 11
+        })
         
-        fig2.add_trace(go.Bar(
-            x=sum_day["CPS_total_dia"],
-            y=sum_day["Dia_Semana"],
-            orientation='h',
-            marker_color='#3B82F6',
-            opacity=0.7,
-            hovertemplate='<b>%{y}</b><br>CPS: $%{x:,.0f}<br>Seguidores: %{customdata[0]:,.0f}<extra></extra>',
-            customdata=sum_day[['Seguidores_sum']].values
-        ))
+        weeks = list(pivot_cps.columns)
+        n_rows = len(dias)
+        n_cols = len(weeks)
         
-        fig2.update_layout(
-            title=f'📊 {platform_name} - Resumen por Día',
-            height=600,
-            template='plotly_white',
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            xaxis=dict(title="CPS total por día"),
-            yaxis=dict(title="Día de la Semana")
+        fig = plt.figure(figsize=(18, 6), dpi=150)
+        gs = fig.add_gridspec(1, 2, width_ratios=[4.6, 1.4], wspace=0.08)
+        
+        # ---- Heatmap
+        ax = fig.add_subplot(gs[0, 0])
+        im = ax.imshow(vals_cps_clip, aspect="auto", cmap='viridis')
+        
+        ax.set_title(
+            "Mapa de calor — CPS (Costo/Seguidor) + Seguidores (neto)\n"
+            "CPS bajo = mejor | Negro = sin inversión o sin seguidores positivos",
+            pad=14
         )
         
-        return fig, fig2
+        ax.set_yticks(range(n_rows))
+        ax.set_yticklabels(dias)
+        
+        ax.set_xticks(range(n_cols))
+        ax.set_xticklabels(weeks, rotation=45, ha="right")
+        
+        ax.set_xticks(np.arange(-.5, n_cols, 1), minor=True)
+        ax.set_yticks(np.arange(-.5, n_rows, 1), minor=True)
+        ax.grid(which="minor", linewidth=0.6, alpha=0.15)
+        ax.tick_params(which="minor", bottom=False, left=False)
+        
+        # Texto en celdas
+        txt_fx = [pe.withStroke(linewidth=1.2, foreground=(0, 0, 0, 0.45))]
+        
+        for i in range(n_rows):
+            for j in range(n_cols):
+                cps_v = vals_cps[i, j]
+                seg_v = vals_seg[i, j]
+                if np.isfinite(cps_v) or np.isfinite(seg_v):
+                    line1 = f"CPS {fmt_int_or_dash(cps_v)}"
+                    line2 = f"Seg {fmt_int_or_dash(seg_v)}"
+                    t = ax.text(
+                        j, i,
+                        f"{line1}\n{line2}",
+                        ha="center", va="center",
+                        fontsize=7,
+                        color="white",
+                        alpha=1.0
+                    )
+                    t.set_path_effects(txt_fx)
+        
+        cbar = plt.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
+        cbar.set_label("CPS (recortado p5–p95)")
+        
+        # ---- Barras derecha
+        axr = fig.add_subplot(gs[0, 1])
+        axr.grid(True, axis="x", alpha=0.18)
+        
+        ypos = np.arange(n_rows)
+        cps_day = sum_day["CPS_total_dia"].to_numpy(dtype=float)
+        seg_day = sum_day["Seguidores_sum"].to_numpy(dtype=float)
+        
+        axr.barh(ypos, cps_day, alpha=0.75)
+        axr.set_yticks(ypos)
+        axr.set_yticklabels([""] * n_rows)
+        axr.set_xlabel("CPS total por día")
+        axr.set_title("Resumen por día", pad=10)
+        
+        for i in range(n_rows):
+            cpsv = cps_day[i]
+            segv = seg_day[i]
+            line = f"CPS {fmt_int_or_dash(cpsv)} | Seg {fmt_int_or_dash(segv)}"
+            x_text = 0 if not np.isfinite(cpsv) else cpsv
+            tt = axr.text(
+                x_text, i,
+                f"  {line}",
+                va="center", ha="left",
+                fontsize=8,
+                color="white",
+                alpha=1.0
+            )
+            tt.set_path_effects(txt_fx)
+        
+        plt.tight_layout()
+        
+        # Convertir a imagen base64
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=150, facecolor='#060913')
+        buf.seek(0)
+        img_base64 = base64.b64encode(buf.getvalue()).decode()
+        plt.close()
+        
+        return img_base64, "Gráfica generada exitosamente"
         
     except Exception as e:
-        st.error(f"Error creando heatmap CPS: {str(e)}")
-        return None, None
+        return None, f"Error al generar gráfica: {str(e)}"
 
 #############################################
-# FIN FUNCIONES GRÁFICAS
+# FUNCIONES PARA CARGAR DATOS CON CACHÉ
 #############################################
-
-# Función para cargar datos con caché
-@st.cache_data(ttl=300)  # 5 minutos de caché
+@st.cache_data(ttl=300)
 def cargar_datos():
     """Carga datos desde el backend y separa por plataforma"""
     df = cargar_datos_backend()
@@ -684,7 +617,7 @@ def cargar_datos():
     
     return df, youtobe_data, tiktok_data, df_followers, df_pauta
 
-# Estilos CSS mejorados con reducción de espacio (igual que antes)
+# Estilos CSS mejorados con reducción de espacio
 st.markdown("""
 <style>
 /* Main container - REDUCIDO ESPACIO SUPERIOR */
@@ -1144,7 +1077,7 @@ st.markdown("""
 # Cargar datos
 df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
 
-# Sidebar (igual que antes)
+# Sidebar
 with st.sidebar:
     st.markdown("""
     <div style="text-align: center; margin-bottom: 25px; padding: 0 10px;">
@@ -1319,7 +1252,7 @@ total_comments = df['comentarios'].sum() if 'comentarios' in df.columns else 0
 total_followers = 0
 if (selected_platform == "general" or selected_platform == "tiktok") and not df_followers.empty:
     if 'Seguidores_Totales' in df_followers.columns:
-        total_followers = int(df_followers['Seguidores_Totales'].sum())
+        total_followers = int(df_followers['Seguidores_Totales'].iloc[-1] if not df_followers.empty else 0)
 
 if 'rendimiento_por_dia' in df.columns:
     avg_daily_perf = df['rendimiento_por_dia'].mean()
@@ -1552,72 +1485,108 @@ else:
         """, unsafe_allow_html=True)
 
 # ============================================================================
-# SECCIÓN: NUEVAS GRÁFICAS DE INVERSIÓN Y CPS (solo para GENERAL y TikTok)
+# SECCIÓN: NUEVAS GRÁFICAS DE ANÁLISIS (solo para GENERAL y TikTok)
 # ============================================================================
-if selected_platform == "general" or selected_platform == "tiktok":
-    st.markdown("""
-    <div class="performance-chart">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
-                📊 ANÁLISIS DE INVERSIÓN Y COSTO POR SEGUIDOR (CPS) - IDÉNTICO A LAS GRÁFICAS ORIGINALES
-            </h3>
-            <div style="color: #6b7280; font-size: 12px;">
-                Gráficas exactas a las originales de Python
+if (selected_platform == "general" or selected_platform == "tiktok"):
+    st.markdown("---")
+    st.markdown("### 📈 GRÁFICAS DE ANÁLISIS DE INVERSIÓN Y SEGUIDORES")
+    
+    # Crear pestañas para las gráficas
+    tab_grafica1, tab_grafica2 = st.tabs(["📊 Inversión vs Seguidores", "📈 Heatmap CPS"])
+    
+    with tab_grafica1:
+        st.markdown("""
+        <div class="performance-chart">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
+                    📊 GRÁFICA 1: INVERSIÓN VS SEGUIDORES
+                </h3>
+                <div style="color: #6b7280; font-size: 12px;">
+                    Relación costo publicitario vs ganancia de seguidores
+                </div>
             </div>
+        """, unsafe_allow_html=True)
+        
+        # Generar gráfica 1
+        with st.spinner("Generando gráfica de inversión vs seguidores..."):
+            if not df_followers.empty and not df_pauta.empty:
+                img_base64, message = generar_grafica_inversion_vs_seguidores(df_followers, df_pauta)
+                
+                if img_base64:
+                    # Decodificar y mostrar la imagen
+                    img_data = base64.b64decode(img_base64)
+                    img = Image.open(io.BytesIO(img_data))
+                    st.image(img, use_column_width=True)
+                    st.success("✅ " + message)
+                else:
+                    st.error(f"❌ {message}")
+            else:
+                st.warning("⚠️ No hay datos suficientes de seguidores o pauta para generar la gráfica")
+        
+        st.markdown("""
+        <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
+                    border-radius: 12px; border-left: 4px solid #0ea5e9;">
+            <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 16px;">📖 CÓMO INTERPRETAR ESTA GRÁFICA</h4>
+            <ul style="color: #4b5563; font-size: 13px; margin: 0; padding-left: 20px;">
+                <li><strong>Puntos azules claros:</strong> Días reales con inversión y seguidores ganados</li>
+                <li><strong>Línea azul:</strong> Promedio esperado por nivel de inversión (rangos de 15k)</li>
+                <li><strong>Puntos naranjas:</strong> Puntos promedio de cada rango de inversión</li>
+                <li><strong>Líneas punteadas:</strong> Promedios generales de inversión y seguidores</li>
+                <li><strong>Objetivo:</strong> Encontrar el punto óptimo (máximo seguidores con CPS competitivo)</li>
+            </ul>
         </div>
-    """, unsafe_allow_html=True)
-    
-    # Procesar datos para las gráficas
-    datos_procesados, _, _ = procesar_datos_graficas()
-    
-    if datos_procesados is not None and not datos_procesados.empty:
-        # Gráfica 1: Inversión vs Seguidores (IDÉNTICA a grafica.txt)
-        fig_grafica1 = crear_grafica_inversion_vs_seguidores(datos_procesados, platform_name)
-        if fig_grafica1:
-            st.plotly_chart(fig_grafica1, use_container_width=True)
+        """, unsafe_allow_html=True)
         
-        # Gráfica 2: Heatmap CPS (IDÉNTICO a grafica2.txt)
-        fig_grafica2, fig_grafica2_barras = crear_heatmap_cps(datos_procesados, platform_name)
-        
-        if fig_grafica2 and fig_grafica2_barras:
-            # Mostrar ambas gráficas en columnas como en la original
-            col_heatmap1, col_heatmap2 = st.columns([3, 1])
-            
-            with col_heatmap1:
-                st.plotly_chart(fig_grafica2, use_container_width=True)
-            
-            with col_heatmap2:
-                st.plotly_chart(fig_grafica2_barras, use_container_width=True)
-        
-        # Métricas de CPS
-        if not datos_procesados.empty and 'Costo' in datos_procesados.columns and 'Neto_Diario_Real' in datos_procesados.columns:
-            # Calcular CPS
-            datos_procesados['CPS'] = datos_procesados['Costo'] / datos_procesados['Neto_Diario_Real']
-            
-            col_cps1, col_cps2, col_cps3, col_cps4 = st.columns(4)
-            
-            with col_cps1:
-                cps_promedio = datos_procesados['CPS'].mean() if 'CPS' in datos_procesados.columns else 0
-                st.metric("💰 CPS Promedio", f"${cps_promedio:,.0f}")
-            
-            with col_cps2:
-                cps_min = datos_procesados['CPS'].min() if 'CPS' in datos_procesados.columns else 0
-                st.metric("💰 CPS Mínimo", f"${cps_min:,.0f}")
-            
-            with col_cps3:
-                cps_max = datos_procesados['CPS'].max() if 'CPS' in datos_procesados.columns else 0
-                st.metric("💰 CPS Máximo", f"${cps_max:,.0f}")
-            
-            with col_cps4:
-                dias_con_inversion = len(datos_procesados)
-                st.metric("📅 Días con Inversión", f"{dias_con_inversion}")
-    else:
-        st.info("No hay suficientes datos para generar las gráficas de inversión y CPS")
+        st.markdown("</div>", unsafe_allow_html=True)
     
-    st.markdown("</div>", unsafe_allow_html=True)
+    with tab_grafica2:
+        st.markdown("""
+        <div class="performance-chart">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
+                    📈 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)
+                </h3>
+                <div style="color: #6b7280; font-size: 12px;">
+                    Análisis por día de semana y semana ISO
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Generar gráfica 2
+        with st.spinner("Generando heatmap CPS..."):
+            if not df_followers.empty and not df_pauta.empty:
+                img_base64, message = generar_grafica_heatmap_cps(df_followers, df_pauta)
+                
+                if img_base64:
+                    # Decodificar y mostrar la imagen
+                    img_data = base64.b64decode(img_base64)
+                    img = Image.open(io.BytesIO(img_data))
+                    st.image(img, use_column_width=True)
+                    st.success("✅ " + message)
+                else:
+                    st.error(f"❌ {message}")
+            else:
+                st.warning("⚠️ No hay datos suficientes de seguidores o pauta para generar la gráfica")
+        
+        st.markdown("""
+        <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
+                    border-radius: 12px; border-left: 4px solid #0ea5e9;">
+            <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 16px;">📖 CÓMO INTERPRETAR ESTE HEATMAP</h4>
+            <ul style="color: #4b5563; font-size: 13px; margin: 0; padding-left: 20px;">
+                <li><strong>Filas:</strong> Días de la semana (Lunes a Domingo)</li>
+                <li><strong>Columnas:</strong> Semanas ISO (Año-Semana)</li>
+                <li><strong>Colores:</strong> CPS (Costo por Seguidor) - Más oscuro = CPS más alto = Menos eficiente</li>
+                <li><strong>Texto en celdas:</strong> Muestra CPS exacto y seguidores netos ganados</li>
+                <li><strong>Barras derecha:</strong> Resumen de CPS total por día de semana</li>
+                <li><strong>Negro:</strong> Sin inversión o sin seguidores positivos ese día</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # ============================================================================
-# RESTO DEL CÓDIGO ORIGINAL (SIN CAMBIOS)
+# FIN SECCIÓN NUEVAS GRÁFICAS
 # ============================================================================
 
 # SECCIÓN: GRÁFICA DE SEGUIDORES Y PAUTA (solo para GENERAL y TikTok)
@@ -2381,7 +2350,7 @@ st.markdown(f"""
 <div style="text-align: center; color: #6b7280; font-size: 12px; padding: 25px; 
             border-top: 1px solid #e5e7eb; margin-top: 30px;">
     <div style="display: flex; justify-content: center; gap: 25px; margin-bottom: 12px; flex-wrap: wrap;">
-        <span>Social Media Dashboard PRO v3.1</span>
+        <span>Social Media Dashboard PRO v3.2</span>
         <span>•</span>
         <span>Data from Backend API</span>
         <span>•</span>
@@ -2390,7 +2359,8 @@ st.markdown(f"""
         <span>Updated in Real-time</span>
     </div>
     <div style="font-size: 11px; color: #9ca3af;">
-        © 2025 Social Media Analytics Platform • Connected to: <strong>{BACKEND_URL}</strong> • {current_time_full}
+        © 2025 Social Media Analytics Platform • Conectado a: <strong>{BACKEND_URL}</strong> • {current_time_full}
+        <br>📊 Nuevas gráficas integradas: Inversión vs Seguidores y Heatmap CPS
     </div>
 </div>
 """, unsafe_allow_html=True)
