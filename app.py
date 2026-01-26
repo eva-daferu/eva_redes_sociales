@@ -1,16 +1,12 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import warnings
 import requests
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patheffects as pe
-import io
-import base64
-from PIL import Image
 
 warnings.filterwarnings('ignore')
 
@@ -23,68 +19,14 @@ st.set_page_config(
 )
 
 #############################################
-# CONEXIÓN A BACKEND REAL
+# NUEVOS ENDPOINTS PARA GRÁFICAS
 #############################################
 BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
-FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/FollowerHistory.xlsx"
-PAUTAS_URL = "https://pahubisas.pythonanywhere.com/base_pautas.xlsx"
+FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
+PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
+GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
+GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
 
-#############################################
-# FUNCIONES HELPER PARA GRÁFICAS
-#############################################
-def to_num(v):
-    """Convierte cualquier valor a número, manejando formatos de moneda"""
-    if v is None or (isinstance(v, float) and np.isnan(v)):
-        return np.nan
-    if isinstance(v, (int, float, np.integer, np.floating)):
-        return float(v)
-    s = str(v).strip()
-    if s == "":
-        return np.nan
-    s = s.replace("$", "").replace("COP", "").replace("cop", "").replace(" ", "")
-    if "," in s and "." in s:
-        if s.rfind(",") > s.rfind("."):
-            s = s.replace(".", "").replace(",", ".")
-        else:
-            s = s.replace(",", "")
-    else:
-        if "," in s and "." not in s:
-            s = s.replace(".", "").replace(",", ".")
-    try:
-        return float(s)
-    except Exception:
-        return np.nan
-
-def fmt_int_or_dash(x):
-    """Formatea número entero o devuelve guión"""
-    if x is None or (isinstance(x, float) and np.isnan(x)):
-        return "—"
-    try:
-        return f"{int(round(float(x))):,}".replace(",", ".")
-    except Exception:
-        return "—"
-
-def fmt_int_plain(x):
-    """Formatea número entero simple"""
-    if x is None or (isinstance(x, float) and np.isnan(x)):
-        return "—"
-    try:
-        return str(int(round(float(x))))
-    except Exception:
-        return "—"
-
-def fmt_k(x):
-    """Formatea número en miles"""
-    if x is None or (isinstance(x, float) and np.isnan(x)):
-        return "—"
-    try:
-        return f"{int(round(float(x)/1000.0))}k"
-    except Exception:
-        return "—"
-
-#############################################
-# FUNCIONES PARA CARGAR DATOS
-#############################################
 def cargar_datos_backend():
     try:
         r = requests.get(BACKEND_URL, timeout=20)
@@ -145,405 +87,438 @@ def cargar_datos_backend():
         return pd.DataFrame()
 
 def cargar_datos_seguidores():
-    """Carga datos de seguidores directamente desde el archivo Excel"""
+    """Carga datos de seguidores desde el endpoint específico"""
     try:
-        # Descargar el archivo Excel
-        response = requests.get(FOLLOWERS_URL, timeout=30)
-        if response.status_code == 200:
-            df_followers = pd.read_excel(io.BytesIO(response.content))
-            
-            # Procesar datos
-            if "Fecha" in df_followers.columns:
-                df_followers["Fecha"] = pd.to_datetime(
-                    df_followers["Fecha"],
-                    dayfirst=True,
-                    errors="coerce"
-                )
-            
-            # Convertir números
-            if "Seguidores_Totales" in df_followers.columns:
-                df_followers["Seguidores_Totales"] = df_followers["Seguidores_Totales"].apply(to_num).astype("float64")
-            
-            return df_followers
-        else:
-            return pd.DataFrame()
-            
+        r = requests.get(FOLLOWERS_URL, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        
+        # Convertir a DataFrame
+        df_followers = pd.DataFrame(data.get("data", []))
+        
+        # Procesar datos
+        if "Fecha" in df_followers.columns:
+            df_followers["Fecha"] = pd.to_datetime(
+                df_followers["Fecha"],
+                dayfirst=True,
+                errors="coerce"
+            )
+        
+        # Convertir números
+        if "Seguidores_Totales" in df_followers.columns:
+            df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors="coerce")
+        
+        return df_followers
+        
     except Exception as e:
+        st.error(f"Error al conectar con el backend de seguidores: {str(e)}")
         return pd.DataFrame()
 
 def cargar_datos_pauta():
-    """Carga datos de pauta publicitaria directamente desde el archivo Excel"""
+    """Carga datos de pauta publicitaria"""
     try:
-        # Descargar el archivo Excel
-        response = requests.get(PAUTAS_URL, timeout=30)
-        if response.status_code == 200:
-            df_pauta = pd.read_excel(io.BytesIO(response.content))
+        r = requests.get(PAUTA_URL, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        
+        # Convertir a DataFrame
+        df_pauta = pd.DataFrame(data.get("data", []))
+        
+        # Procesar datos si existen
+        if not df_pauta.empty:
+            # Asegurar nombres de columnas
+            if 'Costo' in df_pauta.columns:
+                df_pauta['coste_anuncio'] = df_pauta['Costo']
+            if 'Visualizaciones' in df_pauta.columns:
+                df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
+            if 'Seguidores' in df_pauta.columns:
+                df_pauta['nuevos_seguidores'] = df_pauta['Seguidores']
             
-            # Procesar datos si existen
-            if not df_pauta.empty:
-                # Asegurar nombres de columnas
-                if 'Costo' in df_pauta.columns:
-                    df_pauta['coste_anuncio'] = df_pauta['Costo'].apply(to_num).astype("float64")
-                if 'Visualizaciones' in df_pauta.columns:
-                    df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones'].apply(to_num).astype("float64")
-                if 'Seguidores' in df_pauta.columns:
-                    df_pauta['nuevos_seguidores'] = df_pauta['Seguidores'].apply(to_num).astype("float64")
-                
-                # Procesar fecha
-                if "fecha" in df_pauta.columns:
-                    df_pauta["fecha"] = pd.to_datetime(
-                        df_pauta["fecha"], 
-                        errors='coerce',
-                        dayfirst=True
-                    )
+            # Formatear coste anuncio (sin decimales)
+            if "coste_anuncio" in df_pauta.columns:
+                df_pauta["coste_anuncio"] = pd.to_numeric(df_pauta["coste_anuncio"], errors="coerce").fillna(0).astype(int)
             
-            return df_pauta
-        else:
-            return pd.DataFrame()
+            # Formatear otras columnas
+            for col in ["visualizaciones_videos", "nuevos_seguidores"]:
+                if col in df_pauta.columns:
+                    df_pauta[col] = pd.to_numeric(df_pauta[col], errors="coerce").fillna(0).astype(int)
             
+            # Procesar fecha - FORMATO CORRECTO PARA CRUCE
+            if "fecha" in df_pauta.columns:
+                # Intentar múltiples formatos de fecha
+                df_pauta["fecha"] = pd.to_datetime(
+                    df_pauta["fecha"], 
+                    errors='coerce',
+                    dayfirst=True  # Asumir día primero
+                )
+        
+        return df_pauta
+        
     except Exception as e:
         return pd.DataFrame()
 
 #############################################
-# FUNCIONES PARA GENERAR GRÁFICAS
+# NUEVAS FUNCIONES PARA GRÁFICAS AVANZADAS
 #############################################
-def generar_grafica_inversion_vs_seguidores(df_followers, df_pauta):
-    """Genera la gráfica de inversión vs seguidores (similar a grafica.txt)"""
-    try:
-        # Validar datos
-        if df_followers.empty or df_pauta.empty:
-            return None, "No hay datos suficientes de seguidores o pauta"
-        
-        # Configuración de parámetros
-        STEP = 15000
-        IMPACT_DAYS = 3
-        USE_IMPACT = True
-        RESULT_COL = "Seguidores_Impacto" if USE_IMPACT else "Neto_Diario_Real"
-        
-        # Procesar datos de seguidores
-        fh = df_followers.copy()
-        fh = fh.sort_values(["Fecha"]).groupby("Fecha", as_index=False).tail(1).reset_index(drop=True)
-        fh["Neto_Diario_Real"] = fh["Seguidores_Totales"].diff()
-        fh.loc[fh["Neto_Diario_Real"] <= 0, "Neto_Diario_Real"] = np.nan
-        fh = fh.rename(columns={"Fecha": "fecha"})
-        
-        # Procesar datos de pauta
-        bp = df_pauta.copy()
-        bp["Costo"] = bp["coste_anuncio"].astype("float64")
-        if "fecha" not in bp.columns:
-            return None, "No hay columna 'fecha' en datos de pauta"
-        
-        # Unir datos
-        df = pd.merge(bp, fh[["fecha", "Neto_Diario_Real"]], on="fecha", how="left")
-        
-        # Calcular impacto si es necesario
-        if USE_IMPACT:
-            neto = df["Neto_Diario_Real"].astype("float64")
-            impact = np.full(len(df), np.nan, dtype="float64")
-            for i in range(len(df)):
-                s = 0.0
-                ok = False
-                for k in range(IMPACT_DAYS):
-                    j = i + k
-                    if j >= len(df):
-                        break
-                    v = neto.iloc[j]
-                    if pd.notna(v) and v > 0:
-                        s += float(v)
-                        ok = True
-                impact[i] = s if ok else np.nan
-            df["Seguidores_Impacto"] = impact
-        
-        # Filtrar datos válidos
-        cand = df[(df["Costo"] > 0) & (df[RESULT_COL].notna()) & (df[RESULT_COL] > 0)].copy()
-        
-        if cand.empty:
-            return None, "No hay datos válidos para graficar"
-        
-        # Calcular CPS
-        cand["CPS_real"] = cand["Costo"] / cand[RESULT_COL]
-        
-        # Agrupar por rangos de inversión
-        cmin = float(cand["Costo"].min())
-        cmax = float(cand["Costo"].max())
-        start = float(np.floor(cmin / STEP) * STEP)
-        end = float(np.ceil(cmax / STEP) * STEP) + STEP
-        bins = np.arange(start, end + 1, STEP)
-        
-        cand["Costo_bin"] = pd.cut(cand["Costo"], bins=bins, include_lowest=True, right=False)
-        
-        curve = cand.groupby("Costo_bin", observed=True).agg(
-            Inversion_promedio=("Costo", "mean"),
-            Seguidores_promedio=(RESULT_COL, "mean"),
-            Dias=("Costo", "count"),
-        ).reset_index(drop=True).sort_values("Inversion_promedio").reset_index(drop=True)
-        
-        curve["CPS_curva"] = np.nan
-        mc = (curve["Inversion_promedio"] > 0) & (curve["Seguidores_promedio"] > 0)
-        curve.loc[mc, "CPS_curva"] = curve.loc[mc, "Inversion_promedio"] / curve.loc[mc, "Seguidores_promedio"]
-        
-        # Crear gráfica
-        plt.rcParams.update({
-            "figure.facecolor": "#060913",
-            "axes.facecolor": "#0b1020",
-            "axes.edgecolor": "#334155",
-            "axes.labelcolor": "#e0e7ff",
-            "xtick.color": "#c7d2fe",
-            "ytick.color": "#c7d2fe",
-            "text.color": "#e0e7ff",
-            "grid.alpha": 0.22,
-            "grid.linewidth": 0.8,
-            "font.size": 11
-        })
-        
-        fig, ax = plt.subplots(figsize=(14, 6), dpi=150)
-        ax.grid(True)
-        
-        # Puntos reales
-        ax.scatter(cand["Costo"], cand[RESULT_COL], s=30, alpha=0.12, color="#60a5fa", 
-                   label="Días reales", zorder=2)
-        
-        # Curva promedio
-        ax.plot(curve["Inversion_promedio"], curve["Seguidores_promedio"], 
-                linewidth=2.8, alpha=0.95, color="#38bdf8",
-                label="Promedio esperado (por nivel inversión)", zorder=5)
-        
-        # Puntos de la curva
-        ax.scatter(curve["Inversion_promedio"], curve["Seguidores_promedio"],
-                  s=120, alpha=0.98, color="#f59e0b",
-                  label="Puntos promedio", zorder=6)
-        
-        # Promedios generales
-        INV_mean = float(cand["Costo"].mean())
-        SEG_mean = float(cand[RESULT_COL].mean())
-        
-        ax.axhline(SEG_mean, linewidth=2.0, linestyle=":", color="#22d3ee",
-                   label=f"Promedio SEG = {fmt_int_plain(SEG_mean)}", zorder=3)
-        ax.axvline(INV_mean, linewidth=1.8, linestyle=":", color="#22d3ee", alpha=0.75,
-                   label=f"Promedio inversión = {fmt_int_plain(INV_mean)}", zorder=3)
-        
-        # Configurar eje X
-        edge_ticks_real = np.unique(bins)
-        edge_ticks_real = [x for x in edge_ticks_real if (x >= start and x <= end)]
-        edge_tick_labels = [fmt_k(x) for x in edge_ticks_real]
-        
-        ax.set_xticks(edge_ticks_real)
-        ax.set_xticklabels(edge_tick_labels, rotation=0)
-        
-        # Título y etiquetas
-        impact_label = f"Impacto {IMPACT_DAYS}d" if USE_IMPACT else "Neto día"
-        ax.set_title("Inversión vs Seguidores (curva por niveles)")
-        ax.set_xlabel("Inversión (miles)")
-        ax.set_ylabel(f"Seguidores ({impact_label})")
-        
-        # Leyenda
-        leg = ax.legend(loc="upper left", frameon=True)
-        leg.get_frame().set_facecolor("#0b1020")
-        leg.get_frame().set_edgecolor("#334155")
-        for t in leg.get_texts():
-            t.set_color("#e0e7ff")
-        
-        plt.tight_layout()
-        
-        # Convertir a imagen base64
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', dpi=150, facecolor='#060913')
-        buf.seek(0)
-        img_base64 = base64.b64encode(buf.getvalue()).decode()
-        plt.close()
-        
-        return img_base64, "Gráfica generada exitosamente"
-        
-    except Exception as e:
-        return None, f"Error al generar gráfica: {str(e)}"
 
-def generar_grafica_heatmap_cps(df_followers, df_pauta):
-    """Genera el heatmap de CPS por día de semana y semana (similar a grafica2.txt)"""
+def cargar_datos_grafica1():
+    """Carga datos para la gráfica 1: Inversión vs Seguidores"""
     try:
-        # Validar datos
-        if df_followers.empty or df_pauta.empty:
-            return None, "No hay datos suficientes de seguidores o pauta"
-        
-        # Procesar datos de seguidores
-        fh = df_followers.copy()
-        fh["Fecha"] = pd.to_datetime(fh["Fecha"], dayfirst=True, errors="coerce")
-        fh["Seguidores_Totales"] = fh["Seguidores_Totales"].apply(to_num).astype("float64")
-        fh = fh.rename(columns={"Fecha": "fecha", "Seguidores_Totales": "Neto_Diario_Real"})
-        fh = fh[["fecha", "Neto_Diario_Real"]].copy()
-        
-        # Procesar datos de pauta
-        bp = df_pauta.copy()
-        bp["fecha"] = pd.to_datetime(bp["fecha"], dayfirst=True, errors="coerce")
-        bp["Costo"] = bp["coste_anuncio"].astype("float64")
-        
-        # Unir datos
-        df = pd.merge(bp, fh, on="fecha", how="left").sort_values("fecha").reset_index(drop=True)
-        
-        # Día de semana + semana ISO
-        dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-        df["Dia_Semana"] = df["fecha"].dt.dayofweek.map(lambda i: dias[int(i)] if pd.notna(i) else np.nan)
-        
-        iso = df["fecha"].dt.isocalendar()
-        df["ISO_Year"] = iso["year"].astype(int)
-        df["ISO_Week"] = iso["week"].astype(int)
-        df["WeekKey"] = df["ISO_Year"].astype(str) + "-W" + df["ISO_Week"].astype(str).str.zfill(2)
-        
-        # Agregación para heatmap
-        g = df[(df["Costo"] > 0) & (df["Neto_Diario_Real"].notna())].copy()
-        g["Seg_pos"] = np.where(g["Neto_Diario_Real"] > 0, g["Neto_Diario_Real"], 0.0)
-        
-        agg = g.groupby(["Dia_Semana", "WeekKey"], as_index=False).agg(
-            Costo_sum=("Costo", "sum"),
-            Seguidores_sum=("Neto_Diario_Real", "sum"),
-            Seguidores_pos_sum=("Seg_pos", "sum")
+        r = requests.get(GRAFICA1_URL, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        return data
+    except Exception as e:
+        st.error(f"Error al cargar datos de gráfica 1: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+def cargar_datos_grafica2():
+    """Carga datos para la gráfica 2: Heatmap CPS"""
+    try:
+        r = requests.get(GRAFICA2_URL, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        return data
+    except Exception as e:
+        st.error(f"Error al cargar datos de gráfica 2: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+def crear_grafica1_interactiva(data_grafica1):
+    """Crea la gráfica 1 interactiva con Plotly"""
+    if data_grafica1.get("status") != "success":
+        st.error(f"No se pudo cargar la gráfica 1: {data_grafica1.get('message')}")
+        return
+    
+    # Extraer datos
+    scatter_data = pd.DataFrame(data_grafica1.get("scatter_data", []))
+    curve_data = pd.DataFrame(data_grafica1.get("curve_data", []))
+    optimal_point = data_grafica1.get("optimal_point", {})
+    summary = data_grafica1.get("summary", {})
+    parameters = data_grafica1.get("parameters", {})
+    
+    if scatter_data.empty or curve_data.empty:
+        st.warning("No hay datos suficientes para generar la gráfica 1")
+        return
+    
+    # Determinar columna de seguidores
+    result_col = "Seguidores_Impacto" if parameters.get("USE_IMPACT", True) else "Neto_Diario_Real"
+    
+    # Crear figura
+    fig = go.Figure()
+    
+    # 1. Puntos de días reales (scatter)
+    fig.add_trace(go.Scatter(
+        x=scatter_data["Costo"],
+        y=scatter_data[result_col],
+        mode='markers',
+        name='📅 Días reales',
+        marker=dict(
+            size=8,
+            color='#60a5fa',
+            opacity=0.4,
+            line=dict(width=1, color='white')
+        ),
+        hovertemplate='<b>Día Real</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<extra></extra>'
+    ))
+    
+    # 2. Línea de curva promedio
+    fig.add_trace(go.Scatter(
+        x=curve_data["Inversion_promedio"],
+        y=curve_data["Seguidores_promedio"],
+        mode='lines+markers',
+        name='📈 Curva promedio',
+        line=dict(color='#38bdf8', width=3),
+        marker=dict(
+            size=10,
+            color='#f59e0b',
+            symbol='diamond'
+        ),
+        hovertemplate='<b>Promedio por rango</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>CPS: %{customdata:,.0f}<extra></extra>',
+        customdata=curve_data["CPS_curva"]
+    ))
+    
+    # 3. Punto óptimo
+    if optimal_point and "Inversion_promedio" in optimal_point and "Seguidores_promedio" in optimal_point:
+        fig.add_trace(go.Scatter(
+            x=[optimal_point["Inversion_promedio"]],
+            y=[optimal_point["Seguidores_promedio"]],
+            mode='markers',
+            name='⭐ Punto óptimo',
+            marker=dict(
+                size=25,
+                color='#22c55e',
+                symbol='star',
+                line=dict(width=2, color='white')
+            ),
+            hovertemplate='<b>PUNTO ÓPTIMO</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>CPS: %{customdata:,.0f}<extra></extra>',
+            customdata=[optimal_point.get("CPS_curva", 0)]
+        ))
+    
+    # 4. Líneas de promedio general
+    if "INV_mean" in summary and "SEG_mean" in summary:
+        # Línea vertical de promedio de inversión
+        fig.add_vline(
+            x=summary["INV_mean"],
+            line_dash="dash",
+            line_color="#22d3ee",
+            opacity=0.7,
+            annotation_text=f"Promedio INV: ${summary['INV_mean']:,.0f}",
+            annotation_position="top right"
         )
         
-        agg["CPS_cell"] = np.where(
-            agg["Seguidores_pos_sum"] > 0,
-            agg["Costo_sum"] / agg["Seguidores_pos_sum"],
-            np.nan
+        # Línea horizontal de promedio de seguidores
+        fig.add_hline(
+            y=summary["SEG_mean"],
+            line_dash="dash",
+            line_color="#22d3ee",
+            opacity=0.7,
+            annotation_text=f"Promedio SEG: {summary['SEG_mean']:,.0f}",
+            annotation_position="bottom right"
         )
-        
-        pivot_cps = agg.pivot(index="Dia_Semana", columns="WeekKey", values="CPS_cell").reindex(dias)
-        pivot_seg = agg.pivot(index="Dia_Semana", columns="WeekKey", values="Seguidores_sum").reindex(dias)
-        
-        vals_cps = pivot_cps.values.astype(float)
-        vals_seg = pivot_seg.values.astype(float)
-        
-        # Normalizar color
-        flat = vals_cps[np.isfinite(vals_cps)]
-        if flat.size == 0:
-            return None, "No hay CPS por celda (revisa inversión y seguidores positivos)"
-        
-        p5 = np.nanpercentile(flat, 5)
-        p95 = np.nanpercentile(flat, 95)
-        vals_cps_clip = np.clip(vals_cps, p5, p95)
-        
-        # Resumen por día
-        sum_day = g.groupby("Dia_Semana", as_index=False).agg(
-            Costo_sum=("Costo", "sum"),
-            Seguidores_sum=("Neto_Diario_Real", "sum"),
-            Seguidores_pos_sum=("Seg_pos", "sum")
+    
+    # Configurar layout
+    fig.update_layout(
+        height=600,
+        template='plotly_dark',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white', size=12),
+        title=dict(
+            text="📊 GRÁFICA 1: INVERSIÓN VS SEGUIDORES<br><sub>Análisis de eficiencia por nivel de inversión</sub>",
+            font=dict(size=24, color='white'),
+            x=0.5,
+            xanchor='center'
+        ),
+        xaxis=dict(
+            title="Inversión (Costo $)",
+            gridcolor='rgba(255,255,255,0.1)',
+            tickformat=",",
+            tickprefix="$"
+        ),
+        yaxis=dict(
+            title=f"Seguidores ({'Impacto' if parameters.get('USE_IMPACT') else 'Neto'} {parameters.get('IMPACT_DAYS', 0)} días)",
+            gridcolor='rgba(255,255,255,0.1)',
+            tickformat=","
+        ),
+        hovermode='closest',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            bgcolor='rgba(0,0,0,0.5)',
+            bordercolor='rgba(255,255,255,0.2)',
+            borderwidth=1
+        ),
+        margin=dict(l=50, r=50, t=100, b=50)
+    )
+    
+    # Mostrar gráfica
+    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
+    
+    # Mostrar información adicional
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "📊 Días analizados",
+            f"{summary.get('total_dias_validos', 0):,}",
+            help="Total de días con inversión y seguidores positivos"
         )
-        
-        sum_day["CPS_total_dia"] = np.where(
-            sum_day["Seguidores_pos_sum"] > 0,
-            sum_day["Costo_sum"] / sum_day["Seguidores_pos_sum"],
-            np.nan
+    
+    with col2:
+        st.metric(
+            "💰 Inversión promedio",
+            f"${summary.get('INV_mean', 0):,.0f}",
+            help="Inversión promedio por día válido"
         )
-        
-        sum_day = sum_day.set_index("Dia_Semana").reindex(dias).reset_index()
-        
-        # Crear gráfica
-        plt.rcParams.update({
-            "figure.facecolor": "#060913",
-            "axes.facecolor": "#0b1020",
-            "axes.edgecolor": "#334155",
-            "axes.labelcolor": "#e0e7ff",
-            "xtick.color": "#c7d2fe",
-            "ytick.color": "#c7d2fe",
-            "text.color": "#e0e7ff",
-            "font.size": 11
-        })
-        
-        weeks = list(pivot_cps.columns)
-        n_rows = len(dias)
-        n_cols = len(weeks)
-        
-        fig = plt.figure(figsize=(18, 6), dpi=150)
-        gs = fig.add_gridspec(1, 2, width_ratios=[4.6, 1.4], wspace=0.08)
-        
-        # ---- Heatmap
-        ax = fig.add_subplot(gs[0, 0])
-        im = ax.imshow(vals_cps_clip, aspect="auto", cmap='viridis')
-        
-        ax.set_title(
-            "Mapa de calor — CPS (Costo/Seguidor) + Seguidores (neto)\n"
-            "CPS bajo = mejor | Negro = sin inversión o sin seguidores positivos",
-            pad=14
+    
+    with col3:
+        st.metric(
+            "👥 Seguidores promedio",
+            f"{summary.get('SEG_mean', 0):,.0f}",
+            help="Seguidores promedio por día válido"
         )
-        
-        ax.set_yticks(range(n_rows))
-        ax.set_yticklabels(dias)
-        
-        ax.set_xticks(range(n_cols))
-        ax.set_xticklabels(weeks, rotation=45, ha="right")
-        
-        ax.set_xticks(np.arange(-.5, n_cols, 1), minor=True)
-        ax.set_yticks(np.arange(-.5, n_rows, 1), minor=True)
-        ax.grid(which="minor", linewidth=0.6, alpha=0.15)
-        ax.tick_params(which="minor", bottom=False, left=False)
-        
-        # Texto en celdas
-        txt_fx = [pe.withStroke(linewidth=1.2, foreground=(0, 0, 0, 0.45))]
-        
-        for i in range(n_rows):
-            for j in range(n_cols):
-                cps_v = vals_cps[i, j]
-                seg_v = vals_seg[i, j]
-                if np.isfinite(cps_v) or np.isfinite(seg_v):
-                    line1 = f"CPS {fmt_int_or_dash(cps_v)}"
-                    line2 = f"Seg {fmt_int_or_dash(seg_v)}"
-                    t = ax.text(
-                        j, i,
-                        f"{line1}\n{line2}",
-                        ha="center", va="center",
-                        fontsize=7,
-                        color="white",
-                        alpha=1.0
-                    )
-                    t.set_path_effects(txt_fx)
-        
-        cbar = plt.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
-        cbar.set_label("CPS (recortado p5–p95)")
-        
-        # ---- Barras derecha
-        axr = fig.add_subplot(gs[0, 1])
-        axr.grid(True, axis="x", alpha=0.18)
-        
-        ypos = np.arange(n_rows)
-        cps_day = sum_day["CPS_total_dia"].to_numpy(dtype=float)
-        seg_day = sum_day["Seguidores_sum"].to_numpy(dtype=float)
-        
-        axr.barh(ypos, cps_day, alpha=0.75)
-        axr.set_yticks(ypos)
-        axr.set_yticklabels([""] * n_rows)
-        axr.set_xlabel("CPS total por día")
-        axr.set_title("Resumen por día", pad=10)
-        
-        for i in range(n_rows):
-            cpsv = cps_day[i]
-            segv = seg_day[i]
-            line = f"CPS {fmt_int_or_dash(cpsv)} | Seg {fmt_int_or_dash(segv)}"
-            x_text = 0 if not np.isfinite(cpsv) else cpsv
-            tt = axr.text(
-                x_text, i,
-                f"  {line}",
-                va="center", ha="left",
-                fontsize=8,
-                color="white",
-                alpha=1.0
+    
+    with col4:
+        if optimal_point:
+            st.metric(
+                "⭐ CPS óptimo",
+                f"${optimal_point.get('CPS_curva', 0):,.0f}",
+                help="Costo por seguidor en el punto óptimo"
             )
-            tt.set_path_effects(txt_fx)
+    
+    # Mostrar tabla de datos de la curva
+    with st.expander("📋 Ver datos detallados de la curva"):
+        display_curve = curve_data.copy()
+        display_curve["Inversion_promedio"] = display_curve["Inversion_promedio"].apply(lambda x: f"${x:,.0f}")
+        display_curve["Seguidores_promedio"] = display_curve["Seguidores_promedio"].apply(lambda x: f"{x:,.0f}")
+        display_curve["CPS_curva"] = display_curve["CPS_curva"].apply(lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A")
+        st.dataframe(display_curve, use_container_width=True)
+
+def crear_grafica2_interactiva(data_grafica2):
+    """Crea la gráfica 2 interactiva (Heatmap CPS) con Plotly"""
+    if data_grafica2.get("status") != "success":
+        st.error(f"No se pudo cargar la gráfica 2: {data_grafica2.get('message')}")
+        return
+    
+    # Extraer datos
+    heatmap_data = data_grafica2.get("heatmap_data", {})
+    summary_by_day = data_grafica2.get("summary_by_day", [])
+    
+    if not heatmap_data:
+        st.warning("No hay datos suficientes para generar el heatmap")
+        return
+    
+    cps_matrix = heatmap_data.get("cps_matrix", [])
+    seg_matrix = heatmap_data.get("seg_matrix", [])
+    row_labels = heatmap_data.get("row_labels", [])
+    col_labels = heatmap_data.get("col_labels", [])
+    
+    if not cps_matrix or not row_labels or not col_labels:
+        st.warning("Datos del heatmap incompletos")
+        return
+    
+    # Convertir matrices a numpy arrays
+    cps_array = np.array(cps_matrix)
+    seg_array = np.array(seg_matrix)
+    
+    # Crear texto para cada celda
+    text_matrix = []
+    for i in range(len(cps_array)):
+        row_text = []
+        for j in range(len(cps_array[i])):
+            cps = cps_array[i][j]
+            seg = seg_array[i][j]
+            if np.isnan(cps) or cps == 0:
+                row_text.append("")
+            else:
+                row_text.append(f"CPS: ${cps:,.0f}<br>Seg: {seg:,.0f}")
+        text_matrix.append(row_text)
+    
+    # Crear heatmap
+    fig = go.Figure(data=go.Heatmap(
+        z=cps_array,
+        x=col_labels,
+        y=row_labels,
+        colorscale='RdYlGn_r',  # Invertido: rojo (malo) a verde (bueno)
+        zmin=np.nanpercentile(cps_array[~np.isnan(cps_array)], 5) if np.any(~np.isnan(cps_array)) else 0,
+        zmax=np.nanpercentile(cps_array[~np.isnan(cps_array)], 95) if np.any(~np.isnan(cps_array)) else 100,
+        colorbar=dict(
+            title="CPS ($)",
+            titleside="right",
+            tickformat="$,.0f"
+        ),
+        hovertemplate='<b>%{y} - %{x}</b><br>CPS: $%{z:,.0f}<br>Seguidores netos: %{customdata:,.0f}<extra></extra>',
+        customdata=seg_array,
+        text=text_matrix,
+        texttemplate="%{text}",
+        textfont=dict(size=10, color="white"),
+        hoverongaps=False
+    ))
+    
+    # Configurar layout
+    fig.update_layout(
+        height=600,
+        template='plotly_dark',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white', size=12),
+        title=dict(
+            text="📈 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)<br><sub>Análisis por día de semana y semana ISO - CPS bajo = mejor</sub>",
+            font=dict(size=24, color='white'),
+            x=0.5,
+            xanchor='center'
+        ),
+        xaxis=dict(
+            title="Semana ISO",
+            tickangle=45,
+            gridcolor='rgba(255,255,255,0.1)',
+            side="top"
+        ),
+        yaxis=dict(
+            title="Día de la semana",
+            gridcolor='rgba(255,255,255,0.1)',
+            autorange="reversed"
+        ),
+        margin=dict(l=50, r=50, t=120, b=50)
+    )
+    
+    # Mostrar heatmap
+    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
+    
+    # Gráfico de barras para resumen por día
+    if summary_by_day:
+        df_summary = pd.DataFrame(summary_by_day)
         
-        plt.tight_layout()
+        # Crear gráfico de barras
+        fig_bar = go.Figure()
         
-        # Convertir a imagen base64
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', dpi=150, facecolor='#060913')
-        buf.seek(0)
-        img_base64 = base64.b64encode(buf.getvalue()).decode()
-        plt.close()
+        fig_bar.add_trace(go.Bar(
+            x=df_summary["Dia_Semana"],
+            y=df_summary["CPS_total_dia"],
+            name="CPS por día",
+            marker=dict(
+                color=df_summary["CPS_total_dia"],
+                colorscale='RdYlGn_r',
+                showscale=True,
+                cmin=np.nanpercentile(df_summary["CPS_total_dia"].dropna(), 5) if not df_summary["CPS_total_dia"].dropna().empty else 0,
+                cmax=np.nanpercentile(df_summary["CPS_total_dia"].dropna(), 95) if not df_summary["CPS_total_dia"].dropna().empty else 100,
+                colorbar=dict(
+                    title="CPS ($)",
+                    titleside="right",
+                    tickformat="$,.0f"
+                )
+            ),
+            hovertemplate='<b>%{x}</b><br>CPS: $%{y:,.0f}<br>Seguidores: %{customdata:,.0f}<extra></extra>',
+            customdata=df_summary["Seguidores_sum"]
+        ))
         
-        return img_base64, "Gráfica generada exitosamente"
+        fig_bar.update_layout(
+            height=400,
+            template='plotly_dark',
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white', size=12),
+            title=dict(
+                text="📊 RESUMEN POR DÍA DE LA SEMANA",
+                font=dict(size=20, color='white'),
+                x=0.5,
+                xanchor='center'
+            ),
+            xaxis=dict(
+                title="Día de la semana",
+                gridcolor='rgba(255,255,255,0.1)'
+            ),
+            yaxis=dict(
+                title="CPS (Costo por Seguidor $)",
+                gridcolor='rgba(255,255,255,0.1)',
+                tickprefix="$"
+            ),
+            hovermode='x unified',
+            margin=dict(l=50, r=50, t=80, b=50)
+        )
         
-    except Exception as e:
-        return None, f"Error al generar gráfica: {str(e)}"
+        st.plotly_chart(fig_bar, use_container_width=True)
+    
+    # Mostrar tabla de resumen por día
+    with st.expander("📋 Ver datos detallados del heatmap"):
+        if summary_by_day:
+            display_summary = pd.DataFrame(summary_by_day)
+            display_summary["Costo_sum"] = display_summary["Costo_sum"].apply(lambda x: f"${x:,.0f}")
+            display_summary["Seguidores_sum"] = display_summary["Seguidores_sum"].apply(lambda x: f"{x:,.0f}")
+            display_summary["CPS_total_dia"] = display_summary["CPS_total_dia"].apply(
+                lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A"
+            )
+            st.dataframe(display_summary, use_container_width=True)
 
 #############################################
-# FUNCIONES PARA CARGAR DATOS CON CACHÉ
+# FIN NUEVAS FUNCIONES
 #############################################
-@st.cache_data(ttl=300)
+
+# Función para cargar datos con caché
+@st.cache_data(ttl=300)  # 5 minutos de caché
 def cargar_datos():
     """Carga datos desde el backend y separa por plataforma"""
     df = cargar_datos_backend()
@@ -1071,6 +1046,115 @@ st.markdown("""
     font-weight: 700;
     border: 2px solid rgba(var(--platform-color-rgb), 0.2);
 }
+
+/* Gráficas avanzadas */
+.grafica-container {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border-radius: 16px;
+    padding: 25px;
+    margin: 20px 0;
+    border: 1px solid #334155;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.grafica-title {
+    color: white;
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.grafica-subtitle {
+    color: #94a3b8;
+    font-size: 14px;
+    margin-bottom: 25px;
+}
+
+/* Tabs para gráficas */
+.grafica-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+}
+
+.grafica-tab {
+    padding: 12px 24px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #cbd5e1;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.grafica-tab:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.grafica-tab.active {
+    background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+/* Botones de acción */
+.action-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #10b981 0%, #3B82F6 100%);
+    color: white;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-decoration: none;
+}
+
+.action-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+}
+
+/* Tooltips */
+.tooltip {
+    position: relative;
+    display: inline-block;
+    border-bottom: 1px dotted #666;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 200px;
+    background-color: #1e293b;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 10px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 12px;
+    border: 1px solid #334155;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1121,6 +1205,36 @@ with st.sidebar:
         if st.button(platform_name, key=f"{platform_key}_btn", use_container_width=True):
             selected_platform = platform_key
             st.session_state["selected_platform"] = platform_key
+            st.rerun()
+    
+    st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
+    
+    # Nueva sección para gráficas avanzadas
+    st.markdown('<p class="sidebar-title">📊 GRÁFICAS AVANZADAS</p>', unsafe_allow_html=True)
+    
+    col_graf1, col_graf2 = st.columns(2)
+    
+    with col_graf1:
+        if st.button("📈 Gráfica 1", key="grafica1_btn", use_container_width=True, 
+                    help="Inversión vs Seguidores - Análisis de eficiencia"):
+            st.session_state["show_grafica1"] = not st.session_state.get("show_grafica1", False)
+            if "show_grafica2" in st.session_state:
+                st.session_state["show_grafica2"] = False
+    
+    with col_graf2:
+        if st.button("📊 Gráfica 2", key="grafica2_btn", use_container_width=True,
+                    help="Heatmap CPS - Análisis por día y semana"):
+            st.session_state["show_grafica2"] = not st.session_state.get("show_grafica2", False)
+            if "show_grafica1" in st.session_state:
+                st.session_state["show_grafica1"] = False
+    
+    # Botón para ocultar gráficas
+    if st.session_state.get("show_grafica1", False) or st.session_state.get("show_grafica2", False):
+        if st.button("⬅️ Volver a Dashboard", key="back_dashboard", use_container_width=True):
+            if "show_grafica1" in st.session_state:
+                st.session_state["show_grafica1"] = False
+            if "show_grafica2" in st.session_state:
+                st.session_state["show_grafica2"] = False
             st.rerun()
     
     st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
@@ -1242,6 +1356,48 @@ if df.empty:
     st.info("Conectando al backend para cargar datos en tiempo real...")
     st.stop()
 
+# ================================================================
+# SECCIÓN: GRÁFICAS AVANZADAS (si están activadas)
+# ================================================================
+
+# Gráfica 1: Inversión vs Seguidores
+if st.session_state.get("show_grafica1", False):
+    st.markdown("""
+    <div class="grafica-container">
+        <div class="grafica-title">📈 GRÁFICA 1: INVERSIÓN VS SEGUIDORES</div>
+        <div class="grafica-subtitle">
+            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Cargando datos de la gráfica 1..."):
+        data_grafica1 = cargar_datos_grafica1()
+        crear_grafica1_interactiva(data_grafica1)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
+
+# Gráfica 2: Heatmap CPS
+elif st.session_state.get("show_grafica2", False):
+    st.markdown("""
+    <div class="grafica-container">
+        <div class="grafica-title">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</div>
+        <div class="grafica-subtitle">
+            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Cargando datos de la gráfica 2..."):
+        data_grafica2 = cargar_datos_grafica2()
+        crear_grafica2_interactiva(data_grafica2)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
+
+# ================================================================
+# DASHBOARD NORMAL (si no se están mostrando gráficas avanzadas)
+# ================================================================
+
 # Calcular métricas clave
 total_posts = len(df)
 total_views = df['visualizaciones'].sum() if 'visualizaciones' in df.columns else 0
@@ -1252,7 +1408,7 @@ total_comments = df['comentarios'].sum() if 'comentarios' in df.columns else 0
 total_followers = 0
 if (selected_platform == "general" or selected_platform == "tiktok") and not df_followers.empty:
     if 'Seguidores_Totales' in df_followers.columns:
-        total_followers = int(df_followers['Seguidores_Totales'].iloc[-1] if not df_followers.empty else 0)
+        total_followers = int(df_followers['Seguidores_Totales'].iloc[-1] if len(df_followers) > 0 else 0)
 
 if 'rendimiento_por_dia' in df.columns:
     avg_daily_perf = df['rendimiento_por_dia'].mean()
@@ -1483,111 +1639,6 @@ else:
             </div>
         </div>
         """, unsafe_allow_html=True)
-
-# ============================================================================
-# SECCIÓN: NUEVAS GRÁFICAS DE ANÁLISIS (solo para GENERAL y TikTok)
-# ============================================================================
-if (selected_platform == "general" or selected_platform == "tiktok"):
-    st.markdown("---")
-    st.markdown("### 📈 GRÁFICAS DE ANÁLISIS DE INVERSIÓN Y SEGUIDORES")
-    
-    # Crear pestañas para las gráficas
-    tab_grafica1, tab_grafica2 = st.tabs(["📊 Inversión vs Seguidores", "📈 Heatmap CPS"])
-    
-    with tab_grafica1:
-        st.markdown("""
-        <div class="performance-chart">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
-                    📊 GRÁFICA 1: INVERSIÓN VS SEGUIDORES
-                </h3>
-                <div style="color: #6b7280; font-size: 12px;">
-                    Relación costo publicitario vs ganancia de seguidores
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        # Generar gráfica 1
-        with st.spinner("Generando gráfica de inversión vs seguidores..."):
-            if not df_followers.empty and not df_pauta.empty:
-                img_base64, message = generar_grafica_inversion_vs_seguidores(df_followers, df_pauta)
-                
-                if img_base64:
-                    # Decodificar y mostrar la imagen
-                    img_data = base64.b64decode(img_base64)
-                    img = Image.open(io.BytesIO(img_data))
-                    st.image(img, use_column_width=True)
-                    st.success("✅ " + message)
-                else:
-                    st.error(f"❌ {message}")
-            else:
-                st.warning("⚠️ No hay datos suficientes de seguidores o pauta para generar la gráfica")
-        
-        st.markdown("""
-        <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
-                    border-radius: 12px; border-left: 4px solid #0ea5e9;">
-            <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 16px;">📖 CÓMO INTERPRETAR ESTA GRÁFICA</h4>
-            <ul style="color: #4b5563; font-size: 13px; margin: 0; padding-left: 20px;">
-                <li><strong>Puntos azules claros:</strong> Días reales con inversión y seguidores ganados</li>
-                <li><strong>Línea azul:</strong> Promedio esperado por nivel de inversión (rangos de 15k)</li>
-                <li><strong>Puntos naranjas:</strong> Puntos promedio de cada rango de inversión</li>
-                <li><strong>Líneas punteadas:</strong> Promedios generales de inversión y seguidores</li>
-                <li><strong>Objetivo:</strong> Encontrar el punto óptimo (máximo seguidores con CPS competitivo)</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    with tab_grafica2:
-        st.markdown("""
-        <div class="performance-chart">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
-                    📈 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)
-                </h3>
-                <div style="color: #6b7280; font-size: 12px;">
-                    Análisis por día de semana y semana ISO
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        # Generar gráfica 2
-        with st.spinner("Generando heatmap CPS..."):
-            if not df_followers.empty and not df_pauta.empty:
-                img_base64, message = generar_grafica_heatmap_cps(df_followers, df_pauta)
-                
-                if img_base64:
-                    # Decodificar y mostrar la imagen
-                    img_data = base64.b64decode(img_base64)
-                    img = Image.open(io.BytesIO(img_data))
-                    st.image(img, use_column_width=True)
-                    st.success("✅ " + message)
-                else:
-                    st.error(f"❌ {message}")
-            else:
-                st.warning("⚠️ No hay datos suficientes de seguidores o pauta para generar la gráfica")
-        
-        st.markdown("""
-        <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
-                    border-radius: 12px; border-left: 4px solid #0ea5e9;">
-            <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 16px;">📖 CÓMO INTERPRETAR ESTE HEATMAP</h4>
-            <ul style="color: #4b5563; font-size: 13px; margin: 0; padding-left: 20px;">
-                <li><strong>Filas:</strong> Días de la semana (Lunes a Domingo)</li>
-                <li><strong>Columnas:</strong> Semanas ISO (Año-Semana)</li>
-                <li><strong>Colores:</strong> CPS (Costo por Seguidor) - Más oscuro = CPS más alto = Menos eficiente</li>
-                <li><strong>Texto en celdas:</strong> Muestra CPS exacto y seguidores netos ganados</li>
-                <li><strong>Barras derecha:</strong> Resumen de CPS total por día de semana</li>
-                <li><strong>Negro:</strong> Sin inversión o sin seguidores positivos ese día</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-
-# ============================================================================
-# FIN SECCIÓN NUEVAS GRÁFICAS
-# ============================================================================
 
 # SECCIÓN: GRÁFICA DE SEGUIDORES Y PAUTA (solo para GENERAL y TikTok)
 if (selected_platform == "general" or selected_platform == "tiktok") and not df_followers.empty and 'Fecha' in df_followers.columns and 'Seguidores_Totales' in df_followers.columns:
@@ -2350,17 +2401,18 @@ st.markdown(f"""
 <div style="text-align: center; color: #6b7280; font-size: 12px; padding: 25px; 
             border-top: 1px solid #e5e7eb; margin-top: 30px;">
     <div style="display: flex; justify-content: center; gap: 25px; margin-bottom: 12px; flex-wrap: wrap;">
-        <span>Social Media Dashboard PRO v3.2</span>
+        <span>Social Media Dashboard PRO v3.1</span>
         <span>•</span>
         <span>Data from Backend API</span>
         <span>•</span>
         <span>{platform_name} Analytics</span>
         <span>•</span>
         <span>Updated in Real-time</span>
+        <span>•</span>
+        <span>Gráficas Avanzadas: Inversión vs Seguidores • Heatmap CPS</span>
     </div>
     <div style="font-size: 11px; color: #9ca3af;">
-        © 2025 Social Media Analytics Platform • Conectado a: <strong>{BACKEND_URL}</strong> • {current_time_full}
-        <br>📊 Nuevas gráficas integradas: Inversión vs Seguidores y Heatmap CPS
+        © 2025 Social Media Analytics Platform • Connected to: <strong>{BACKEND_URL}</strong> • {current_time_full}
     </div>
 </div>
 """, unsafe_allow_html=True)
