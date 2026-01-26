@@ -1,19 +1,19 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 from datetime import datetime
 import warnings
 import requests
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patheffects as pe
 from io import BytesIO
 
 warnings.filterwarnings('ignore')
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Social Media Dashboard",
+    page_title="Dashboard TikTok - Métricas",
     layout="wide",
     page_icon="📊",
     initial_sidebar_state="expanded"
@@ -104,18 +104,16 @@ def to_num(v):
         return np.nan
 
 #############################################
-# FUNCIONES PARA NUEVAS GRÁFICAS
+# FUNCIONES PARA NUEVAS GRÁFICAS (USANDO PLOTLY)
 #############################################
 
-def generar_grafica_inversion(fh_df, bp_df):
-    """Genera la gráfica de inversión vs seguidores"""
+def generar_grafica_inversion_plotly(fh_df, bp_df):
+    """Genera la gráfica de inversión vs seguidores usando Plotly"""
     try:
         # Parámetros básicos
         STEP = 15000
         IMPACT_DAYS = 3
         USE_IMPACT = True
-        BREAK_X = 80000.0
-        K = 0.28
         
         # Procesar datos de seguidores
         fh_df["Fecha"] = pd.to_datetime(fh_df["Fecha"], dayfirst=True, errors="coerce")
@@ -181,105 +179,89 @@ def generar_grafica_inversion(fh_df, bp_df):
             Dias=("Costo", "count"),
         ).reset_index(drop=True).sort_values("Inversion_promedio").reset_index(drop=True)
         
-        # Crear gráfica
-        plt.rcParams.update({
-            "figure.facecolor": "#060913",
-            "axes.facecolor": "#0b1020",
-            "axes.edgecolor": "#334155",
-            "axes.labelcolor": "#e0e7ff",
-            "xtick.color": "#c7d2fe",
-            "ytick.color": "#c7d2fe",
-            "text.color": "#e0e7ff",
-            "grid.alpha": 0.22,
-            "grid.linewidth": 0.8,
-            "font.size": 11
-        })
+        # Crear gráfica con Plotly
+        fig = go.Figure()
         
-        fig, ax = plt.subplots(figsize=(18, 6.0), dpi=175)
-        ax.grid(True)
+        # Puntos de días reales
+        fig.add_trace(go.Scatter(
+            x=cand["Costo"],
+            y=cand[RESULT_COL],
+            mode='markers',
+            name='Días reales',
+            marker=dict(
+                size=8,
+                color='#60a5fa',
+                opacity=0.4,
+                line=dict(width=1, color='white')
+            ),
+            hovertemplate='<b>Costo: $%{x:,.0f}</b><br>Seguidores: %{y:,.0f}<extra></extra>'
+        ))
         
-        # Función para compresión del eje X
-        def x_warp(x):
-            x = float(x)
-            if x <= BREAK_X:
-                return x
-            return BREAK_X + (x - BREAK_X) * K
+        # Línea de promedio
+        fig.add_trace(go.Scatter(
+            x=curve["Inversion_promedio"],
+            y=curve["Seguidores_promedio"],
+            mode='lines+markers',
+            name='Promedio por nivel',
+            line=dict(color='#f59e0b', width=3),
+            marker=dict(
+                size=12,
+                color='#f59e0b',
+                symbol='circle',
+                line=dict(width=2, color='white')
+            ),
+            hovertemplate='<b>Inversión promedio: $%{x:,.0f}</b><br>Seguidores promedio: %{y:,.0f}<br>Días en rango: %{text}<extra></extra>',
+            text=curve["Dias"]
+        ))
         
-        # Preparar datos para gráfica
-        cand["xw"] = cand["Costo"].apply(x_warp)
-        curve["xw"] = curve["Inversion_promedio"].apply(x_warp)
-        
-        # Líneas de rango
+        # Líneas verticales para rangos
         for x_real in bins:
-            if x_real >= (np.floor(cmin/STEP)*STEP) - 1e-9 and x_real <= (np.ceil(cmax/STEP)*STEP) + 1e-9:
-                ax.axvline(x_warp(x_real), linewidth=1.0, linestyle="--", alpha=0.18, color="#cbd5e1", zorder=1)
+            if x_real >= start and x_real <= end:
+                fig.add_shape(
+                    type="line",
+                    x0=x_real, x1=x_real,
+                    y0=0, y1=cand[RESULT_COL].max() * 1.1,
+                    line=dict(
+                        color="rgba(203, 213, 225, 0.3)",
+                        width=1,
+                        dash="dash",
+                    ),
+                )
         
-        # Scatter plot de días reales
-        ax.scatter(cand["xw"], cand[RESULT_COL], s=30, alpha=0.12, color="#60a5fa", label="Días reales", zorder=2)
-        
-        # Línea de tendencia
-        ax.plot(curve["xw"], curve["Seguidores_promedio"], linewidth=2.8, alpha=0.95, color="#38bdf8",
-                label="Promedio esperado (por nivel inversión)", zorder=5)
-        
-        # Puntos de la curva
-        ax.scatter(
-            curve["xw"], curve["Seguidores_promedio"],
-            s=120, alpha=0.98, color="#f59e0b",
-            label="Puntos promedio",
-            zorder=6
+        # Actualizar layout
+        fig.update_layout(
+            title="📈 Inversión vs Seguidores (curva por niveles)",
+            xaxis_title="Inversión (Costo)",
+            yaxis_title=f"Seguidores (Impacto {IMPACT_DAYS}d)",
+            template="plotly_white",
+            height=600,
+            hovermode="closest",
+            legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01
+            ),
+            xaxis=dict(
+                tickformat=",",
+                gridcolor='rgba(241, 245, 249, 0.5)'
+            ),
+            yaxis=dict(
+                tickformat=",",
+                gridcolor='rgba(241, 245, 249, 0.5)'
+            ),
+            plot_bgcolor='white',
+            paper_bgcolor='white'
         )
         
-        # Configurar ejes
-        xmin_w = x_warp(float(np.nanmin(cand["Costo"])))
-        xmax_w = x_warp(float(np.nanmax(cand["Costo"])))
-        pad = (xmax_w - xmin_w) * 0.04 if xmax_w > xmin_w else 1.0
-        
-        # Etiquetas de eje X
-        edge_ticks_real = np.unique(bins)
-        edge_ticks_real = [x for x in edge_ticks_real if (x >= (np.floor(cmin/STEP)*STEP) - 1e-9 and x <= (np.ceil(cmax/STEP)*STEP) + 1e-9)]
-        edge_ticks_w = [x_warp(x) for x in edge_ticks_real]
-        
-        def fmt_k(x):
-            if x is None or (isinstance(x, float) and np.isnan(x)):
-                return "—"
-            try:
-                return f"{int(round(float(x)/1000.0))}k"
-            except Exception:
-                return "—"
-        
-        edge_tick_labels = [fmt_k(x) for x in edge_ticks_real]
-        
-        MAX_X_TICKS = 12
-        stride = 1 if len(edge_ticks_real) <= MAX_X_TICKS else 2
-        edge_ticks_real = edge_ticks_real[::stride]
-        edge_ticks_w = edge_ticks_w[::stride]
-        edge_tick_labels = edge_tick_labels[::stride]
-        
-        ax.set_xticks(edge_ticks_w)
-        ax.set_xticklabels(edge_tick_labels, rotation=0)
-        ax.set_xlim(xmin_w - pad, xmax_w + pad)
-        
-        # Títulos y etiquetas
-        impact_label = f"Impacto {IMPACT_DAYS}d" if USE_IMPACT else "Neto día"
-        ax.set_title("📈 Inversión vs Seguidores (curva por niveles)")
-        ax.set_ylabel(f"Seguidores ({impact_label})")
-        
-        # Leyenda
-        leg = ax.legend(loc="upper left", frameon=True)
-        leg.get_frame().set_facecolor("#0b1020")
-        leg.get_frame().set_edgecolor("#334155")
-        for t in leg.get_texts():
-            t.set_color("#e0e7ff")
-        
-        plt.tight_layout()
         return fig
         
     except Exception as e:
         st.error(f"Error al generar gráfica: {str(e)}")
         return None
 
-def generar_mapa_calor(fh_df, bp_df):
-    """Genera el heatmap de CPS por día/semana"""
+def generar_mapa_calor_plotly(fh_df, bp_df):
+    """Genera el heatmap de CPS por día/semana usando Plotly"""
     try:
         # Procesar datos
         fh_df["Fecha"] = pd.to_datetime(fh_df["Fecha"], dayfirst=True, errors="coerce")
@@ -328,94 +310,37 @@ def generar_mapa_calor(fh_df, bp_df):
         pivot_cps = agg.pivot(index="Dia_Semana", columns="WeekKey", values="CPS_cell").reindex(dias)
         pivot_seg = agg.pivot(index="Dia_Semana", columns="WeekKey", values="Seguidores_sum").reindex(dias)
         
-        vals_cps = pivot_cps.values.astype(float)
-        vals_seg = pivot_seg.values.astype(float)
-        
-        # Normalizar colores (recorte p5–p95)
-        flat = vals_cps[np.isfinite(vals_cps)]
-        if flat.size == 0:
-            return None
-        
-        p5 = np.nanpercentile(flat, 5)
-        p95 = np.nanpercentile(flat, 95)
-        vals_cps_clip = np.clip(vals_cps, p5, p95)
-        
-        # Crear heatmap
-        plt.rcParams.update({
-            "figure.facecolor": "#060913",
-            "axes.facecolor": "#0b1020",
-            "axes.edgecolor": "#334155",
-            "axes.labelcolor": "#e0e7ff",
-            "xtick.color": "#c7d2fe",
-            "ytick.color": "#c7d2fe",
-            "text.color": "#e0e7ff",
-            "font.size": 11
-        })
-        
+        # Crear mapa de calor con Plotly
         weeks = list(pivot_cps.columns)
-        n_rows = len(dias)
-        n_cols = len(weeks)
         
-        fig = plt.figure(figsize=(22, 7), dpi=190)
-        gs = fig.add_gridspec(1, 2, width_ratios=[4.6, 1.4], wspace=0.08)
-        
-        # Heatmap principal
-        ax = fig.add_subplot(gs[0, 0])
-        im = ax.imshow(vals_cps_clip, aspect="auto")
-        
-        ax.set_title(
-            "🗺️ Mapa de Calor - CPS (Costo/Seguidor) + Seguidores\nCPS bajo = mejor | Negro = sin datos",
-            pad=14
+        # Heatmap para CPS
+        fig = make_subplots(
+            rows=1, cols=2,
+            subplot_titles=("🗺️ Mapa de Calor - CPS (Costo por Seguidor)", "📊 Resumen por Día"),
+            column_widths=[0.7, 0.3],
+            horizontal_spacing=0.1
         )
         
-        ax.set_yticks(range(n_rows))
-        ax.set_yticklabels(dias)
+        # Mapa de calor principal
+        fig.add_trace(
+            go.Heatmap(
+                z=pivot_cps.values,
+                x=weeks,
+                y=dias,
+                colorscale='RdYlGn_r',  # Rojo-Amarillo-Verde invertido (rojo = malo, verde = bueno)
+                zmin=pivot_cps.values[np.isfinite(pivot_cps.values)].min() if np.any(np.isfinite(pivot_cps.values)) else 0,
+                zmax=pivot_cps.values[np.isfinite(pivot_cps.values)].max() if np.any(np.isfinite(pivot_cps.values)) else 1,
+                colorbar=dict(title="CPS", x=0.45),
+                hovertemplate='<b>%{y} - %{x}</b><br>CPS: %{z:,.0f}<br>Seguidores: %{customdata:,.0f}<extra></extra>',
+                customdata=pivot_seg.values,
+                text=pivot_cps.applymap(lambda x: f"{x:,.0f}" if pd.notna(x) else "N/A").values,
+                texttemplate="%{text}",
+                textfont={"size": 10}
+            ),
+            row=1, col=1
+        )
         
-        ax.set_xticks(range(n_cols))
-        ax.set_xticklabels(weeks, rotation=45, ha="right")
-        
-        ax.set_xticks(np.arange(-.5, n_cols, 1), minor=True)
-        ax.set_yticks(np.arange(-.5, n_rows, 1), minor=True)
-        ax.grid(which="minor", linewidth=0.6, alpha=0.15)
-        ax.tick_params(which="minor", bottom=False, left=False)
-        
-        # Texto en celdas
-        txt_fx = [pe.withStroke(linewidth=1.2, foreground=(0, 0, 0, 0.45))]
-        
-        def fmt_int_or_dash(x):
-            if x is None or (isinstance(x, float) and np.isnan(x)):
-                return "—"
-            try:
-                return f"{int(round(float(x))):,}".replace(",", ".")
-            except Exception:
-                return "—"
-        
-        for i in range(n_rows):
-            for j in range(n_cols):
-                cps_v = vals_cps[i, j]
-                seg_v = vals_seg[i, j]
-                if np.isfinite(cps_v) or np.isfinite(seg_v):
-                    line1 = f"CPS {fmt_int_or_dash(cps_v)}"
-                    line2 = f"Seg {fmt_int_or_dash(seg_v)}"
-                    t = ax.text(
-                        j, i,
-                        f"{line1}\n{line2}",
-                        ha="center", va="center",
-                        fontsize=7.7,
-                        color="white",
-                        alpha=1.0
-                    )
-                    t.set_path_effects(txt_fx)
-        
-        # Barra de color
-        cbar = plt.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
-        cbar.set_label("CPS (recortado p5–p95)")
-        
-        # Barras derecha (resumen por día)
-        axr = fig.add_subplot(gs[0, 1])
-        axr.grid(True, axis="x", alpha=0.18)
-        
-        # Calcular resumen por día
+        # Calcular resumen por día para gráfico de barras
         sum_day = g.groupby("Dia_Semana", as_index=False).agg(
             Costo_sum=("Costo", "sum"),
             Seguidores_sum=("Neto_Diario_Real", "sum"),
@@ -430,37 +355,40 @@ def generar_mapa_calor(fh_df, bp_df):
         
         sum_day = sum_day.set_index("Dia_Semana").reindex(dias).reset_index()
         
-        ypos = np.arange(n_rows)
-        cps_day = sum_day["CPS_total_dia"].to_numpy(dtype=float)
-        seg_day = sum_day["Seguidores_sum"].to_numpy(dtype=float)
+        # Gráfico de barras por día
+        fig.add_trace(
+            go.Bar(
+                y=dias,
+                x=sum_day["CPS_total_dia"],
+                orientation='h',
+                name='CPS por día',
+                marker_color='#3B82F6',
+                hovertemplate='<b>%{y}</b><br>CPS: %{x:,.0f}<extra></extra>',
+                text=sum_day["CPS_total_dia"].apply(lambda x: f"{x:,.0f}" if pd.notna(x) else "N/A"),
+                textposition='outside'
+            ),
+            row=1, col=2
+        )
         
-        axr.barh(ypos, cps_day, alpha=0.75)
-        axr.set_yticks(ypos)
-        axr.set_yticklabels([""] * n_rows)
-        axr.set_xlabel("CPS total por día")
-        axr.set_title("Resumen por día", pad=10)
+        # Actualizar layout
+        fig.update_layout(
+            height=500,
+            template="plotly_white",
+            showlegend=False,
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            margin=dict(l=50, r=50, t=80, b=50)
+        )
         
-        # Texto en barras
-        for i in range(n_rows):
-            cpsv = cps_day[i]
-            segv = seg_day[i]
-            line = f"CPS {fmt_int_or_dash(cpsv)} | Seg {fmt_int_or_dash(segv)}"
-            x_text = 0 if not np.isfinite(cpsv) else cpsv
-            tt = axr.text(
-                x_text, i,
-                f"  {line}",
-                va="center", ha="left",
-                fontsize=9,
-                color="white",
-                alpha=1.0
-            )
-            tt.set_path_effects(txt_fx)
+        fig.update_xaxes(title_text="Semanas", row=1, col=1)
+        fig.update_yaxes(title_text="Días", row=1, col=1)
+        fig.update_xaxes(title_text="CPS", row=1, col=2)
+        fig.update_yaxes(title_text="", row=1, col=2)
         
-        plt.tight_layout()
         return fig
         
     except Exception as e:
-        st.error(f"Error al generar heatmap: {str(e)}")
+        st.error(f"Error al generar mapa de calor: {str(e)}")
         return None
 
 #############################################
@@ -507,7 +435,7 @@ def format_number(num):
 # INTERFAZ PRINCIPAL - SIMPLIFICADA
 #############################################
 
-st.title("📊 Dashboard Social Media - TikTok")
+st.title("📊 Dashboard TikTok - Métricas e Inversión")
 
 # Métricas principales en 2 filas
 st.subheader("📈 Métricas Principales")
@@ -681,25 +609,25 @@ with tab2:
     st.subheader("📈 Análisis de Inversión vs Seguidores")
     
     if not fh_df.empty and not bp_df.empty:
-        if st.button("🔄 Generar Gráfica de Inversión"):
-            with st.spinner("Generando gráfica..."):
-                fig_inversion = generar_grafica_inversion(fh_df, bp_df)
-                if fig_inversion:
-                    st.pyplot(fig_inversion)
-                    
-                    # Opción para descargar
-                    buf = BytesIO()
-                    fig_inversion.savefig(buf, format="png", dpi=150, bbox_inches='tight')
-                    st.download_button(
-                        label="📥 Descargar Gráfica",
-                        data=buf.getvalue(),
-                        file_name=f"inversion_vs_seguidores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
-                        mime="image/png"
-                    )
-                else:
-                    st.warning("No se pudo generar la gráfica. Verifique los datos.")
+        fig_inversion = generar_grafica_inversion_plotly(fh_df, bp_df)
+        if fig_inversion:
+            st.plotly_chart(fig_inversion, use_container_width=True)
+            
+            # Información adicional
+            with st.expander("ℹ️ ¿Cómo interpretar esta gráfica?"):
+                st.markdown("""
+                **Esta gráfica muestra:**
+                - **Puntos azules:** Días reales con inversión y seguidores ganados
+                - **Línea naranja:** Promedio de seguidores por nivel de inversión
+                - **Líneas verticales:** Rangos de inversión cada $15,000
+                
+                **Interpretación:**
+                - **Costo/Seguidor bajo:** Eficiente (más seguidores por dinero)
+                - **Puntos altos en la curva:** Niveles óptimos de inversión
+                - **Tendencia creciente:** Más inversión genera más seguidores
+                """)
         else:
-            st.info("👆 Presiona el botón para generar la gráfica de inversión")
+            st.warning("No hay datos suficientes para generar la gráfica de inversión")
     else:
         st.warning("Se necesitan datos de seguidores y pauta para esta gráfica")
 
@@ -708,25 +636,28 @@ with tab3:
     st.subheader("🗺️ Mapa de Calor - Costo por Seguidor (CPS)")
     
     if not fh_df.empty and not bp_df.empty:
-        if st.button("🔄 Generar Mapa de Calor"):
-            with st.spinner("Generando mapa de calor..."):
-                fig_heatmap = generar_mapa_calor(fh_df, bp_df)
-                if fig_heatmap:
-                    st.pyplot(fig_heatmap)
-                    
-                    # Opción para descargar
-                    buf = BytesIO()
-                    fig_heatmap.savefig(buf, format="png", dpi=150, bbox_inches='tight')
-                    st.download_button(
-                        label="📥 Descargar Mapa",
-                        data=buf.getvalue(),
-                        file_name=f"mapa_calor_cps_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
-                        mime="image/png"
-                    )
-                else:
-                    st.warning("No se pudo generar el mapa de calor. Verifique los datos.")
+        fig_heatmap = generar_mapa_calor_plotly(fh_df, bp_df)
+        if fig_heatmap:
+            st.plotly_chart(fig_heatmap, use_container_width=True)
+            
+            # Información adicional
+            with st.expander("ℹ️ ¿Cómo interpretar este mapa de calor?"):
+                st.markdown("""
+                **Este mapa de calor muestra:**
+                - **Eje Y:** Días de la semana
+                - **Eje X:** Semanas del año (formato AAAA-W##)
+                - **Colores:** 
+                  - **🟢 Verde:** CPS bajo (eficiente)
+                  - **🟡 Amarillo:** CPS medio
+                  - **🔴 Rojo:** CPS alto (ineficiente)
+                
+                **Interpretación:**
+                - **CPS bajo = mejor:** Menos costo por cada seguidor ganado
+                - **Patrones por día:** Identifica qué días son más eficientes
+                - **Evolución semanal:** Ve cómo cambia la eficiencia semana a semana
+                """)
         else:
-            st.info("👆 Presiona el botón para generar el mapa de calor")
+            st.warning("No hay datos suficientes para generar el mapa de calor")
     else:
         st.warning("Se necesitan datos de seguidores y pauta para esta gráfica")
 
@@ -735,7 +666,7 @@ st.markdown("---")
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
 st.markdown(f"""
 <div style="text-align: center; color: #666; font-size: 12px;">
-    <p>📊 Dashboard Social Media • Datos en tiempo real • Actualizado: {current_time}</p>
+    <p>📊 Dashboard TikTok - Métricas e Inversión • Datos en tiempo real • Actualizado: {current_time}</p>
     <p><small>Conectado a: {BACKEND_URL}</small></p>
 </div>
 """, unsafe_allow_html=True)
