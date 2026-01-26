@@ -158,7 +158,7 @@ def cargar_datos_pauta():
         return pd.DataFrame()
 
 #############################################
-# NUEVAS FUNCIONES PARA GRÁFICAS AVANZADAS - CORREGIDAS
+# NUEVAS FUNCIONES PARA GRÁFICAS AVANZADAS - AJUSTADAS CON FONDO AZUL OSCURO
 #############################################
 
 def cargar_datos_grafica1():
@@ -184,7 +184,7 @@ def cargar_datos_grafica2():
         return {"status": "error", "message": str(e)}
 
 def crear_grafica1_interactiva(data_grafica1):
-    """Crea la gráfica 1 interactiva con Plotly - CORREGIDA"""
+    """Crea la gráfica 1 interactiva con Plotly - FONDO AZUL OSCURO COMO ORIGINAL"""
     if data_grafica1.get("status") != "success":
         st.error(f"No se pudo cargar la gráfica 1: {data_grafica1.get('message')}")
         return
@@ -202,21 +202,45 @@ def crear_grafica1_interactiva(data_grafica1):
     
     # Determinar columna de seguidores
     result_col = "Seguidores_Impacto" if parameters.get("USE_IMPACT", True) else "Neto_Diario_Real"
+    impact_days = parameters.get("IMPACT_DAYS", 3)
     
-    # Crear figura
+    # Formateador de números (igual al original)
+    def fmt_int_plain(x):
+        if x is None or (isinstance(x, float) and np.isnan(x)):
+            return "—"
+        try:
+            return str(int(round(float(x))))
+        except Exception:
+            return "—"
+    
+    # Crear figura con FONDO AZUL OSCURO
     fig = go.Figure()
     
-    # 1. Puntos de días reales (scatter)
+    # Colores del gráfico original
+    colors = {
+        'fondo_figura': '#060913',
+        'fondo_ejes': '#0b1020',
+        'borde_ejes': '#334155',
+        'texto': '#e0e7ff',
+        'ticks': '#c7d2fe',
+        'puntos_reales': '#60a5fa',
+        'linea_curva': '#38bdf8',
+        'puntos_curva': '#f59e0b',
+        'linea_promedio': '#22d3ee',
+        'punto_optimo': '#22c55e'
+    }
+    
+    # 1. Puntos de días reales (scatter) - más opacos como original
     fig.add_trace(go.Scatter(
         x=scatter_data["Costo"],
         y=scatter_data[result_col],
         mode='markers',
-        name='📅 Días reales',
+        name='Días reales',
         marker=dict(
             size=8,
-            color='#60a5fa',
-            opacity=0.4,
-            line=dict(width=1, color='white')
+            color=colors['puntos_reales'],
+            opacity=0.12,  # Igual que original: alpha=0.12
+            line=dict(width=0)
         ),
         hovertemplate='<b>Día Real</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<extra></extra>'
     ))
@@ -225,91 +249,114 @@ def crear_grafica1_interactiva(data_grafica1):
     fig.add_trace(go.Scatter(
         x=curve_data["Inversion_promedio"],
         y=curve_data["Seguidores_promedio"],
-        mode='lines+markers',
-        name='📈 Curva promedio',
-        line=dict(color='#38bdf8', width=3),
-        marker=dict(
-            size=10,
-            color='#f59e0b',
-            symbol='diamond'
-        ),
-        hovertemplate='<b>Promedio por rango</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>CPS: $%{customdata:,.0f}<extra></extra>',
+        mode='lines',
+        name='Promedio esperado (por nivel inversión)',
+        line=dict(color=colors['linea_curva'], width=2.8),
+        opacity=0.95,
+        hovertemplate='<b>Curva promedio</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>CPS: $%{customdata:,.0f}<extra></extra>',
         customdata=curve_data["CPS_curva"]
     ))
     
-    # 3. Punto óptimo - CORREGIDO EL HOOVERTEMPLATE
+    # 3. Puntos de la curva promedio
+    fig.add_trace(go.Scatter(
+        x=curve_data["Inversion_promedio"],
+        y=curve_data["Seguidores_promedio"],
+        mode='markers',
+        name='Puntos promedio (hover/click)',
+        marker=dict(
+            size=12,
+            color=colors['puntos_curva'],
+            opacity=0.98,
+            line=dict(width=1, color='white')
+        ),
+        hovertemplate='<b>Punto curva</b><br>Inv: $%{x:,.0f}<br>SEG: %{y:,.0f}<br>CPS: $%{customdata:,.0f}<extra></extra>',
+        customdata=curve_data["CPS_curva"]
+    ))
+    
+    # 4. Punto óptimo
     if optimal_point and "Inversion_promedio" in optimal_point and "Seguidores_promedio" in optimal_point:
         opt_cps = optimal_point.get("CPS_curva", 0)
         opt_dias = optimal_point.get("Dias", 0)
         opt_dias_meta = optimal_point.get("Dias_para_meta", 0)
         
-        # Crear texto para el hover
-        hover_text = f"<b>PUNTO ÓPTIMO</b><br>Inversión: ${optimal_point['Inversion_promedio']:,.0f}<br>Seguidores: {optimal_point['Seguidores_promedio']:,.0f}<br>CPS: ${opt_cps:,.0f}"
-        if opt_dias:
-            hover_text += f"<br>Días: {opt_dias}"
-        if opt_dias_meta:
-            hover_text += f"<br>Meta 1000 seg: {opt_dias_meta:.1f} días"
-        hover_text += "<extra></extra>"
+        hover_text = (f"<b>PUNTO ÓPTIMO</b><br>"
+                     f"Inversión: ${optimal_point['Inversion_promedio']:,.0f}<br>"
+                     f"Seguidores: {optimal_point['Seguidores_promedio']:,.0f}<br>"
+                     f"CPS: ${opt_cps:,.0f}<br>"
+                     f"Días en rango: {opt_dias}<br>"
+                     f"1000 SEG ~ {opt_dias_meta:.1f} días")
         
         fig.add_trace(go.Scatter(
             x=[optimal_point["Inversion_promedio"]],
             y=[optimal_point["Seguidores_promedio"]],
             mode='markers',
-            name='⭐ Punto óptimo',
+            name=f'Punto óptimo (max SEG dentro del mejor CPS, tol {int(parameters.get("OPT_CPS_TOL", 0.20)*100)}%)',
             marker=dict(
                 size=25,
-                color='#22c55e',
+                color=colors['punto_optimo'],
                 symbol='star',
-                line=dict(width=2, color='white')
+                line=dict(width=1.8, color='white')
             ),
-            hovertemplate=hover_text
+            hovertemplate=hover_text + '<extra></extra>'
         ))
     
-    # 4. Líneas de promedio general
+    # 5. Líneas de promedio general
     if "INV_mean" in summary and "SEG_mean" in summary:
-        # Línea vertical de promedio de inversión
-        fig.add_vline(
-            x=summary["INV_mean"],
-            line_dash="dash",
-            line_color="#22d3ee",
-            opacity=0.7,
-            annotation_text=f"Promedio INV: ${summary['INV_mean']:,.0f}",
-            annotation_position="top right"
-        )
-        
         # Línea horizontal de promedio de seguidores
         fig.add_hline(
             y=summary["SEG_mean"],
-            line_dash="dash",
-            line_color="#22d3ee",
-            opacity=0.7,
-            annotation_text=f"Promedio SEG: {summary['SEG_mean']:,.0f}",
-            annotation_position="bottom right"
+            line_dash="dot",
+            line_color=colors['linea_promedio'],
+            line_width=2.0,
+            opacity=0.8,
+            annotation_text=f"Promedio SEG = {fmt_int_plain(summary['SEG_mean'])}",
+            annotation_position="top right",
+            annotation_font_size=10,
+            annotation_bgcolor=colors['fondo_ejes']
+        )
+        
+        # Línea vertical de promedio de inversión
+        fig.add_vline(
+            x=summary["INV_mean"],
+            line_dash="dot",
+            line_color=colors['linea_promedio'],
+            line_width=1.8,
+            opacity=0.75,
+            annotation_text=f"Promedio inversión = {fmt_int_plain(summary['INV_mean'])}",
+            annotation_position="top left",
+            annotation_font_size=10,
+            annotation_bgcolor=colors['fondo_ejes']
         )
     
-    # Configurar layout
+    # Configurar layout con FONDO AZUL OSCURO
     fig.update_layout(
-        height=600,
+        height=650,
         template='plotly_dark',
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white', size=12),
+        plot_bgcolor=colors['fondo_ejes'],
+        paper_bgcolor=colors['fondo_figura'],
+        font=dict(color=colors['texto'], size=12, family="Arial"),
         title=dict(
-            text="📊 GRÁFICA 1: INVERSIÓN VS SEGUIDORES<br><sub>Análisis de eficiencia por nivel de inversión</sub>",
-            font=dict(size=24, color='white'),
+            text=f"Inversión vs Seguidores (curva por niveles) — Hover/Click en puntos naranjas<br>"
+                 f"<span style='font-size:14px; color:#94a3b8'>Impacto {impact_days}d | STEP ${parameters.get('STEP', 15000):,}</span>",
+            font=dict(size=22, color='white', family="Arial Black"),
             x=0.5,
-            xanchor='center'
+            xanchor='center',
+            y=0.95
         ),
         xaxis=dict(
-            title="Inversión (Costo $)",
+            title="Inversión ($)",
             gridcolor='rgba(255,255,255,0.1)',
             tickformat=",",
-            tickprefix="$"
+            tickprefix="$",
+            tickfont=dict(size=11, color=colors['ticks']),
+            title_font=dict(size=13, color=colors['texto'])
         ),
         yaxis=dict(
-            title=f"Seguidores ({'Impacto' if parameters.get('USE_IMPACT') else 'Neto'} {parameters.get('IMPACT_DAYS', 0)} días)",
+            title=f"Seguidores ({'Impacto' if parameters.get('USE_IMPACT') else 'Neto'} {impact_days}d)",
             gridcolor='rgba(255,255,255,0.1)',
-            tickformat=","
+            tickformat=",",
+            tickfont=dict(size=11, color=colors['ticks']),
+            title_font=dict(size=13, color=colors['texto'])
         ),
         hovermode='closest',
         legend=dict(
@@ -318,17 +365,29 @@ def crear_grafica1_interactiva(data_grafica1):
             y=1.02,
             xanchor="right",
             x=1,
-            bgcolor='rgba(0,0,0,0.5)',
+            bgcolor='rgba(11, 16, 32, 0.8)',
             bordercolor='rgba(255,255,255,0.2)',
-            borderwidth=1
+            borderwidth=1,
+            font=dict(size=11, color=colors['texto'])
         ),
-        margin=dict(l=50, r=50, t=100, b=50)
+        margin=dict(l=60, r=40, t=120, b=60)
     )
+    
+    # Añadir grid vertical para niveles de inversión (si hay datos de bins)
+    if 'bins' in data_grafica1:
+        for bin_edge in data_grafica1.get('bins', []):
+            fig.add_vline(
+                x=bin_edge,
+                line_width=1.0,
+                line_dash="dash",
+                line_color="#cbd5e1",
+                opacity=0.18
+            )
     
     # Mostrar gráfica
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
     
-    # Mostrar información adicional
+    # Mostrar información adicional en tarjetas
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -354,22 +413,36 @@ def crear_grafica1_interactiva(data_grafica1):
     
     with col4:
         if optimal_point:
+            cps_tol = parameters.get('OPT_CPS_TOL', 0.20)
             st.metric(
                 "⭐ CPS óptimo",
                 f"${optimal_point.get('CPS_curva', 0):,.0f}",
-                help="Costo por seguidor en el punto óptimo"
+                delta=f"Tol {int(cps_tol*100)}%",
+                help=f"Costo por seguidor en el punto óptimo (tolerancia {int(cps_tol*100)}%)"
             )
     
     # Mostrar tabla de datos de la curva
-    with st.expander("📋 Ver datos detallados de la curva"):
+    with st.expander("📋 Ver datos detallados de la curva (rangos de inversión)"):
         display_curve = curve_data.copy()
+        # Formatear como en el gráfico original
         display_curve["Inversion_promedio"] = display_curve["Inversion_promedio"].apply(lambda x: f"${x:,.0f}")
         display_curve["Seguidores_promedio"] = display_curve["Seguidores_promedio"].apply(lambda x: f"{x:,.0f}")
         display_curve["CPS_curva"] = display_curve["CPS_curva"].apply(lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A")
+        display_curve["Dias_para_meta"] = display_curve["Dias_para_meta"].apply(lambda x: f"{x:.1f}" if not pd.isna(x) else "N/A")
+        
+        # Renombrar columnas
+        display_curve = display_curve.rename(columns={
+            "Inversion_promedio": "💰 Inversión promedio",
+            "Seguidores_promedio": "👥 Seguidores promedio",
+            "CPS_curva": "📊 CPS",
+            "Dias": "📅 Días en rango",
+            "Dias_para_meta": "⏱️ 1000 SEG (días)"
+        })
+        
         st.dataframe(display_curve, use_container_width=True)
 
 def crear_grafica2_interactiva(data_grafica2):
-    """Crea la gráfica 2 interactiva (Heatmap CPS) con Plotly - CORREGIDA"""
+    """Crea la gráfica 2 interactiva (Heatmap CPS) con Plotly - FONDO AZUL OSCURO COMO ORIGINAL"""
     if data_grafica2.get("status") != "success":
         st.error(f"No se pudo cargar la gráfica 2: {data_grafica2.get('message')}")
         return
@@ -377,6 +450,7 @@ def crear_grafica2_interactiva(data_grafica2):
     # Extraer datos
     heatmap_data = data_grafica2.get("heatmap_data", {})
     summary_by_day = data_grafica2.get("summary_by_day", [])
+    plot_data = data_grafica2.get("plot_data", {})
     
     if not heatmap_data:
         st.warning("No hay datos suficientes para generar el heatmap")
@@ -395,79 +469,117 @@ def crear_grafica2_interactiva(data_grafica2):
     cps_array = np.array(cps_matrix)
     seg_array = np.array(seg_matrix)
     
-    # Crear texto para cada celda - ETIQUETAS SIEMPRE VISIBLES
+    # Colores del gráfico original
+    colors = {
+        'fondo_figura': '#060913',
+        'fondo_ejes': '#0b1020',
+        'borde_ejes': '#334155',
+        'texto': '#e0e7ff',
+        'ticks': '#c7d2fe',
+        'texto_celda': 'white',
+        'sombra_texto': 'rgba(0, 0, 0, 0.45)'
+    }
+    
+    # Calcular percentiles para recorte de color (igual que original: p5-p95)
+    cps_flat = cps_array[~np.isnan(cps_array)]
+    if len(cps_flat) > 0:
+        p5 = np.nanpercentile(cps_flat, 5)
+        p95 = np.nanpercentile(cps_flat, 95)
+        zmin = p5
+        zmax = p95
+    else:
+        zmin = 0
+        zmax = 100
+        p5 = p95 = 0
+    
+    # Función para formatear números (igual al original)
+    def fmt_int_or_dash(x):
+        if x is None or (isinstance(x, float) and np.isnan(x)):
+            return "—"
+        try:
+            return f"{int(round(float(x))):,}".replace(",", ".")
+        except Exception:
+            return "—"
+    
+    # Crear texto para cada celda - ETIQUETAS VISIBLES COMO ORIGINAL
     text_matrix = []
+    hover_text_matrix = []
     for i in range(len(cps_array)):
         row_text = []
+        row_hover = []
         for j in range(len(cps_array[i])):
             cps = cps_array[i][j]
             seg = seg_array[i][j]
             if np.isnan(cps) or cps == 0:
                 row_text.append("")
+                row_hover.append("")
             else:
-                # Formato con etiquetas siempre visibles
-                row_text.append(f"${cps:,.0f}<br>{seg:,.0f}")
+                # Formato igual al original: CPS y Seg en dos líneas
+                row_text.append(f"CPS {fmt_int_or_dash(cps)}<br>Seg {fmt_int_or_dash(seg)}")
+                row_hover.append(f"CPS: ${cps:,.0f}<br>Seguidores: {seg:,.0f}")
         text_matrix.append(row_text)
+        hover_text_matrix.append(row_hover)
     
     try:
-        # Calcular percentiles solo si hay datos
-        cps_flat = cps_array[~np.isnan(cps_array)]
-        if len(cps_flat) > 0:
-            zmin = np.nanpercentile(cps_flat, 5)
-            zmax = np.nanpercentile(cps_flat, 95)
-        else:
-            zmin = 0
-            zmax = 100
-        
-        # Crear heatmap - CORREGIDO: title_side en lugar de titleside
+        # Crear heatmap con colores invertidos (RdYlGn_r) como original
         fig = go.Figure(data=go.Heatmap(
             z=cps_array,
             x=col_labels,
             y=row_labels,
-            colorscale='RdYlGn_r',  # Invertido: rojo (malo) a verde (bueno)
+            colorscale='RdYlGn_r',  # Invertido: rojo (malo) a verde (bueno) - IGUAL AL ORIGINAL
             zmin=zmin,
             zmax=zmax,
             colorbar=dict(
-                title="CPS ($)",
+                title="CPS (recortado p5–p95)",
                 tickformat="$,.0f",
-                len=0.8
+                len=0.8,
+                thickness=15,
+                tickfont=dict(size=10, color=colors['texto'])
             ),
-            hovertemplate='<b>%{y} - %{x}</b><br>CPS: $%{z:,.0f}<br>Seguidores netos: %{customdata:,.0f}<extra></extra>',
-            customdata=seg_array,
+            hovertemplate='<b>%{y} - %{x}</b><br>%{customdata}<extra></extra>',
+            customdata=hover_text_matrix,
             text=text_matrix,
             texttemplate="%{text}",
-            textfont=dict(size=10, color="white", family="Arial Black"),
-            hoverongaps=False
+            textfont=dict(size=9, color=colors['texto_celda'], family="Arial"),
+            hoverongaps=False,
+            showscale=True
         ))
         
-        # Configurar layout con fondo azul oscuro
+        # Configurar layout con FONDO AZUL OSCURO
         fig.update_layout(
-            height=650,
-            template='plotly_dark',
-            plot_bgcolor='rgba(11, 16, 32, 0.9)',
-            paper_bgcolor='rgba(11, 16, 32, 0.9)',
-            font=dict(color='white', size=12, family="Arial"),
+            height=700,
+            plot_bgcolor=colors['fondo_ejes'],
+            paper_bgcolor=colors['fondo_figura'],
+            font=dict(color=colors['texto'], size=12, family="Arial"),
             title=dict(
-                text="📈 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)<br><sub>Análisis por día de semana y semana ISO - CPS bajo = mejor</sub>",
-                font=dict(size=24, color='white', family="Arial Black"),
+                text="Mapa de calor — CPS (Costo/Seguidor) + Seguidores (neto)<br>"
+                     "<span style='font-size:14px; color:#94a3b8'>CPS bajo = mejor | Negro = sin inversión o sin seguidores positivos</span>",
+                font=dict(size=22, color='white', family="Arial Black"),
                 x=0.5,
-                xanchor='center'
+                xanchor='center',
+                y=0.95
             ),
             xaxis=dict(
                 title="Semana ISO",
                 tickangle=45,
                 gridcolor='rgba(255,255,255,0.1)',
-                side="top",
-                tickfont=dict(size=11, color='#c7d2fe')
+                tickfont=dict(size=10, color=colors['ticks'], family="Arial"),
+                title_font=dict(size=13, color=colors['texto']),
+                side="top"
             ),
             yaxis=dict(
                 title="Día de la semana",
                 gridcolor='rgba(255,255,255,0.1)',
                 autorange="reversed",
-                tickfont=dict(size=12, color='#c7d2fe', family="Arial Black")
+                tickfont=dict(size=12, color=colors['ticks'], family="Arial"),
+                title_font=dict(size=13, color=colors['texto'])
             ),
             margin=dict(l=80, r=50, t=120, b=80)
         )
+        
+        # Añadir grid como en el original
+        fig.update_xaxes(showgrid=True, gridwidth=0.6, gridcolor='rgba(255,255,255,0.15)', minor_showgrid=False)
+        fig.update_yaxes(showgrid=True, gridwidth=0.6, gridcolor='rgba(255,255,255,0.15)', minor_showgrid=False)
         
         # Añadir anotaciones para explicar colores
         fig.add_annotation(
@@ -475,10 +587,10 @@ def crear_grafica2_interactiva(data_grafica2):
             xref="paper", yref="paper",
             text="🟢 CPS BAJO = MEJOR EFICIENCIA",
             showarrow=False,
-            font=dict(size=12, color="#10b981", family="Arial Black"),
+            font=dict(size=12, color="#10b981", family="Arial"),
             bgcolor="rgba(0,0,0,0.5)",
             bordercolor="#10b981",
-            borderwidth=2,
+            borderwidth=1,
             borderpad=4
         )
         
@@ -487,70 +599,77 @@ def crear_grafica2_interactiva(data_grafica2):
             xref="paper", yref="paper",
             text="🔴 CPS ALTO = PEOR EFICIENCIA",
             showarrow=False,
-            font=dict(size=12, color="#ef4444", family="Arial Black"),
+            font=dict(size=12, color="#ef4444", family="Arial"),
             bgcolor="rgba(0,0,0,0.5)",
             bordercolor="#ef4444",
-            borderwidth=2,
+            borderwidth=1,
             borderpad=4
         )
         
         # Mostrar heatmap
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
         
-        # Gráfico de barras para resumen por día
+        # Gráfico de barras para resumen por día (BARRA DERECHA COMO ORIGINAL)
         if summary_by_day:
             df_summary = pd.DataFrame(summary_by_day)
+            
+            # Ordenar por día de semana (Lunes a Domingo)
+            dias_order = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+            df_summary['Dia_Semana'] = pd.Categorical(df_summary['Dia_Semana'], categories=dias_order, ordered=True)
+            df_summary = df_summary.sort_values('Dia_Semana')
             
             # Crear gráfico de barras con fondo azul oscuro
             fig_bar = go.Figure()
             
+            # Usar colores según CPS (igual que heatmap)
+            colors_bar = px.colors.diverging.RdYlGn_r
+            
             fig_bar.add_trace(go.Bar(
-                x=df_summary["Dia_Semana"],
-                y=df_summary["CPS_total_dia"],
+                x=df_summary["CPS_total_dia"],
+                y=df_summary["Dia_Semana"],
+                orientation='h',
                 name="CPS por día",
                 marker=dict(
                     color=df_summary["CPS_total_dia"],
                     colorscale='RdYlGn_r',
-                    showscale=True,
+                    showscale=False,
                     cmin=np.nanpercentile(df_summary["CPS_total_dia"].dropna(), 5) if not df_summary["CPS_total_dia"].dropna().empty else 0,
                     cmax=np.nanpercentile(df_summary["CPS_total_dia"].dropna(), 95) if not df_summary["CPS_total_dia"].dropna().empty else 100,
                 ),
-                hovertemplate='<b>%{x}</b><br>CPS: $%{y:,.0f}<br>Seguidores: %{customdata:,.0f}<extra></extra>',
+                hovertemplate='<b>%{y}</b><br>CPS: $%{x:,.0f}<br>Seguidores: %{customdata:,.0f}<extra></extra>',
                 customdata=df_summary["Seguidores_sum"],
-                text=df_summary["CPS_total_dia"].apply(lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A"),
+                text=df_summary["CPS_total_dia"].apply(lambda x: f"CPS {fmt_int_or_dash(x)}<br>Seg {fmt_int_or_dash(df_summary.loc[df_summary['CPS_total_dia']==x, 'Seguidores_sum'].iloc[0])}" if not pd.isna(x) else ""),
                 textposition='outside',
-                textfont=dict(size=11, color='white', family="Arial Black")
+                textfont=dict(size=10, color='white', family="Arial")
             ))
             
             fig_bar.update_layout(
-                height=450,
-                template='plotly_dark',
-                plot_bgcolor='rgba(11, 16, 32, 0.9)',
-                paper_bgcolor='rgba(11, 16, 32, 0.9)',
-                font=dict(color='white', size=12, family="Arial"),
+                height=500,
+                plot_bgcolor=colors['fondo_ejes'],
+                paper_bgcolor=colors['fondo_figura'],
+                font=dict(color=colors['texto'], size=12, family="Arial"),
                 title=dict(
-                    text="📊 RESUMEN POR DÍA DE LA SEMANA",
-                    font=dict(size=22, color='white', family="Arial Black"),
+                    text="Resumen por día",
+                    font=dict(size=20, color='white', family="Arial Black"),
                     x=0.5,
                     xanchor='center'
                 ),
                 xaxis=dict(
-                    title="Día de la semana",
-                    gridcolor='rgba(255,255,255,0.1)',
-                    tickfont=dict(size=12, color='#c7d2fe', family="Arial Black")
+                    title="CPS total por día",
+                    gridcolor='rgba(255,255,255,0.18)',
+                    tickprefix="$",
+                    tickfont=dict(size=11, color=colors['ticks']),
+                    title_font=dict(size=13, color=colors['texto'])
                 ),
                 yaxis=dict(
-                    title="CPS (Costo por Seguidor $)",
+                    title="",
                     gridcolor='rgba(255,255,255,0.1)',
-                    tickprefix="$",
-                    tickfont=dict(size=11, color='#c7d2fe')
+                    tickfont=dict(size=12, color=colors['ticks'], family="Arial"),
+                    autorange="reversed"
                 ),
-                hovermode='x unified',
-                margin=dict(l=60, r=50, t=80, b=80),
-                coloraxis_colorbar=dict(
-                    title="CPS ($)",
-                    tickformat="$,.0f"
-                )
+                hovermode='y',
+                margin=dict(l=20, r=50, t=80, b=80),
+                showlegend=False
             )
             
             st.plotly_chart(fig_bar, use_container_width=True)
@@ -559,11 +678,26 @@ def crear_grafica2_interactiva(data_grafica2):
         with st.expander("📋 Ver datos detallados del heatmap"):
             if summary_by_day:
                 display_summary = pd.DataFrame(summary_by_day)
+                # Ordenar
+                display_summary['Dia_Semana'] = pd.Categorical(display_summary['Dia_Semana'], 
+                                                              categories=dias_order, ordered=True)
+                display_summary = display_summary.sort_values('Dia_Semana')
+                
+                # Formatear
                 display_summary["Costo_sum"] = display_summary["Costo_sum"].apply(lambda x: f"${x:,.0f}")
                 display_summary["Seguidores_sum"] = display_summary["Seguidores_sum"].apply(lambda x: f"{x:,.0f}")
                 display_summary["CPS_total_dia"] = display_summary["CPS_total_dia"].apply(
                     lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A"
                 )
+                
+                # Renombrar
+                display_summary = display_summary.rename(columns={
+                    "Dia_Semana": "📅 Día",
+                    "Costo_sum": "💰 Costo total",
+                    "Seguidores_sum": "👥 Seguidores total",
+                    "CPS_total_dia": "📊 CPS total"
+                })
+                
                 st.dataframe(display_summary, use_container_width=True)
                 
     except Exception as e:
@@ -571,13 +705,11 @@ def crear_grafica2_interactiva(data_grafica2):
         st.info("Mostrando datos en formato de tabla como respaldo...")
         
         # Mostrar datos en tabla como respaldo
-        st.dataframe(pd.DataFrame({
-            'Día': row_labels,
-            **{f'Semana {i+1}': cps_matrix[:, i] if i < len(cps_matrix[0]) else [] for i in range(len(col_labels))}
-        }))
+        heatmap_df = pd.DataFrame(cps_array, index=row_labels, columns=col_labels)
+        st.dataframe(heatmap_df.style.format("${:,.0f}"))
 
 #############################################
-# FIN NUEVAS FUNCIONES CORREGIDAS
+# FIN FUNCIONES GRÁFICAS AJUSTADAS
 #############################################
 
 # Función para cargar datos con caché
@@ -1110,9 +1242,9 @@ st.markdown("""
     border: 2px solid rgba(var(--platform-color-rgb), 0.2);
 }
 
-/* Gráficas avanzadas */
+/* Gráficas avanzadas - CONTENEDOR AZUL OSCURO */
 .grafica-container {
-    background: linear-gradient(135deg, #0b1020 0%, #0f172a 100%);
+    background: linear-gradient(135deg, #060913 0%, #0b1020 100%);
     border-radius: 16px;
     padding: 25px;
     margin: 20px 0;
@@ -1484,7 +1616,7 @@ elif st.session_state.get("show_grafica2", False):
     <div class="grafica-container">
         <div class="grafica-title">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</div>
         <div class="grafica-subtitle">
-            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia • Etiquetas siempre visibles
+            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia
         </div>
     """, unsafe_allow_html=True)
     
@@ -1600,7 +1732,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
     </div>
     """, unsafe_allow_html=True)
     
-    # Mostrar 3 tarjetas de métricas de pauta (eliminada VISUALIZACIONES PERFIL)
+    # Mostrar 3 tarjetas de métricas de pauta
     col_pauta1, col_pauta2, col_pauta3 = st.columns(3)
     
     with col_pauta1:
