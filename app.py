@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import warnings
 import requests
 import numpy as np
-from io import BytesIO
 
 warnings.filterwarnings('ignore')
 
@@ -19,21 +18,15 @@ st.set_page_config(
 )
 
 #############################################
-# CONEXIÓN A BACKEND REAL - ENDPOINTS CORRECTOS
+# CONEXIÓN A BACKEND REAL
 #############################################
-BACKEND_URL = "https://pahubisas.pythonanywhere.com"
-DATA_URL = f"{BACKEND_URL}/data"
-REFRESH_URL = f"{BACKEND_URL}/refresh"
-
-# Estas URLs son para descargar los archivos Excel directamente
-# PERO el código original streamlit_app.py no las sirve públicamente
-FOLLOWERS_URL = f"{BACKEND_URL}/FollowerHistory.xlsx"
-PAUTA_URL = f"{BACKEND_URL}/base_pautas.xlsx"
+BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
+FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
+PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
 
 def cargar_datos_backend():
-    """Carga datos principales desde el endpoint /data"""
     try:
-        r = requests.get(DATA_URL, timeout=20)
+        r = requests.get(BACKEND_URL, timeout=20)
         r.raise_for_status()
         data = r.json()
 
@@ -90,412 +83,304 @@ def cargar_datos_backend():
         st.error(f"Error al conectar con el backend de datos: {str(e)}")
         return pd.DataFrame()
 
-def cargar_datos_inversion_directo():
-    """Intenta cargar datos de inversión directamente desde los archivos Excel"""
+def cargar_datos_seguidores():
+    """Carga datos de seguidores desde el endpoint específico"""
     try:
-        # Primero intentar cargar desde los endpoints de archivos
-        followers_response = requests.get(FOLLOWERS_URL, timeout=30)
-        pautas_response = requests.get(PAUTA_URL, timeout=30)
+        r = requests.get(FOLLOWERS_URL, timeout=20)
+        r.raise_for_status()
+        data = r.json()
         
-        fh_df = pd.DataFrame()
-        bp_df = pd.DataFrame()
-        
-        if followers_response.status_code == 200:
-            fh_df = pd.read_excel(BytesIO(followers_response.content))
-        
-        if pautas_response.status_code == 200:
-            bp_df = pd.read_excel(BytesIO(pautas_response.content))
-        
-        # Si no se pudieron cargar, usar datos de ejemplo para demostrar las gráficas
-        if fh_df.empty or bp_df.empty:
-            st.warning("⚠️ Usando datos de ejemplo para las gráficas de inversión")
-            st.info("Para ver datos reales, asegúrate que los archivos estén en PythonAnywhere")
-            
-            # Datos de ejemplo para seguidores
-            fh_df = pd.DataFrame({
-                'Fecha': pd.date_range(start='2024-01-01', periods=30, freq='D'),
-                'Seguidores_Totales': np.random.randint(400, 600, 30)
-            })
-            
-            # Datos de ejemplo para pauta
-            bp_df = pd.DataFrame({
-                'fecha': pd.date_range(start='2024-01-01', periods=15, freq='D'),
-                'Costo': np.random.randint(10000, 50000, 15),
-                'Visualizaciones': np.random.randint(1000, 10000, 15),
-                'Seguidores': np.random.randint(10, 100, 15)
-            })
-        
-        return fh_df, bp_df
-        
-    except Exception as e:
-        st.error(f"Error al cargar datos de inversión: {str(e)}")
-        # Devolver datos de ejemplo en caso de error
-        fh_df = pd.DataFrame({
-            'Fecha': pd.date_range(start='2024-01-01', periods=30, freq='D'),
-            'Seguidores_Totales': np.random.randint(400, 600, 30)
-        })
-        
-        bp_df = pd.DataFrame({
-            'fecha': pd.date_range(start='2024-01-01', periods=15, freq='D'),
-            'Costo': np.random.randint(10000, 50000, 15),
-            'Visualizaciones': np.random.randint(1000, 10000, 15),
-            'Seguidores': np.random.randint(10, 100, 15)
-        })
-        
-        return fh_df, bp_df
-
-# Función para convertir valores a números
-def to_num(v):
-    if v is None or (isinstance(v, float) and np.isnan(v)):
-        return np.nan
-    if isinstance(v, (int, float, np.integer, np.floating)):
-        return float(v)
-    s = str(v).strip()
-    if s == "":
-        return np.nan
-    s = s.replace("$", "").replace("COP", "").replace("cop", "").replace(" ", "")
-    if "," in s and "." in s:
-        if s.rfind(",") > s.rfind("."):
-            s = s.replace(".", "").replace(",", ".")
-        else:
-            s = s.replace(",", "")
-    else:
-        if "," in s and "." not in s:
-            s = s.replace(",", ".")
-    try:
-        return float(s)
-    except Exception:
-        return np.nan
-
-#############################################
-# FUNCIONES PARA NUEVAS GRÁFICAS
-#############################################
-
-def generar_grafica_inversion(fh_df, bp_df):
-    """Genera la gráfica de inversión vs seguidores usando Plotly"""
-    try:
-        # Parámetros básicos
-        STEP = 15000
-        IMPACT_DAYS = 3
-        USE_IMPACT = True
+        # Convertir a DataFrame
+        df_followers = pd.DataFrame(data.get("data", []))
         
         # Procesar datos
-        fh_df["Fecha"] = pd.to_datetime(fh_df["Fecha"], dayfirst=True, errors="coerce")
+        if "Fecha" in df_followers.columns:
+            df_followers["Fecha"] = pd.to_datetime(
+                df_followers["Fecha"],
+                dayfirst=True,
+                errors="coerce"
+            )
         
-        # Verificar columnas en bp_df
-        if 'fecha' not in bp_df.columns and 'Fecha' in bp_df.columns:
-            bp_df["fecha"] = bp_df["Fecha"]
-        elif 'fecha' not in bp_df.columns:
-            bp_df["fecha"] = pd.to_datetime(bp_df.index, errors="coerce")
-        else:
-            bp_df["fecha"] = pd.to_datetime(bp_df["fecha"], dayfirst=True, errors="coerce")
+        # Convertir números
+        if "Seguidores_Totales" in df_followers.columns:
+            df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors="coerce")
         
-        # Convertir numéricos
-        if "Costo" in bp_df.columns:
-            bp_df["Costo"] = bp_df["Costo"].apply(to_num).astype("float64")
-        elif "coste_anuncio" in bp_df.columns:
-            bp_df["Costo"] = bp_df["coste_anuncio"].apply(to_num).astype("float64")
-        else:
-            # Si no hay columna Costo, crear una con valores aleatorios
-            bp_df["Costo"] = np.random.randint(10000, 50000, len(bp_df))
+        return df_followers
         
-        if "Seguidores_Totales" in fh_df.columns:
-            fh_df["Seguidores_Totales"] = fh_df["Seguidores_Totales"].apply(to_num).astype("float64")
-        else:
-            # Si no hay columna Seguidores_Totales, crear una
-            fh_df["Seguidores_Totales"] = np.random.randint(400, 600, len(fh_df))
+    except Exception as e:
+        st.error(f"Error al conectar con el backend de seguidores: {str(e)}")
+        return pd.DataFrame()
+
+def cargar_datos_pauta():
+    """Carga datos de pauta publicitaria"""
+    try:
+        r = requests.get(PAUTA_URL, timeout=20)
+        r.raise_for_status()
+        data = r.json()
         
-        # Calcular neto diario
-        fh_df = fh_df.dropna(subset=["Fecha"]).sort_values("Fecha").reset_index(drop=True)
-        fh_df["Neto_Diario_Real"] = fh_df["Seguidores_Totales"].diff()
-        fh_df.loc[fh_df["Neto_Diario_Real"] <= 0, "Neto_Diario_Real"] = np.nan
+        # Convertir a DataFrame
+        df_pauta = pd.DataFrame(data.get("data", []))
         
-        fh_df = fh_df.rename(columns={"Fecha": "fecha"})
-        fh_df = fh_df[["fecha", "Seguidores_Totales", "Neto_Diario_Real"]].copy()
-        
-        # Unir datos
-        df = pd.merge(bp_df, fh_df, on="fecha", how="left").sort_values("fecha").reset_index(drop=True)
-        
-        # Calcular impacto
-        if IMPACT_DAYS < 1:
-            IMPACT_DAYS = 1
+        # Procesar datos si existen
+        if not df_pauta.empty:
+            # Asegurar nombres de columnas
+            if 'Costo' in df_pauta.columns:
+                df_pauta['coste_anuncio'] = df_pauta['Costo']
+            if 'Visualizaciones' in df_pauta.columns:
+                df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
+            if 'Seguidores' in df_pauta.columns:
+                df_pauta['nuevos_seguidores'] = df_pauta['Seguidores']
             
-        neto = df["Neto_Diario_Real"].astype("float64")
-        impact = np.full(len(df), np.nan, dtype="float64")
-        for i in range(len(df)):
-            s = 0.0
-            ok = False
-            for k in range(IMPACT_DAYS):
-                j = i + k
-                if j >= len(df):
-                    break
-                v = neto.iloc[j]
-                if pd.notna(v) and v > 0:
-                    s += float(v)
-                    ok = True
-            impact[i] = s if ok else np.nan
-        
-        df["Seguidores_Impacto"] = impact
-        RESULT_COL = "Seguidores_Impacto" if USE_IMPACT else "Neto_Diario_Real"
-        
-        # Filtrar datos válidos
-        cand = df[(df["Costo"] > 0) & (df[RESULT_COL].notna()) & (df[RESULT_COL] > 0)].copy()
-        if cand.empty:
-            # Si no hay datos válidos, usar todos los datos
-            cand = df[(df["Costo"] > 0)].copy()
-            if cand.empty:
-                return None
-        
-        # Agrupar por rangos de inversión
-        cmin = float(cand["Costo"].min())
-        cmax = float(cand["Costo"].max())
-        start = float(np.floor(cmin / STEP) * STEP)
-        end = float(np.ceil(cmax / STEP) * STEP) + STEP
-        bins = np.arange(start, end + 1, STEP)
-        
-        cand["Costo_bin"] = pd.cut(cand["Costo"], bins=bins, include_lowest=True, right=False)
-        
-        curve = cand.groupby("Costo_bin", observed=True).agg(
-            Inversion_promedio=("Costo", "mean"),
-            Seguidores_promedio=(RESULT_COL, "mean"),
-            Dias=("Costo", "count"),
-        ).reset_index(drop=True).sort_values("Inversion_promedio").reset_index(drop=True)
-        
-        # Crear gráfica con Plotly
-        fig = go.Figure()
-        
-        # Puntos de días reales
-        fig.add_trace(go.Scatter(
-            x=cand["Costo"],
-            y=cand[RESULT_COL],
-            mode='markers',
-            name='Días reales',
-            marker=dict(
-                size=8,
-                color='#60a5fa',
-                opacity=0.4,
-                line=dict(width=1, color='white')
-            ),
-            hovertemplate='<b>Costo: $%{x:,.0f}</b><br>Seguidores: %{y:,.0f}<extra></extra>'
-        ))
-        
-        # Línea de promedio
-        fig.add_trace(go.Scatter(
-            x=curve["Inversion_promedio"],
-            y=curve["Seguidores_promedio"],
-            mode='lines+markers',
-            name='Promedio por nivel',
-            line=dict(color='#f59e0b', width=3),
-            marker=dict(
-                size=12,
-                color='#f59e0b',
-                symbol='circle',
-                line=dict(width=2, color='white')
-            ),
-            hovertemplate='<b>Inversión: $%{x:,.0f}</b><br>Seguidores: %{y:,.0f}<br>Días: %{text}<extra></extra>',
-            text=curve["Dias"]
-        ))
-        
-        # Líneas verticales para rangos
-        for x_real in bins:
-            if start <= x_real <= end:
-                fig.add_shape(
-                    type="line",
-                    x0=x_real, x1=x_real,
-                    y0=0, y1=cand[RESULT_COL].max() * 1.1,
-                    line=dict(color="rgba(203, 213, 225, 0.3)", width=1, dash="dash"),
+            # Formatear coste anuncio (sin decimales)
+            if "coste_anuncio" in df_pauta.columns:
+                df_pauta["coste_anuncio"] = pd.to_numeric(df_pauta["coste_anuncio"], errors="coerce").fillna(0).astype(int)
+            
+            # Formatear otras columnas
+            for col in ["visualizaciones_videos", "nuevos_seguidores"]:
+                if col in df_pauta.columns:
+                    df_pauta[col] = pd.to_numeric(df_pauta[col], errors="coerce").fillna(0).astype(int)
+            
+            # Procesar fecha - FORMATO CORRECTO PARA CRUCE
+            if "fecha" in df_pauta.columns:
+                # Intentar múltiples formatos de fecha
+                df_pauta["fecha"] = pd.to_datetime(
+                    df_pauta["fecha"], 
+                    errors='coerce',
+                    dayfirst=True  # Asumir día primero
                 )
         
-        # Actualizar layout
-        fig.update_layout(
-            title="📈 Inversión vs Seguidores (curva por niveles)",
-            xaxis_title="Inversión (Costo en $)",
-            yaxis_title=f"Seguidores (Impacto {IMPACT_DAYS}d)",
-            template="plotly_white",
-            height=500,
-            hovermode="closest",
-            legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
-            xaxis=dict(tickformat=",", gridcolor='rgba(241, 245, 249, 0.5)'),
-            yaxis=dict(tickformat=",", gridcolor='rgba(241, 245, 249, 0.5)'),
-            plot_bgcolor='white',
-            paper_bgcolor='white'
-        )
-        
-        return fig
+        return df_pauta
         
     except Exception as e:
-        st.error(f"Error al generar gráfica de inversión: {str(e)}")
-        return None
+        return pd.DataFrame()
 
-def generar_mapa_calor(fh_df, bp_df):
-    """Genera el heatmap de CPS por día/semana usando Plotly"""
+#############################################
+# FUNCIONES PARA LAS NUEVAS GRÁFICAS
+#############################################
+
+def procesar_datos_graficas(df_followers, df_pauta):
+    """Procesa los datos para las gráficas de inversión y CPS"""
     try:
-        # Procesar datos
-        fh_df["Fecha"] = pd.to_datetime(fh_df["Fecha"], dayfirst=True, errors="coerce")
+        if df_followers.empty or df_pauta.empty:
+            return None, None
         
-        # Verificar columnas en bp_df
-        if 'fecha' not in bp_df.columns and 'Fecha' in bp_df.columns:
-            bp_df["fecha"] = bp_df["Fecha"]
-        elif 'fecha' not in bp_df.columns:
-            bp_df["fecha"] = pd.to_datetime(bp_df.index, errors="coerce")
-        else:
-            bp_df["fecha"] = pd.to_datetime(bp_df["fecha"], dayfirst=True, errors="coerce")
+        # Crear copias para evitar warnings
+        fh = df_followers.copy()
+        bp = df_pauta.copy()
         
-        # Convertir numéricos
-        for col in ["Costo", "Visualizaciones", "Seguidores"]:
-            if col in bp_df.columns:
-                bp_df[col] = bp_df[col].apply(to_num).astype("float64")
+        # Renombrar columnas para consistencia
+        if 'Fecha' in fh.columns:
+            fh = fh.rename(columns={'Fecha': 'fecha'})
         
-        if "Seguidores_Totales" in fh_df.columns:
-            fh_df["Seguidores_Totales"] = fh_df["Seguidores_Totales"].apply(to_num).astype("float64")
-        else:
-            fh_df["Seguidores_Totales"] = np.random.randint(400, 600, len(fh_df))
+        if 'Seguidores_Totales' in fh.columns:
+            fh = fh.rename(columns={'Seguidores_Totales': 'Neto_Diario_Real'})
         
-        # Calcular neto diario
-        fh_df = fh_df.rename(columns={"Fecha": "fecha", "Seguidores_Totales": "Neto_Diario_Real"})
-        fh_df = fh_df[["fecha", "Neto_Diario_Real"]].copy()
+        # Asegurar columnas de costo y seguidores
+        if 'Costo' in bp.columns:
+            bp['Costo'] = pd.to_numeric(bp['Costo'], errors='coerce')
+        elif 'coste_anuncio' in bp.columns:
+            bp['Costo'] = pd.to_numeric(bp['coste_anuncio'], errors='coerce')
         
-        # Unir datos
-        df = pd.merge(bp_df, fh_df, on="fecha", how="left").sort_values("fecha").reset_index(drop=True)
+        # Filtrar solo las columnas necesarias
+        fh = fh[['fecha', 'Neto_Diario_Real']].copy()
         
-        # Si no hay datos suficientes, generar datos de ejemplo
-        if df.empty or len(df) < 5:
-            # Generar datos de ejemplo
-            dates = pd.date_range(start='2024-01-01', periods=60, freq='D')
-            df = pd.DataFrame({
-                'fecha': dates,
-                'Costo': np.random.randint(10000, 50000, 60),
-                'Neto_Diario_Real': np.random.randint(10, 100, 60)
-            })
+        # Unir los datos
+        df = pd.merge(bp, fh, on='fecha', how='left')
         
-        # Día de semana y semana ISO
-        dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-        df["Dia_Semana"] = df["fecha"].dt.dayofweek.map(lambda i: dias[int(i)] if pd.notna(i) else np.nan)
+        # Filtrar datos válidos
+        df = df[df['Costo'] > 0].copy()
+        df = df[df['Neto_Diario_Real'].notna()].copy()
         
-        iso = df["fecha"].dt.isocalendar()
-        df["ISO_Year"] = iso["year"].astype(int)
-        df["ISO_Week"] = iso["week"].astype(int)
-        df["WeekKey"] = df["ISO_Year"].astype(str) + "-W" + df["ISO_Week"].astype(str).str.zfill(2)
+        # Calcular CPS
+        df['CPS'] = df['Costo'] / df['Neto_Diario_Real']
         
-        # Agregación para heatmap
-        g = df[(df["Costo"] > 0) & (df["Neto_Diario_Real"].notna())].copy()
-        if g.empty:
-            # Si no hay datos, usar todos
-            g = df.copy()
-            
-        g["Seg_pos"] = np.where(g["Neto_Diario_Real"] > 0, g["Neto_Diario_Real"], 0.0)
+        return df, fh, bp
         
-        agg = g.groupby(["Dia_Semana", "WeekKey"], as_index=False).agg(
-            Costo_sum=("Costo", "sum"),
-            Seguidores_sum=("Neto_Diario_Real", "sum"),
-            Seguidores_pos_sum=("Seg_pos", "sum")
-        )
+    except Exception as e:
+        st.error(f"Error procesando datos para gráficas: {str(e)}")
+        return None, None, None
+
+def crear_grafica_inversion_vs_seguidores(df, platform_name):
+    """Crea la gráfica de inversión vs seguidores (similar a grafica.txt)"""
+    try:
+        if df is None or df.empty:
+            return None
         
-        agg["CPS_cell"] = np.where(
-            agg["Seguidores_pos_sum"] > 0,
-            agg["Costo_sum"] / agg["Seguidores_pos_sum"],
-            np.nan
-        )
+        # Crear rangos de inversión
+        df['Rango_Inversion'] = pd.cut(df['Costo'], 
+                                      bins=5, 
+                                      labels=['Muy Baja', 'Baja', 'Media', 'Alta', 'Muy Alta'])
         
-        # Pivot tables
-        pivot_cps = agg.pivot(index="Dia_Semana", columns="WeekKey", values="CPS_cell").reindex(dias)
-        pivot_seg = agg.pivot(index="Dia_Semana", columns="WeekKey", values="Seguidores_sum").reindex(dias)
+        # Calcular promedios por rango
+        promedios = df.groupby('Rango_Inversion').agg({
+            'Costo': 'mean',
+            'Neto_Diario_Real': 'mean',
+            'CPS': 'mean',
+            'fecha': 'count'
+        }).rename(columns={'fecha': 'Dias'}).reset_index()
         
-        # Si no hay datos, generar datos de ejemplo para el pivot
-        if pivot_cps.empty:
-            # Generar datos de ejemplo para el heatmap
-            weeks = [f"2024-W{str(i).zfill(2)}" for i in range(1, 9)]
-            pivot_cps = pd.DataFrame(
-                np.random.randint(100, 1000, (7, 8)),
-                index=dias,
-                columns=weeks
-            )
-            pivot_seg = pd.DataFrame(
-                np.random.randint(10, 100, (7, 8)),
-                index=dias,
-                columns=weeks
-            )
+        # Crear gráfica
+        fig = go.Figure()
         
-        # Crear mapa de calor con Plotly
-        weeks = list(pivot_cps.columns)
+        # Barras para costo promedio
+        fig.add_trace(go.Bar(
+            x=promedios['Rango_Inversion'],
+            y=promedios['Costo'],
+            name='Costo Promedio',
+            marker_color='#3B82F6',
+            opacity=0.7,
+            yaxis='y',
+            hovertemplate='<b>%{x}</b><br>Costo Promedio: $%{y:,.0f}<br>Días: %{customdata[0]}<extra></extra>',
+            customdata=promedios[['Dias']]
+        ))
         
-        # Heatmap para CPS
-        fig = make_subplots(
-            rows=1, cols=2,
-            subplot_titles=("🗺️ Mapa de Calor - CPS (Costo por Seguidor)", "📊 Resumen por Día"),
-            column_widths=[0.7, 0.3],
-            horizontal_spacing=0.1
-        )
+        # Línea para seguidores netos
+        fig.add_trace(go.Scatter(
+            x=promedios['Rango_Inversion'],
+            y=promedios['Neto_Diario_Real'],
+            name='Seguidores Netos',
+            mode='lines+markers',
+            marker=dict(size=10, color='#10B981'),
+            line=dict(width=3, color='#10B981'),
+            yaxis='y2',
+            hovertemplate='<b>%{x}</b><br>Seguidores Netos: %{y:,.0f}<extra></extra>'
+        ))
         
-        # Mapa de calor principal
-        fig.add_trace(
-            go.Heatmap(
-                z=pivot_cps.values,
-                x=weeks,
-                y=dias,
-                colorscale='RdYlGn_r',
-                colorbar=dict(title="CPS", x=0.45),
-                hovertemplate='<b>%{y} - %{x}</b><br>CPS: %{z:,.0f}<br>Seguidores: %{customdata:,.0f}<extra></extra>',
-                customdata=pivot_seg.values
-            ),
-            row=1, col=1
-        )
+        # CPS como barras secundarias
+        fig.add_trace(go.Bar(
+            x=promedios['Rango_Inversion'],
+            y=promedios['CPS'],
+            name='CPS (Costo por Seguidor)',
+            marker_color='#EF4444',
+            opacity=0.5,
+            yaxis='y3',
+            hovertemplate='<b>%{x}</b><br>CPS: $%{y:,.0f}<extra></extra>'
+        ))
         
-        # Calcular resumen por día
-        sum_day = g.groupby("Dia_Semana", as_index=False).agg(
-            Costo_sum=("Costo", "sum"),
-            Seguidores_sum=("Neto_Diario_Real", "sum"),
-            Seguidores_pos_sum=("Seg_pos", "sum")
-        )
-        
-        sum_day["CPS_total_dia"] = np.where(
-            sum_day["Seguidores_pos_sum"] > 0,
-            sum_day["Costo_sum"] / sum_day["Seguidores_pos_sum"],
-            np.nan
-        )
-        
-        sum_day = sum_day.set_index("Dia_Semana").reindex(dias).reset_index()
-        
-        # Gráfico de barras por día
-        fig.add_trace(
-            go.Bar(
-                y=dias,
-                x=sum_day["CPS_total_dia"],
-                orientation='h',
-                name='CPS por día',
-                marker_color='#3B82F6',
-                hovertemplate='<b>%{y}</b><br>CPS: %{x:,.0f}<extra></extra>'
-            ),
-            row=1, col=2
-        )
-        
-        # Actualizar layout
+        # Layout
         fig.update_layout(
+            title=f'📈 {platform_name} - Análisis de Inversión vs Seguidores',
             height=500,
-            template="plotly_white",
-            showlegend=False,
+            template='plotly_white',
             plot_bgcolor='white',
             paper_bgcolor='white',
-            margin=dict(l=50, r=50, t=80, b=50)
+            hovermode='x unified',
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            xaxis=dict(title="Nivel de Inversión"),
+            yaxis=dict(
+                title="Costo Promedio ($)",
+                titlefont=dict(color="#3B82F6"),
+                tickfont=dict(color="#3B82F6"),
+                side="left"
+            ),
+            yaxis2=dict(
+                title="Seguidores Netos",
+                titlefont=dict(color="#10B981"),
+                tickfont=dict(color="#10B981"),
+                overlaying="y",
+                side="right"
+            ),
+            yaxis3=dict(
+                title="CPS ($)",
+                titlefont=dict(color="#EF4444"),
+                tickfont=dict(color="#EF4444"),
+                overlaying="y",
+                side="right",
+                position=0.95
+            )
         )
-        
-        fig.update_xaxes(title_text="Semanas", row=1, col=1)
-        fig.update_yaxes(title_text="Días", row=1, col=1)
-        fig.update_xaxes(title_text="CPS", row=1, col=2)
-        fig.update_yaxes(title_text="", row=1, col=2)
         
         return fig
         
     except Exception as e:
-        st.error(f"Error al generar mapa de calor: {str(e)}")
+        st.error(f"Error creando gráfica de inversión: {str(e)}")
         return None
+
+def crear_heatmap_cps(df, platform_name):
+    """Crea el heatmap de CPS por día y semana (similar a grafica2.txt)"""
+    try:
+        if df is None or df.empty:
+            return None
+        
+        # Preparar datos para heatmap
+        df_heat = df.copy()
+        
+        # Extraer día de semana y semana
+        df_heat['Dia_Semana'] = df_heat['fecha'].dt.day_name()
+        df_heat['Semana'] = df_heat['fecha'].dt.isocalendar().week
+        df_heat['Año'] = df_heat['fecha'].dt.year
+        
+        # Mapear días al español
+        dias_map = {
+            'Monday': 'Lunes',
+            'Tuesday': 'Martes',
+            'Wednesday': 'Miércoles',
+            'Thursday': 'Jueves',
+            'Friday': 'Viernes',
+            'Saturday': 'Sábado',
+            'Sunday': 'Domingo'
+        }
+        df_heat['Dia_Semana'] = df_heat['Dia_Semana'].map(dias_map)
+        
+        # Crear clave de semana
+        df_heat['Semana_Key'] = df_heat['Año'].astype(str) + '-W' + df_heat['Semana'].astype(str).str.zfill(2)
+        
+        # Pivot table para heatmap
+        pivot = df_heat.pivot_table(
+            values='CPS',
+            index='Dia_Semana',
+            columns='Semana_Key',
+            aggfunc='mean'
+        )
+        
+        # Ordenar días de semana
+        dias_orden = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+        pivot = pivot.reindex(dias_orden)
+        
+        # Crear heatmap
+        fig = go.Figure(data=go.Heatmap(
+            z=pivot.values,
+            x=pivot.columns,
+            y=pivot.index,
+            colorscale='Viridis',
+            colorbar=dict(title="CPS ($)"),
+            hovertemplate='<b>Día: %{y}</b><br>Semana: %{x}<br>CPS: $%{z:.0f}<extra></extra>'
+        ))
+        
+        # Layout
+        fig.update_layout(
+            title=f'🔥 {platform_name} - Heatmap CPS (Costo por Seguidor)',
+            height=500,
+            template='plotly_white',
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            xaxis=dict(title="Semana"),
+            yaxis=dict(title="Día de la Semana")
+        )
+        
+        return fig
+        
+    except Exception as e:
+        st.error(f"Error creando heatmap CPS: {str(e)}")
+        return None
+
+#############################################
+# FIN FUNCIONES GRÁFICAS
+#############################################
 
 # Función para cargar datos con caché
 @st.cache_data(ttl=300)  # 5 minutos de caché
 def cargar_datos():
     """Carga datos desde el backend y separa por plataforma"""
     df = cargar_datos_backend()
-    fh_df, bp_df = cargar_datos_inversion_directo()
+    df_followers = cargar_datos_seguidores()
+    df_pauta = cargar_datos_pauta()
     
     if df.empty:
         # Datos de respaldo si falla el backend
@@ -525,6 +410,20 @@ def cargar_datos():
         youtobe_data['fecha_publicacion'] = pd.to_datetime(youtobe_data['fecha_publicacion'], dayfirst=True)
         tiktok_data['fecha_publicacion'] = pd.to_datetime(tiktok_data['fecha_publicacion'], dayfirst=True)
         
+        # Datos de seguidores de ejemplo
+        df_followers = pd.DataFrame({
+            'Fecha': pd.date_range(start='2024-01-01', periods=30, freq='D'),
+            'Seguidores_Totales': range(400, 430)
+        })
+        
+        # Datos de pauta de ejemplo
+        df_pauta = pd.DataFrame({
+            'coste_anuncio': [641140],
+            'visualizaciones_videos': [180500],
+            'nuevos_seguidores': [4170],
+            'fecha': ['2025-10-19']
+        })
+        
     else:
         # Primero, asegurarnos de que la columna 'red' existe y está limpia
         if 'red' in df.columns:
@@ -548,7 +447,7 @@ def cargar_datos():
             df_data['dias_desde_publicacion'] = df_data['dias_desde_publicacion'].apply(lambda x: max(x, 1))
             df_data['rendimiento_por_dia'] = df_data['visualizaciones'] / df_data['dias_desde_publicacion']
     
-    return df, youtobe_data, tiktok_data, fh_df, bp_df
+    return df, youtobe_data, tiktok_data, df_followers, df_pauta
 
 # Estilos CSS mejorados con reducción de espacio
 st.markdown("""
@@ -1027,7 +926,7 @@ with st.sidebar:
     
     # Estado del backend
     try:
-        backend_test = requests.get(DATA_URL, timeout=5)
+        backend_test = requests.get(BACKEND_URL, timeout=5)
         if backend_test.status_code == 200:
             st.markdown('<div class="backend-status backend-connected">✅ Backend Conectado</div>', unsafe_allow_html=True)
         else:
@@ -1159,10 +1058,20 @@ if selected_platform != "general" and 'fecha_publicacion' in df.columns:
         elif st.session_state.tiempo_filtro == "Últimos 90 días":
             fecha_limite = hoy - timedelta(days=90)
             df = df[df['fecha_publicacion'] >= fecha_limite]
+        # "Todo el período" no aplica filtro
 
 # Verificar si hay datos
 if df.empty:
     st.error(f"⚠️ No hay datos disponibles para {platform_name}")
+    
+    if selected_platform != "general":
+        with st.expander("🔍 Información de Depuración", expanded=False):
+            st.write(f"**Plataforma seleccionada:** {selected_platform}")
+            st.write(f"**Total registros en dataset:** {len(df_all)}")
+            st.write(f"**Total registros YouTube/Youtobe:** {len(youtobe_df)}")
+            st.write(f"**Total registros TikTok:** {len(tiktok_df)}")
+    
+    st.info("Conectando al backend para cargar datos en tiempo real...")
     st.stop()
 
 # Calcular métricas clave
@@ -1221,21 +1130,16 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
     
     if 'coste_anuncio' in df_pauta.columns:
         coste_anuncio_sum = df_pauta['coste_anuncio'].sum()
-    elif 'Costo' in df_pauta.columns:
-        coste_anuncio_sum = df_pauta['Costo'].sum()
     
     if 'visualizaciones_videos' in df_pauta.columns:
         visualizaciones_videos_sum = df_pauta['visualizaciones_videos'].sum()
-    elif 'Visualizaciones' in df_pauta.columns:
-        visualizaciones_videos_sum = df_pauta['Visualizaciones'].sum()
     
     if 'nuevos_seguidores' in df_pauta.columns:
         nuevos_seguidores_sum = df_pauta['nuevos_seguidores'].sum()
-    elif 'Seguidores' in df_pauta.columns:
-        nuevos_seguidores_sum = df_pauta['Seguidores'].sum()
     
     # Función para formatear números con separador de miles
     def format_number(num):
+        """Formatea números con separador de miles"""
         try:
             return f"{int(num):,}".replace(",", ".")
         except:
@@ -1271,7 +1175,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
     </div>
     """, unsafe_allow_html=True)
     
-    # Mostrar 3 tarjetas de métricas de pauta
+    # Mostrar 3 tarjetas de métricas de pauta (eliminada VISUALIZACIONES PERFIL)
     col_pauta1, col_pauta2, col_pauta3 = st.columns(3)
     
     with col_pauta1:
@@ -1413,9 +1317,60 @@ else:
         """, unsafe_allow_html=True)
 
 # ============================================================================
-# GRÁFICA ORIGINAL DE EVOLUCIÓN DE SEGUIDORES Y PAUTA (RESTAURADA)
+# SECCIÓN: NUEVAS GRÁFICAS DE INVERSIÓN Y CPS (solo para GENERAL y TikTok)
 # ============================================================================
+if (selected_platform == "general" or selected_platform == "tiktok") and not df_followers.empty and not df_pauta.empty:
+    st.markdown("""
+    <div class="performance-chart">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
+                📊 ANÁLISIS DE INVERSIÓN Y COSTO POR SEGUIDOR (CPS)
+            </h3>
+            <div style="color: #6b7280; font-size: 12px;">
+                Eficiencia de la inversión en publicidad
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Procesar datos para las gráficas
+    datos_procesados, _, _ = procesar_datos_graficas(df_followers, df_pauta)
+    
+    if datos_procesados is not None and not datos_procesados.empty:
+        # Gráfica 1: Inversión vs Seguidores
+        fig_grafica1 = crear_grafica_inversion_vs_seguidores(datos_procesados, platform_name)
+        if fig_grafica1:
+            st.plotly_chart(fig_grafica1, use_container_width=True)
+        
+        # Gráfica 2: Heatmap CPS
+        fig_grafica2 = crear_heatmap_cps(datos_procesados, platform_name)
+        if fig_grafica2:
+            st.plotly_chart(fig_grafica2, use_container_width=True)
+        
+        # Métricas de CPS
+        if not datos_procesados.empty:
+            col_cps1, col_cps2, col_cps3, col_cps4 = st.columns(4)
+            
+            with col_cps1:
+                cps_promedio = datos_procesados['CPS'].mean() if 'CPS' in datos_procesados.columns else 0
+                st.metric("💰 CPS Promedio", f"${cps_promedio:,.0f}")
+            
+            with col_cps2:
+                cps_min = datos_procesados['CPS'].min() if 'CPS' in datos_procesados.columns else 0
+                st.metric("💰 CPS Mínimo", f"${cps_min:,.0f}")
+            
+            with col_cps3:
+                cps_max = datos_procesados['CPS'].max() if 'CPS' in datos_procesados.columns else 0
+                st.metric("💰 CPS Máximo", f"${cps_max:,.0f}")
+            
+            with col_cps4:
+                dias_con_inversion = len(datos_procesados)
+                st.metric("📅 Días con Inversión", f"{dias_con_inversion}")
+    else:
+        st.info("No hay suficientes datos para generar las gráficas de inversión y CPS")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
+# SECCIÓN: GRÁFICA DE SEGUIDORES Y PAUTA (solo para GENERAL y TikTok)
 if (selected_platform == "general" or selected_platform == "tiktok") and not df_followers.empty and 'Fecha' in df_followers.columns and 'Seguidores_Totales' in df_followers.columns:
     st.markdown("""
     <div class="performance-chart">
@@ -1430,17 +1385,57 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
     """.format(total_followers), unsafe_allow_html=True)
     
     try:
-        # Preparar datos de seguidores
-        df_followers["Fecha"] = pd.to_datetime(df_followers["Fecha"], dayfirst=True, errors="coerce")
-        df_followers = df_followers.sort_values("Fecha")
+        # Preparar datos de pauta si existen
+        if not df_pauta.empty:
+            # Asegurar que tenemos las columnas necesarias de pauta
+            if 'Costo' in df_pauta.columns:
+                df_pauta['coste_anuncio'] = df_pauta['Costo']
+            if 'Visualizaciones' in df_pauta.columns:
+                df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
+            if 'Seguidores' in df_pauta.columns:
+                df_pauta['nuevos_seguidores_pauta'] = df_pauta['Seguidores']
+            
+            # Convertir fecha en pauta al mismo formato que en followers
+            df_pauta['fecha'] = pd.to_datetime(df_pauta['fecha'], errors='coerce')
+            
+            # Agrupar por fecha para sumar valores duplicados
+            df_pauta_agg = df_pauta.groupby('fecha').agg({
+                'coste_anuncio': 'sum',
+                'visualizaciones_videos': 'sum',
+                'nuevos_seguidores_pauta': 'sum'
+            }).reset_index()
+            
+            # Fusionar por fecha - CORRECCIÓN: USAR OUTER JOIN PARA VER TODAS LAS FECHAS
+            df_merged = pd.merge(df_followers, df_pauta_agg, left_on='Fecha', right_on='fecha', how='outer')
+            
+            # Ordenar por fecha
+            df_merged = df_merged.sort_values('Fecha')
+            
+            # Rellenar valores faltantes
+            if 'Seguidores_Totales' in df_merged.columns:
+                df_merged['Seguidores_Totales'] = df_merged['Seguidores_Totales'].fillna(method='ffill').fillna(0)
+            
+            if 'coste_anuncio' in df_merged.columns:
+                df_merged['coste_anuncio'] = df_merged['coste_anuncio'].fillna(0)
+            
+            if 'visualizaciones_videos' in df_merged.columns:
+                df_merged['visualizaciones_videos'] = df_merged['visualizaciones_videos'].fillna(0)
+            
+            if 'nuevos_seguidores_pauta' in df_merged.columns:
+                df_merged['nuevos_seguidores_pauta'] = df_merged['nuevos_seguidores_pauta'].fillna(0)
+        else:
+            df_merged = df_followers.copy()
+            df_merged['coste_anuncio'] = 0
+            df_merged['visualizaciones_videos'] = 0
+            df_merged['nuevos_seguidores_pauta'] = 0
         
-        # Crear gráfica de seguidores
+        # Crear gráfica de 4 líneas
         fig_followers = go.Figure()
         
-        # Línea de seguidores
+        # 1. Seguidores Totales (línea principal)
         fig_followers.add_trace(go.Scatter(
-            x=df_followers['Fecha'],
-            y=df_followers['Seguidores_Totales'],
+            x=df_merged['Fecha'],
+            y=df_merged['Seguidores_Totales'],
             mode='lines+markers',
             name='👥 Seguidores Totales',
             marker=dict(
@@ -1450,30 +1445,60 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                 line=dict(width=2, color='white')
             ),
             line=dict(color='#000000', width=3),
-            hovertemplate='<b>%{x|%d/%m/%Y}</b><br>Seguidores: %{y:,}<extra></extra>'
+            hovertemplate='<b>%{x|%d/%m/%Y}</b><br>Seguidores Totales: %{y:,}<extra></extra>'
         ))
         
-        # Si hay datos de pauta, agregarlos
-        if not df_pauta.empty:
-            # Preparar datos de pauta
-            if 'fecha' in df_pauta.columns:
-                df_pauta['fecha'] = pd.to_datetime(df_pauta['fecha'], errors='coerce')
-                
-                # Costo de pauta (barras, eje secundario)
-                if 'Costo' in df_pauta.columns or 'coste_anuncio' in df_pauta.columns:
-                    costo_col = 'Costo' if 'Costo' in df_pauta.columns else 'coste_anuncio'
-                    fig_followers.add_trace(go.Bar(
-                        x=df_pauta['fecha'],
-                        y=df_pauta[costo_col],
-                        name='💰 Costo Pauta',
-                        marker=dict(color='#ef4444', opacity=0.7),
-                        hovertemplate='Costo Pauta: $%{y:,}<extra></extra>',
-                        yaxis='y2'
-                    ))
+        # 2. Seguidores Pauta (si existe)
+        if 'nuevos_seguidores_pauta' in df_merged.columns:
+            fig_followers.add_trace(go.Scatter(
+                x=df_merged['Fecha'],
+                y=df_merged['nuevos_seguidores_pauta'],
+                mode='lines+markers',
+                name='👥 Seguidores Pauta',
+                marker=dict(
+                    size=6,
+                    color='#10b981',
+                    symbol='diamond'
+                ),
+                line=dict(color='#10b981', width=2, dash='dot'),
+                hovertemplate='Seguidores Pauta: %{y:,}<extra></extra>',
+                yaxis='y1'
+            ))
+        
+        # 3. Costo de Pauta (barras, eje secundario)
+        if 'coste_anuncio' in df_merged.columns:
+            fig_followers.add_trace(go.Bar(
+                x=df_merged['Fecha'],
+                y=df_merged['coste_anuncio'],
+                name='💰 Costo Pauta',
+                marker=dict(
+                    color='#ef4444',
+                    opacity=0.7
+                ),
+                hovertemplate='Costo Pauta: $%{y:,}<extra></extra>',
+                yaxis='y2'
+            ))
+        
+        # 4. Visualizaciones de Pauta (eje secundario)
+        if 'visualizaciones_videos' in df_merged.columns:
+            fig_followers.add_trace(go.Scatter(
+                x=df_merged['Fecha'],
+                y=df_merged['visualizaciones_videos'],
+                mode='lines+markers',
+                name='👁️ Visualizaciones Pauta',
+                marker=dict(
+                    size=6,
+                    color='#3B82F6',
+                    symbol='triangle-up'
+                ),
+                line=dict(color='#3B82F6', width=2, dash='dash'),
+                hovertemplate='Visualizaciones Pauta: %{y:,}<extra></extra>',
+                yaxis='y2'
+            ))
         
         # Configurar layout con eje secundario
         fig_followers.update_layout(
-            height=500,
+            height=450,
             template='plotly_white',
             plot_bgcolor='white',
             paper_bgcolor='white',
@@ -1499,7 +1524,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                 title_font=dict(color='#000000')
             ),
             yaxis2=dict(
-                title="Costo ($)",
+                title="Costo ($) / Visualizaciones",
                 overlaying='y',
                 side='right',
                 gridcolor='rgba(241, 245, 249, 0.5)',
@@ -1510,275 +1535,593 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
         
         st.plotly_chart(fig_followers, use_container_width=True)
         
-        # Estadísticas de seguidores
-        if len(df_followers) > 0:
+        # Estadísticas de seguidores y pauta
+        if len(df_merged) > 0:
             col_f1, col_f2, col_f3, col_f4 = st.columns(4)
             
             with col_f1:
-                latest_followers = df_followers['Seguidores_Totales'].iloc[-1] if len(df_followers) > 0 else 0
+                latest_followers = df_merged['Seguidores_Totales'].iloc[-1] if len(df_merged) > 0 else 0
                 st.metric("👥 Últimos seguidores", f"{latest_followers:,}")
             
             with col_f2:
-                if len(df_followers) > 1:
-                    crecimiento = df_followers['Seguidores_Totales'].iloc[-1] - df_followers['Seguidores_Totales'].iloc[0]
-                    st.metric("📈 Crecimiento total", f"{crecimiento:,}")
+                if 'nuevos_seguidores_pauta' in df_merged.columns:
+                    total_nuevos_seguidores = df_merged['nuevos_seguidores_pauta'].sum()
+                    st.metric("👥 Seguidores Pauta", f"{total_nuevos_seguidores:,}")
                 else:
-                    st.metric("📈 Crecimiento total", "N/D")
+                    st.metric("👥 Seguidores Pauta", "N/D")
             
             with col_f3:
-                if not df_pauta.empty and ('Costo' in df_pauta.columns or 'coste_anuncio' in df_pauta.columns):
-                    costo_col = 'Costo' if 'Costo' in df_pauta.columns else 'coste_anuncio'
-                    total_costo = df_pauta[costo_col].sum()
+                if 'coste_anuncio' in df_merged.columns:
+                    total_costo = df_merged['coste_anuncio'].sum()
                     st.metric("💰 Costo total pauta", f"${total_costo:,}")
                 else:
                     st.metric("💰 Costo pauta", "N/D")
             
             with col_f4:
-                if not df_pauta.empty and ('Visualizaciones' in df_pauta.columns or 'visualizaciones_videos' in df_pauta.columns):
-                    vis_col = 'Visualizaciones' if 'Visualizaciones' in df_pauta.columns else 'visualizaciones_videos'
-                    total_visualizaciones = df_pauta[vis_col].sum()
+                if 'visualizaciones_videos' in df_merged.columns:
+                    total_visualizaciones = df_merged['visualizaciones_videos'].sum()
                     st.metric("👁️ Visualizaciones pauta", f"{total_visualizaciones:,}")
                 else:
                     st.metric("👁️ Visualizaciones", "N/D")
     
     except Exception as e:
-        st.warning(f"Error al generar gráfica de seguidores: {str(e)}")
+        st.warning(f"Error al generar gráfica combinada: {str(e)}")
     
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ============================================================================
-# PESTAÑAS CON TABLA ORIGINAL Y NUEVAS GRÁFICAS
-# ============================================================================
-
-st.markdown("---")
-
-# Crear pestañas
-tab1, tab2, tab3 = st.tabs(["📋 Tabla de Contenidos", "📈 Análisis de Inversión", "🗺️ Mapa de Calor CPS"])
-
-# Pestaña 1: Tabla de contenidos (ORIGINAL)
-with tab1:
-    st.markdown("""
-    <div class="data-table-container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <div>
-                <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
-                    📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA
-                </h3>
-                <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px;">
-                    Lista completa de contenidos con todos los detalles
-                </p>
-            </div>
-            <div style="color: #6b7280; font-size: 12px; background: #f8fafc; padding: 6px 14px; border-radius: 18px; border: 1px solid #e5e7eb;">
-                {total_posts} contenidos totales
-            </div>
+# SECCIÓN 1: PERFORMANCE OVER TIME - GRÁFICA MULTI-LÍNEA MEJORADA
+st.markdown("""
+<div class="performance-chart">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
+            📈 PERFORMANCE OVER TIME - EVOLUCIÓN DETALLADA
+        </h3>
+        <div style="color: #6b7280; font-size: 12px;">
+            Gráfica multi-línea interactiva
         </div>
-    """.format(total_posts=total_posts), unsafe_allow_html=True)
-    
-    if not df.empty:
-        # Preparar DataFrame para mostrar
-        display_df = df.copy()
+    </div>
+""", unsafe_allow_html=True)
+
+try:
+    if not df.empty and 'fecha_publicacion' in df.columns:
+        # Crear DataFrame para gráficas diarias
+        df_sorted = df.sort_values('fecha_publicacion')
         
-        # Seleccionar y ordenar columnas
-        column_order = []
+        # Agrupar por fecha
+        daily_stats = df_sorted.groupby('fecha_publicacion').agg({
+            'visualizaciones': 'sum',
+            'me_gusta': 'sum',
+            'comentarios': 'sum',
+            'rendimiento_por_dia': 'mean'
+        }).reset_index()
         
-        if 'titulo' in display_df.columns:
-            column_order.append('titulo')
-            display_df['titulo'] = display_df['titulo'].fillna('Sin título')
-        
-        if 'fecha_publicacion' in display_df.columns:
-            column_order.append('fecha_publicacion')
-            display_df['fecha_publicacion'] = display_df['fecha_publicacion'].dt.strftime('%d/%m/%Y %H:%M')
-        
-        if 'red' in display_df.columns:
-            column_order.append('red')
-        
-        if 'visualizaciones' in display_df.columns:
-            column_order.append('visualizaciones')
-        
-        if 'me_gusta' in df.columns:
-            column_order.append('me_gusta')
-        
-        if 'comentarios' in df.columns:
-            column_order.append('comentarios')
-        
-        if 'Seguidores_Totales' in display_df.columns:
-            column_order.append('Seguidores_Totales')
-        
-        if 'rendimiento_por_dia' in display_df.columns:
-            column_order.append('rendimiento_por_dia')
-        
-        if 'dias_desde_publicacion' in display_df.columns:
-            column_order.append('dias_desde_publicacion')
-        
-        if 'semana' in display_df.columns:
-            column_order.append('semana')
-        
-        if 'meses' in display_df.columns:
-            column_order.append('meses')
-        
-        # Filtrar solo columnas existentes
-        column_order = [col for col in column_order if col in display_df.columns]
-        display_df = display_df[column_order]
-        
-        # Renombrar columnas para mejor visualización
-        rename_dict = {
-            'titulo': '📝 TÍTULO',
-            'fecha_publicacion': '📅 FECHA PUBLICACIÓN',
-            'red': '🌐 PLATAFORMA',
-            'visualizaciones': '👁️ VISUALIZACIONES',
-            'me_gusta': '❤️ LIKES',
-            'comentarios': '💬 COMENTARIOS',
-            'Seguidores_Totales': '👥 SEGUIDORES TOTALES',
-            'rendimiento_por_dia': '🚀 REND/DÍA',
-            'dias_desde_publicacion': '📅 DÍAS PUBLICADO',
-            'semana': '📅 SEMANA',
-            'meses': '📅 MES'
-        }
-        
-        display_df = display_df.rename(columns={k: v for k, v in rename_dict.items() if k in display_df.columns})
-        
-        # Configurar columnas para mejor visualización
-        column_config = {}
-        
-        if '👁️ VISUALIZACIONES' in display_df.columns:
-            column_config['👁️ VISUALIZACIONES'] = st.column_config.NumberColumn(
-                format="%d",
-                help="Número total de visualizaciones"
-            )
-        
-        if '❤️ LIKES' in display_df.columns:
-            column_config['❤️ LIKES'] = st.column_config.NumberColumn(
-                format="%d",
-                help="Número total de likes"
-            )
-        
-        if '💬 COMENTARIOS' in display_df.columns:
-            column_config['💬 COMENTARIOS'] = st.column_config.NumberColumn(
-                format="%d",
-                help="Número total de comentarios"
-            )
-        
-        if '👥 SEGUIDORES TOTALES' in display_df.columns:
-            column_config['👥 SEGUIDORES TOTALES'] = st.column_config.NumberColumn(
-                format="%d",
-                help="Seguidores totales del contenido"
-            )
-        
-        if '🚀 REND/DÍA' in display_df.columns:
-            column_config['🚀 REND/DÍA'] = st.column_config.NumberColumn(
-                format="%.1f",
-                help="Rendimiento promedio por día"
-            )
-        
-        if '📝 TÍTULO' in display_df.columns:
-            column_config['📝 TÍTULO'] = st.column_config.TextColumn(
-                width="large",
-                help="Título del contenido"
-            )
-        
-        # Mostrar tabla completa con paginación
-        st.dataframe(
-            display_df,
-            use_container_width=True,
-            hide_index=True,
-            column_config=column_config,
-            height=550
+        # Crear gráfica multi-línea con subplots
+        fig = make_subplots(
+            rows=2, cols=2,
+            subplot_titles=(
+                '📊 Evolución Diaria de Visualizaciones',
+                '❤️ Evolución Diaria de Likes',
+                '💬 Evolución Diaria de Comentarios',
+                '🚀 Rendimiento Promedio Diario'
+            ),
+            specs=[
+                [{'type': 'scatter'}, {'type': 'scatter'}],
+                [{'type': 'scatter'}, {'type': 'scatter'}]
+            ],
+            vertical_spacing=0.15,
+            horizontal_spacing=0.15
         )
         
-    else:
-        st.info("No hay datos para mostrar en la tabla")
-    
-    st.markdown("</div>", unsafe_allow_html=True)
+        # 1. Visualizaciones
+        fig.add_trace(
+            go.Scatter(
+                x=daily_stats['fecha_publicacion'],
+                y=daily_stats['visualizaciones'],
+                mode='lines+markers',
+                name='Visualizaciones',
+                line=dict(color='#3B82F6', width=3),
+                marker=dict(size=6, color='#3B82F6'),
+                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>👁️ Views: %{y:,}<extra></extra>',
+                fill='tozeroy',
+                fillcolor='rgba(59, 130, 246, 0.1)'
+            ),
+            row=1, col=1
+        )
+        
+        # 2. Likes
+        fig.add_trace(
+            go.Scatter(
+                x=daily_stats['fecha_publicacion'],
+                y=daily_stats['me_gusta'],
+                mode='lines+markers',
+                name='Likes',
+                line=dict(color='#10b981', width=3),
+                marker=dict(size=6, color='#10b981'),
+                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>❤️ Likes: %{y:,}<extra></extra>',
+                fill='tozeroy',
+                fillcolor='rgba(16, 185, 129, 0.1)'
+            ),
+            row=1, col=2
+        )
+        
+        # 3. Comentarios
+        fig.add_trace(
+            go.Scatter(
+                x=daily_stats['fecha_publicacion'],
+                y=daily_stats['comentarios'],
+                mode='lines+markers',
+                name='Comentarios',
+                line=dict(color='#8b5cf6', width=3),
+                marker=dict(size=6, color='#8b5cf6'),
+                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>💬 Comments: %{y:,}<extra></extra>',
+                fill='tozeroy',
+                fillcolor='rgba(139, 92, 246, 0.1)'
+            ),
+            row=2, col=1
+        )
+        
+        # 4. Rendimiento diario
+        fig.add_trace(
+            go.Scatter(
+                x=daily_stats['fecha_publicacion'],
+                y=daily_stats['rendimiento_por_dia'],
+                mode='lines+markers',
+                name='Rendimiento/Día',
+                line=dict(color='#f59e0b', width=3),
+                marker=dict(size=6, color='#f59e0b'),
+                hovertemplate='<b>📅 %{x|%d/%m/%Y}</b><br>🚀 Perf/Día: %{y:.1f}<extra></extra>',
+                fill='tozeroy',
+                fillcolor='rgba(245, 158, 11, 0.1)'
+            ),
+            row=2, col=2
+        )
+        
+        # Actualizar layout
+        fig.update_layout(
+            height=750,
+            showlegend=False,
+            template='plotly_white',
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            margin=dict(l=40, r=40, t=100, b=40),
+            title_font=dict(size=16),
+            font=dict(size=12),
+            hovermode='x unified'
+        )
+        
+        # Actualizar ejes
+        fig.update_xaxes(title_text="Fecha", row=1, col=1)
+        fig.update_yaxes(title_text="Visualizaciones", row=1, col=1)
+        fig.update_xaxes(title_text="Fecha", row=1, col=2)
+        fig.update_yaxes(title_text="Likes", row=1, col=2)
+        fig.update_xaxes(title_text="Fecha", row=2, col=1)
+        fig.update_yaxes(title_text="Comentarios", row=2, col=1)
+        fig.update_xaxes(title_text="Fecha", row=2, col=2)
+        fig.update_yaxes(title_text="Rendimiento/Día", row=2, col=2)
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Estadísticas resumidas debajo del gráfico
+        col_stats1, col_stats2, col_stats3, col_stats4 = st.columns(4)
+        
+        with col_stats1:
+            max_views_day = daily_stats.loc[daily_stats['visualizaciones'].idxmax(), 'fecha_publicacion']
+            max_views = daily_stats['visualizaciones'].max()
+            st.metric("📅 Día con más Views", max_views_day.strftime('%d/%m/%Y'), f"{max_views:,}")
+        
+        with col_stats2:
+            max_likes_day = daily_stats.loc[daily_stats['me_gusta'].idxmax(), 'fecha_publicacion']
+            max_likes = daily_stats['me_gusta'].max()
+            st.metric("📅 Día con más Likes", max_likes_day.strftime('%d/%m/%Y'), f"{max_likes:,}")
+        
+        with col_stats3:
+            max_comments_day = daily_stats.loc[daily_stats['comentarios'].idxmax(), 'fecha_publicacion']
+            max_comments = daily_stats['comentarios'].max()
+            st.metric("📅 Día con más Comments", max_comments_day.strftime('%d/%m/%Y'), f"{max_comments:,}")
+        
+        with col_stats4:
+            max_perf_day = daily_stats.loc[daily_stats['rendimiento_por_dia'].idxmax(), 'fecha_publicacion']
+            max_perf = daily_stats['rendimiento_por_dia'].max()
+            st.metric("📅 Mejor rendimiento/día", max_perf_day.strftime('%d/%m/%Y'), f"{max_perf:.1f}")
+        
+except Exception as e:
+    st.warning(f"Error al generar gráficas: {str(e)}")
 
-# Pestaña 2: Gráfica de inversión vs seguidores (NUEVA)
-with tab2:
-    st.markdown("""
-    <div class="performance-chart">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+st.markdown("</div>", unsafe_allow_html=True)
+
+# SECCIÓN 2: CONTENT PERFORMANCE DATA - TABLA COMPLETA
+st.markdown("""
+<div class="data-table-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
             <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
-                📈 ANÁLISIS DE INVERSIÓN VS SEGUIDORES
+                📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA
             </h3>
-            <div style="color: #6b7280; font-size: 12px;">
-                Relación costo-publicidad vs seguidores ganados
-            </div>
+            <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px;">
+                Lista completa de contenidos con todos los detalles
+            </p>
+        </div>
+        <div style="color: #6b7280; font-size: 12px; background: #f8fafc; padding: 6px 14px; border-radius: 18px; border: 1px solid #e5e7eb;">
+            {total_posts} contenidos totales
+        </div>
+    </div>
+""".format(total_posts=total_posts), unsafe_allow_html=True)
+
+if not df.empty:
+    # Preparar DataFrame para mostrar
+    display_df = df.copy()
+    
+    # Seleccionar y ordenar columnas
+    column_order = []
+    
+    if 'titulo' in display_df.columns:
+        column_order.append('titulo')
+        display_df['titulo'] = display_df['titulo'].fillna('Sin título')
+    
+    if 'fecha_publicacion' in display_df.columns:
+        column_order.append('fecha_publicacion')
+        display_df['fecha_publicacion'] = display_df['fecha_publicacion'].dt.strftime('%d/%m/%Y %H:%M')
+    
+    if 'red' in display_df.columns:
+        column_order.append('red')
+    
+    if 'visualizaciones' in display_df.columns:
+        column_order.append('visualizaciones')
+    
+    if 'me_gusta' in df.columns:
+        column_order.append('me_gusta')
+    
+    if 'comentarios' in df.columns:
+        column_order.append('comentarios')
+    
+    # AGREGAR COLUMNA DE SEGUIDORES_TOTALES SI EXISTE
+    if 'Seguidores_Totales' in display_df.columns:
+        column_order.append('Seguidores_Totales')
+    
+    if 'rendimiento_por_dia' in display_df.columns:
+        column_order.append('rendimiento_por_dia')
+    
+    if 'dias_desde_publicacion' in display_df.columns:
+        column_order.append('dias_desde_publicacion')
+    
+    if 'semana' in display_df.columns:
+        column_order.append('semana')
+    
+    if 'meses' in display_df.columns:
+        column_order.append('meses')
+    
+    # Filtrar solo columnas existentes
+    column_order = [col for col in column_order if col in display_df.columns]
+    display_df = display_df[column_order]
+    
+    # Renombrar columnas para mejor visualización
+    rename_dict = {
+        'titulo': '📝 TÍTULO',
+        'fecha_publicacion': '📅 FECHA PUBLICACIÓN',
+        'red': '🌐 PLATAFORMA',
+        'visualizaciones': '👁️ VISUALIZACIONES',
+        'me_gusta': '❤️ LIKES',
+        'comentarios': '💬 COMENTARIOS',
+        'Seguidores_Totales': '👥 SEGUIDORES TOTALES',
+        'rendimiento_por_dia': '🚀 REND/DÍA',
+        'dias_desde_publicacion': '📅 DÍAS PUBLICADO',
+        'semana': '📅 SEMANA',
+        'meses': '📅 MES'
+    }
+    
+    display_df = display_df.rename(columns={k: v for k, v in rename_dict.items() if k in display_df.columns})
+    
+    # Configurar columnas para mejor visualización
+    column_config = {}
+    
+    if '👁️ VISUALIZACIONES' in display_df.columns:
+        column_config['👁️ VISUALIZACIONES'] = st.column_config.NumberColumn(
+            format="%d",
+            help="Número total de visualizaciones"
+        )
+    
+    if '❤️ LIKES' in display_df.columns:
+        column_config['❤️ LIKES'] = st.column_config.NumberColumn(
+            format="%d",
+            help="Número total de likes"
+        )
+    
+    if '💬 COMENTARIOS' in display_df.columns:
+        column_config['💬 COMENTARIOS'] = st.column_config.NumberColumn(
+            format="%d",
+            help="Número total de comentarios"
+        )
+    
+    # AGREGAR CONFIGURACIÓN PARA SEGUIDORES TOTALES
+    if '👥 SEGUIDORES TOTALES' in display_df.columns:
+        column_config['👥 SEGUIDORES TOTALES'] = st.column_config.NumberColumn(
+            format="%d",
+            help="Seguidores totales del contenido"
+        )
+    
+    if '🚀 REND/DÍA' in display_df.columns:
+        column_config['🚀 REND/DÍA'] = st.column_config.NumberColumn(
+            format="%.1f",
+            help="Rendimiento promedio por día"
+        )
+    
+    if '📝 TÍTULO' in display_df.columns:
+        column_config['📝 TÍTULO'] = st.column_config.TextColumn(
+            width="large",
+            help="Título del contenido"
+        )
+    
+    # Mostrar tabla completa con paginación
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config=column_config,
+        height=550
+    )
+    
+    # Estadísticas de la tabla
+    col_table1, col_table2, col_table3, col_table4 = st.columns(4)
+    
+    with col_table1:
+        avg_views = display_df['👁️ VISUALIZACIONES'].mean() if '👁️ VISUALIZACIONES' in display_df.columns else 0
+        st.metric("📊 Views promedio", f"{avg_views:,.0f}")
+    
+    with col_table2:
+        avg_likes = display_df['❤️ LIKES'].mean() if '❤️ LIKES' in display_df.columns else 0
+        st.metric("📊 Likes promedio", f"{avg_likes:,.0f}")
+    
+    with col_table3:
+        avg_comments = display_df['💬 COMENTARIOS'].mean() if '💬 COMENTARIOS' in display_df.columns else 0
+        st.metric("📊 Comments promedio", f"{avg_comments:,.0f}")
+    
+    with col_table4:
+        avg_perf = display_df['🚀 REND/DÍA'].mean() if '🚀 REND/DÍA' in display_df.columns else 0
+        st.metric("📊 Rendimiento promedio", f"{avg_perf:.1f}")
+    
+    # AGREGAR ESTADÍSTICA DE SEGUIDORES SI EXISTE
+    if '👥 SEGUIDORES TOTALES' in display_df.columns:
+        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+        col_followers1, col_followers2, col_followers3, col_followers4 = st.columns(4)
+        
+        with col_followers1:
+            total_seguidores = display_df['👥 SEGUIDORES TOTALES'].sum() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
+            st.metric("👥 Total Seguidores", f"{total_seguidores:,}")
+        
+        with col_followers2:
+            avg_seguidores = display_df['👥 SEGUIDORES TOTALES'].mean() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
+            st.metric("👥 Promedio/Post", f"{avg_seguidores:,.0f}")
+        
+        with col_followers3:
+            max_seguidores = display_df['👥 SEGUIDORES TOTALES'].max() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
+            st.metric("👥 Máximo", f"{max_seguidores:,}")
+        
+        with col_followers4:
+            min_seguidores = display_df['👥 SEGUIDORES TOTALES'].min() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
+            st.metric("👥 Mínimo", f"{min_seguidores:,}")
+    
+else:
+    st.info("No hay datos para mostrar en la tabla")
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+# SECCIÓN 3: ANÁLISIS DETALLADO EN DOS COLUMNAS
+col_analysis1, col_analysis2 = st.columns(2)
+
+with col_analysis1:
+    st.markdown("""
+    <div class="performance-chart" style="height: 100%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 18px;">
+                📊 PERFORMANCE ANALYTICS
+            </h3>
         </div>
     """, unsafe_allow_html=True)
     
-    # Generar la gráfica (usará datos de ejemplo si no hay reales)
-    fig_inversion = generar_grafica_inversion(df_followers, df_pauta)
+    if not df.empty and 'rendimiento_por_dia' in df.columns:
+        # Análisis de distribución por rendimiento
+        q75 = df['rendimiento_por_dia'].quantile(0.75)
+        q50 = df['rendimiento_por_dia'].quantile(0.50)
+        q25 = df['rendimiento_por_dia'].quantile(0.25)
+        
+        high_perf = len(df[df['rendimiento_por_dia'] > q75])
+        medium_high_perf = len(df[(df['rendimiento_por_dia'] > q50) & (df['rendimiento_por_dia'] <= q75)])
+        medium_low_perf = len(df[(df['rendimiento_por_dia'] > q25) & (df['rendimiento_por_dia'] <= q50)])
+        low_perf = len(df[df['rendimiento_por_dia'] <= q25])
+        
+        # Gráfico de pastel
+        labels = ['🟢 Alto', '🟡 Medio-Alto', '🟠 Medio-Bajo', '🔴 Bajo']
+        values = [high_perf, medium_high_perf, medium_low_perf, low_perf]
+        colors = ['#10b981', '#f59e0b', '#f97316', '#ef4444']
+        
+        fig_pie = go.Figure(data=[go.Pie(
+            labels=labels,
+            values=values,
+            hole=0.4,
+            marker=dict(colors=colors),
+            textinfo='label+percent',
+            textposition='outside',
+            hovertemplate='<b>%{label}</b><br>Cantidad: %{value}<br>Porcentaje: %{percent}<extra></extra>'
+        )])
+        
+        fig_pie.update_layout(
+            height=320,
+            showlegend=False,
+            template='plotly_white',
+            margin=dict(l=20, r=20, t=40, b=20),
+            title_text="Distribución por Nivel de Rendimiento",
+            title_font=dict(size=14)
+        )
+        
+        st.plotly_chart(fig_pie, use_container_width=True)
+        
+        # Estadísticas detalladas
+        high_perf_pct = (high_perf / total_posts * 100) if total_posts > 0 else 0
+        medium_high_pct = (medium_high_perf / total_posts * 100) if total_posts > 0 else 0
+        medium_low_pct = (medium_low_perf / total_posts * 100) if total_posts > 0 else 0
+        low_perf_pct = (low_perf / total_posts * 100) if total_posts > 0 else 0
+        
+        st.markdown(f"""
+        <div style="margin-top: 18px; padding: 18px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); 
+                    border-radius: 12px; border-left: 4px solid #3B82F6;">
+            <h4 style="margin: 0 0 12px 0; color: #374151; font-size: 15px;">📈 ANÁLISIS DE PERFORMANCE</h4>
+            <div style="color: #4b5563; font-size: 13px;">
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">🟢 Alto rendimiento:</span>
+                    <span style="font-weight: 700; color: #10b981;">{high_perf} posts ({high_perf_pct:.1f}%)</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">🟡 Medio-Alto:</span>
+                    <span style="font-weight: 700; color: #f59e0b;">{medium_high_perf} posts ({medium_high_pct:.1f}%)</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">🟠 Medio-Bajo:</span>
+                    <span style="font-weight: 700; color: #f97316;">{medium_low_perf} posts ({medium_low_pct:.1f}%)</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">🔴 Bajo rendimiento:</span>
+                    <span style="font-weight: 700; color: #ef4444;">{low_perf} posts ({low_perf_pct:.1f}%)</span>
+                </div>
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                    <span style="display: inline-block; width: 160px;">📊 Rendimiento promedio:</span>
+                    <span style="font-weight: 700; color: #3B82F6;">{df['rendimiento_por_dia'].mean():.1f} views/día</span>
+                </div>
+                <div style="margin-top: 6px;">
+                    <span style="display: inline-block; width: 160px;">🚀 Mejor rendimiento:</span>
+                    <span style="font-weight: 700; color: #8b5cf6;">{df['rendimiento_por_dia'].max():.1f} views/día</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
-    if fig_inversion:
-        st.plotly_chart(fig_inversion, use_container_width=True)
-        
-        # Información sobre la gráfica
-        with st.expander("ℹ️ ¿Cómo interpretar esta gráfica?"):
-            st.markdown("""
-            **Esta gráfica muestra la relación entre:**
-            - **Eje X (horizontal):** Inversión en publicidad (Costo)
-            - **Eje Y (vertical):** Seguidores ganados
-            
-            **Elementos clave:**
-            - **Puntos azules:** Días individuales con inversión y resultados
-            - **Línea naranja:** Tendencia promedio por nivel de inversión
-            - **Líneas verticales:** Rangos de inversión cada $15,000
-            
-            **Interpretación:**
-            - **Pendiente positiva:** Más inversión genera más seguidores
-            - **Puntos altos:** Días con mejor relación costo-beneficio
-            - **Zonas óptimas:** Donde la curva muestra mejor rendimiento
-            """)
-        
-        # Nota sobre datos de ejemplo
-        if df_followers.empty or df_pauta.empty:
-            st.info("ℹ️ **Nota:** Esta gráfica muestra datos de ejemplo. Para ver datos reales, sube los archivos a PythonAnywhere.")
     else:
-        st.warning("No se pudo generar la gráfica de inversión. Verifica los datos.")
+        st.info("No hay datos para análisis de performance")
     
     st.markdown("</div>", unsafe_allow_html=True)
 
-# Pestaña 3: Mapa de calor CPS (NUEVA)
-with tab3:
+with col_analysis2:
     st.markdown("""
-    <div class="performance-chart">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
-                🗺️ MAPA DE CALOR - COSTO POR SEGUIDOR (CPS)
+    <div class="performance-chart" style="height: 100%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 18px;">
+                📈 KEY METRICS - MÉTRICAS CLAVE
             </h3>
-            <div style="color: #6b7280; font-size: 12px;">
-                Eficiencia publicitaria por día y semana
-            </div>
         </div>
     """, unsafe_allow_html=True)
     
-    # Generar el mapa de calor (usará datos de ejemplo si no hay reales)
-    fig_heatmap = generar_mapa_calor(df_followers, df_pauta)
-    
-    if fig_heatmap:
-        st.plotly_chart(fig_heatmap, use_container_width=True)
+    if not df.empty:
+        # Calcular métricas detalladas
+        metrics_detailed = []
         
-        # Información sobre el mapa de calor
-        with st.expander("ℹ️ ¿Cómo interpretar este mapa de calor?"):
-            st.markdown("""
-            **Este mapa muestra la eficiencia publicitaria:**
-            - **Filas (vertical):** Días de la semana
-            - **Columnas (horizontal):** Semanas del año (formato AAAA-W##)
-            - **Colores:** 
-              - **🟢 Verde:** CPS bajo (más eficiente)
-              - **🟡 Amarillo:** CPS medio
-              - **🔴 Rojo:** CPS alto (menos eficiente)
+        # Métricas de visualizaciones
+        if 'visualizaciones' in df.columns:
+            metrics_detailed.append(('👁️ Avg. Views/Post', f"{df['visualizaciones'].mean():.0f}"))
+            metrics_detailed.append(('👁️ Median Views', f"{df['visualizaciones'].median():.0f}"))
+            metrics_detailed.append(('👁️ Std Dev Views', f"{df['visualizaciones'].std():.0f}"))
+            metrics_detailed.append(('👁️ Min Views', f"{df['visualizaciones'].min():,}"))
+            metrics_detailed.append(('👁️ Max Views', f"{df['visualizaciones'].max():,}"))
+        
+        # Métricas de engagement
+        if 'me_gusta' in df.columns:
+            metrics_detailed.append(('❤️ Avg. Likes/Post', f"{df['me_gusta'].mean():.1f}"))
+            metrics_detailed.append(('❤️ Max Likes', f"{df['me_gusta'].max():,}"))
+        
+        if 'comentarios' in df.columns:
+            metrics_detailed.append(('💬 Avg. Comments/Post', f"{df['comentarios'].mean():.1f}"))
+            metrics_detailed.append(('💬 Max Comments', f"{df['comentarios'].max():,}"))
+        
+        # Métricas de seguidores si existen
+        if 'Seguidores_Totales' in df.columns:
+            metrics_detailed.append(('👥 Avg. Followers/Post', f"{df['Seguidores_Totales'].mean():.0f}"))
+            metrics_detailed.append(('👥 Total Followers', f"{df['Seguidores_Totales'].sum():,}"))
+        
+        # Métricas de tiempo
+        if 'dias_desde_publicacion' in df.columns:
+            metrics_detailed.append(('📅 Avg. Content Age', f"{df['dias_desde_publicacion'].mean():.0f} días"))
+            metrics_detailed.append(('📅 Newest Post', f"{df['dias_desde_publicacion'].min()} días"))
+            metrics_detailed.append(('📅 Oldest Post', f"{df['dias_desde_publicacion'].max()} días"))
+        
+        # Métricas de rendimiento
+        if 'rendimiento_por_dia' in df.columns:
+            metrics_detailed.append(('🚀 Avg. Daily Perf.', f"{df['rendimiento_por_dia'].mean():.1f}"))
+            metrics_detailed.append(('🚀 Median Daily Perf.', f"{df['rendimiento_por_dia'].median():.1f}"))
+        
+        # Engagement rate detallado
+        metrics_detailed.append(('💬 Engagement Rate', f"{engagement_rate:.2f}%"))
+        
+        if total_views > 0 and total_likes > 0:
+            like_to_view_ratio = (total_likes / total_views) * 100
+            metrics_detailed.append(('👍 Like/View Ratio', f"{like_to_view_ratio:.2f}%"))
+        
+        if total_comments > 0 and total_likes > 0:
+            comment_to_like_ratio = (total_comments / total_likes) * 100
+            metrics_detailed.append(('💬 Comment/Like Ratio', f"{comment_to_like_ratio:.2f}%"))
+        
+        # Mostrar métricas en tabla mejorada
+        for i, (metric, value) in enumerate(metrics_detailed):
+            bg_color = "#ffffff" if i % 2 == 0 else "#f8fafc"
+            icon = metric.split(' ')[0]
+            metric_name = ' '.join(metric.split(' ')[1:])
             
-            **Interpretación:**
-            - **CPS = Costo por Seguidor** (Costo total / Seguidores ganados)
-            - **CPS bajo = mejor:** Menor costo para ganar cada seguidor
-            - **Patrones:** Identifica días/semanas más eficientes
-            - **Evolución:** Monitorea cambios en la eficiencia a lo largo del tiempo
-            """)
+            st.markdown(f"""
+            <div style="display: flex; justify-content: space-between; align-items: center; 
+                        padding: 12px 14px; background: {bg_color}; 
+                        border-radius: 8px; margin: 3px 0; border: 1px solid #e5e7eb;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">{icon}</span>
+                    <span style="color: #4b5563; font-size: 13px; font-weight: 500;">{metric_name}</span>
+                </div>
+                <span style="font-weight: 700; color: #1f2937; font-size: 14px;">
+                    {value}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Nota sobre datos de ejemplo
-        if df_followers.empty or df_pauta.empty:
-            st.info("ℹ️ **Nota:** Este mapa de calor muestra datos de ejemplo. Para ver datos reales, sube los archivos a PythonAnywhere.")
+        # Análisis de engagement avanzado
+        st.markdown("""
+        <div style="margin-top: 18px; padding: 18px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
+                    border-radius: 12px; border-left: 4px solid #0ea5e9;">
+            <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 15px;">📊 ANÁLISIS DE ENGAGEMENT AVANZADO</h4>
+            <div style="color: #4b5563; font-size: 13px;">
+        """, unsafe_allow_html=True)
+        
+        engagement_html = ""
+        
+        if total_views > 0:
+            like_rate = (total_likes / total_views * 100) if 'me_gusta' in df.columns else 0
+            comment_rate = (total_comments / total_views * 100) if 'comentarios' in df.columns else 0
+            
+            engagement_html += f"""
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">👍 Tasa de Likes:</span>
+                    <span style="font-weight: 700; color: #10b981;">{like_rate:.2f}%</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">💬 Tasa de Comentarios:</span>
+                    <span style="font-weight: 700; color: #3B82F6;">{comment_rate:.2f}%</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">📊 Total Engagement:</span>
+                    <span style="font-weight: 700; color: #8b5cf6;">{(like_rate + comment_rate):.2f}%</span>
+                </div>
+            """
+        
+        if total_likes > 0 and total_comments > 0:
+            like_to_comment_ratio = total_likes / total_comments
+            engagement_html += f"""
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                    <span style="display: inline-block; width: 160px;">⚖️ Ratio Likes/Comments:</span>
+                    <span style="font-weight: 700; color: #EC4899;">{like_to_comment_ratio:.1f}</span>
+                </div>
+            """
+        
+        if engagement_html:
+            st.markdown(engagement_html, unsafe_allow_html=True)
+        
+        st.markdown("</div></div>", unsafe_allow_html=True)
+    
     else:
-        st.warning("No se pudo generar el mapa de calor. Verifica los datos.")
+        st.info("No hay datos para métricas clave")
     
     st.markdown("</div>", unsafe_allow_html=True)
 
