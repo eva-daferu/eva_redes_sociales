@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 import warnings
 import requests
 import numpy as np
-import json
 
 warnings.filterwarnings('ignore')
 
@@ -188,7 +187,7 @@ def crear_grafica1_interactiva(data_grafica1):
     """Crea la gráfica 1 interactiva con Plotly - CORREGIDA"""
     if data_grafica1.get("status") != "success":
         st.error(f"No se pudo cargar la gráfica 1: {data_grafica1.get('message')}")
-        return None
+        return
     
     # Extraer datos
     scatter_data = pd.DataFrame(data_grafica1.get("scatter_data", []))
@@ -199,15 +198,10 @@ def crear_grafica1_interactiva(data_grafica1):
     
     if scatter_data.empty or curve_data.empty:
         st.warning("No hay datos suficientes para generar la gráfica 1")
-        return None
+        return
     
     # Determinar columna de seguidores
     result_col = "Seguidores_Impacto" if parameters.get("USE_IMPACT", True) else "Neto_Diario_Real"
-    
-    # Asegurarse de que las columnas existan
-    if result_col not in scatter_data.columns:
-        st.error(f"La columna {result_col} no existe en los datos")
-        return None
     
     # Crear figura
     fig = go.Figure()
@@ -228,39 +222,34 @@ def crear_grafica1_interactiva(data_grafica1):
     ))
     
     # 2. Línea de curva promedio
-    # Filtrar valores NaN
-    curve_data_clean = curve_data.dropna(subset=["Inversion_promedio", "Seguidores_promedio"])
+    fig.add_trace(go.Scatter(
+        x=curve_data["Inversion_promedio"],
+        y=curve_data["Seguidores_promedio"],
+        mode='lines+markers',
+        name='📈 Curva promedio',
+        line=dict(color='#38bdf8', width=3),
+        marker=dict(
+            size=10,
+            color='#f59e0b',
+            symbol='diamond'
+        ),
+        hovertemplate='<b>Promedio por rango</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>CPS: $%{customdata:,.0f}<extra></extra>',
+        customdata=curve_data["CPS_curva"]
+    ))
     
-    if not curve_data_clean.empty:
-        # Preparar datos para hover
-        hover_texts = []
-        for _, row in curve_data_clean.iterrows():
-            cps = row.get("CPS_curva", 0)
-            dias = row.get("Dias", 0)
-            dias_meta = row.get("Dias_para_meta", "N/A")
-            hover_text = f"CPS: ${cps:,.0f}<br>Días: {dias}<br>Meta 1000 seg: {dias_meta:.1f} días"
-            hover_texts.append(hover_text)
-        
-        fig.add_trace(go.Scatter(
-            x=curve_data_clean["Inversion_promedio"],
-            y=curve_data_clean["Seguidores_promedio"],
-            mode='lines+markers',
-            name='📈 Curva promedio',
-            line=dict(color='#38bdf8', width=3),
-            marker=dict(
-                size=10,
-                color='#f59e0b',
-                symbol='diamond'
-            ),
-            hovertemplate='<b>Promedio por rango</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>%{text}<extra></extra>',
-            text=hover_texts
-        ))
-    
-    # 3. Punto óptimo
+    # 3. Punto óptimo - CORREGIDO EL HOOVERTEMPLATE
     if optimal_point and "Inversion_promedio" in optimal_point and "Seguidores_promedio" in optimal_point:
         opt_cps = optimal_point.get("CPS_curva", 0)
         opt_dias = optimal_point.get("Dias", 0)
-        opt_dias_meta = optimal_point.get("Dias_para_meta", "N/A")
+        opt_dias_meta = optimal_point.get("Dias_para_meta", 0)
+        
+        # Crear texto para el hover
+        hover_text = f"<b>PUNTO ÓPTIMO</b><br>Inversión: ${optimal_point['Inversion_promedio']:,.0f}<br>Seguidores: {optimal_point['Seguidores_promedio']:,.0f}<br>CPS: ${opt_cps:,.0f}"
+        if opt_dias:
+            hover_text += f"<br>Días: {opt_dias}"
+        if opt_dias_meta:
+            hover_text += f"<br>Meta 1000 seg: {opt_dias_meta:.1f} días"
+        hover_text += "<extra></extra>"
         
         fig.add_trace(go.Scatter(
             x=[optimal_point["Inversion_promedio"]],
@@ -273,13 +262,11 @@ def crear_grafica1_interactiva(data_grafica1):
                 symbol='star',
                 line=dict(width=2, color='white')
             ),
-            hovertemplate='<b>PUNTO ÓPTIMO</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>CPS: ${cps:,.0f}<br>Días: {dias}<br>Meta 1000 seg: {dias_meta:.1f} días<extra></extra>'.format(
-                cps=opt_cps, dias=opt_dias, dias_meta=opt_dias_meta
-            )
+            hovertemplate=hover_text
         ))
     
     # 4. Líneas de promedio general
-    if "INV_mean" in summary and summary["INV_mean"] > 0:
+    if "INV_mean" in summary and "SEG_mean" in summary:
         # Línea vertical de promedio de inversión
         fig.add_vline(
             x=summary["INV_mean"],
@@ -289,8 +276,7 @@ def crear_grafica1_interactiva(data_grafica1):
             annotation_text=f"Promedio INV: ${summary['INV_mean']:,.0f}",
             annotation_position="top right"
         )
-    
-    if "SEG_mean" in summary and summary["SEG_mean"] > 0:
+        
         # Línea horizontal de promedio de seguidores
         fig.add_hline(
             y=summary["SEG_mean"],
@@ -302,18 +288,15 @@ def crear_grafica1_interactiva(data_grafica1):
         )
     
     # Configurar layout
-    impact_label = "Impacto" if parameters.get("USE_IMPACT", True) else "Neto"
-    impact_days = parameters.get("IMPACT_DAYS", 0)
-    
     fig.update_layout(
         height=600,
         template='plotly_dark',
-        plot_bgcolor='rgba(11, 16, 32, 0.8)',
-        paper_bgcolor='rgba(11, 16, 32, 0.8)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
         font=dict(color='white', size=12),
         title=dict(
-            text=f"📊 GRÁFICA 1: INVERSIÓN VS SEGUIDORES ({impact_label} {impact_days}d)<br><sub>Análisis de eficiencia por nivel de inversión</sub>",
-            font=dict(size=22, color='white'),
+            text="📊 GRÁFICA 1: INVERSIÓN VS SEGUIDORES<br><sub>Análisis de eficiencia por nivel de inversión</sub>",
+            font=dict(size=24, color='white'),
             x=0.5,
             xanchor='center'
         ),
@@ -321,14 +304,12 @@ def crear_grafica1_interactiva(data_grafica1):
             title="Inversión (Costo $)",
             gridcolor='rgba(255,255,255,0.1)',
             tickformat=",",
-            tickprefix="$",
-            showgrid=True
+            tickprefix="$"
         ),
         yaxis=dict(
-            title=f"Seguidores ({impact_label})",
+            title=f"Seguidores ({'Impacto' if parameters.get('USE_IMPACT') else 'Neto'} {parameters.get('IMPACT_DAYS', 0)} días)",
             gridcolor='rgba(255,255,255,0.1)',
-            tickformat=",",
-            showgrid=True
+            tickformat=","
         ),
         hovermode='closest',
         legend=dict(
@@ -341,16 +322,57 @@ def crear_grafica1_interactiva(data_grafica1):
             bordercolor='rgba(255,255,255,0.2)',
             borderwidth=1
         ),
-        margin=dict(l=60, r=60, t=100, b=60)
+        margin=dict(l=50, r=50, t=100, b=50)
     )
     
-    return fig
+    # Mostrar gráfica
+    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
+    
+    # Mostrar información adicional
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "📊 Días analizados",
+            f"{summary.get('total_dias_validos', 0):,}",
+            help="Total de días con inversión y seguidores positivos"
+        )
+    
+    with col2:
+        st.metric(
+            "💰 Inversión promedio",
+            f"${summary.get('INV_mean', 0):,.0f}",
+            help="Inversión promedio por día válido"
+        )
+    
+    with col3:
+        st.metric(
+            "👥 Seguidores promedio",
+            f"{summary.get('SEG_mean', 0):,.0f}",
+            help="Seguidores promedio por día válido"
+        )
+    
+    with col4:
+        if optimal_point:
+            st.metric(
+                "⭐ CPS óptimo",
+                f"${optimal_point.get('CPS_curva', 0):,.0f}",
+                help="Costo por seguidor en el punto óptimo"
+            )
+    
+    # Mostrar tabla de datos de la curva
+    with st.expander("📋 Ver datos detallados de la curva"):
+        display_curve = curve_data.copy()
+        display_curve["Inversion_promedio"] = display_curve["Inversion_promedio"].apply(lambda x: f"${x:,.0f}")
+        display_curve["Seguidores_promedio"] = display_curve["Seguidores_promedio"].apply(lambda x: f"{x:,.0f}")
+        display_curve["CPS_curva"] = display_curve["CPS_curva"].apply(lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A")
+        st.dataframe(display_curve, use_container_width=True)
 
 def crear_grafica2_interactiva(data_grafica2):
     """Crea la gráfica 2 interactiva (Heatmap CPS) con Plotly - CORREGIDA"""
     if data_grafica2.get("status") != "success":
         st.error(f"No se pudo cargar la gráfica 2: {data_grafica2.get('message')}")
-        return None, None
+        return
     
     # Extraer datos
     heatmap_data = data_grafica2.get("heatmap_data", {})
@@ -358,31 +380,22 @@ def crear_grafica2_interactiva(data_grafica2):
     
     if not heatmap_data:
         st.warning("No hay datos suficientes para generar el heatmap")
-        return None, None
+        return
     
     cps_matrix = heatmap_data.get("cps_matrix", [])
     seg_matrix = heatmap_data.get("seg_matrix", [])
     row_labels = heatmap_data.get("row_labels", [])
     col_labels = heatmap_data.get("col_labels", [])
     
-    # Verificar que tenemos datos válidos
     if not cps_matrix or not row_labels or not col_labels:
-        st.warning("Datos del heatmap incompletos o vacíos")
-        return None, None
+        st.warning("Datos del heatmap incompletos")
+        return
     
-    # Convertir matrices a numpy arrays y manejar NaN
-    try:
-        cps_array = np.array(cps_matrix, dtype=float)
-        seg_array = np.array(seg_matrix, dtype=float)
-        
-        # Reemplazar NaN con 0 para visualización
-        cps_array_filled = np.where(np.isnan(cps_array), 0, cps_array)
-        seg_array_filled = np.where(np.isnan(seg_array), 0, seg_array)
-    except Exception as e:
-        st.error(f"Error al procesar matrices: {str(e)}")
-        return None, None
+    # Convertir matrices a numpy arrays
+    cps_array = np.array(cps_matrix)
+    seg_array = np.array(seg_matrix)
     
-    # Crear texto para cada celda
+    # Crear texto para cada celda - ETIQUETAS SIEMPRE VISIBLES
     text_matrix = []
     for i in range(len(cps_array)):
         row_text = []
@@ -392,167 +405,176 @@ def crear_grafica2_interactiva(data_grafica2):
             if np.isnan(cps) or cps == 0:
                 row_text.append("")
             else:
-                # Formatear CPS sin decimales si es entero
-                if cps.is_integer():
-                    cps_formatted = f"${int(cps):,}"
-                else:
-                    cps_formatted = f"${cps:,.0f}"
-                
-                # Formatear seguidores
-                if np.isnan(seg):
-                    seg_formatted = "0"
-                elif seg.is_integer():
-                    seg_formatted = f"{int(seg):,}"
-                else:
-                    seg_formatted = f"{seg:,.0f}"
-                
-                row_text.append(f"CPS: {cps_formatted}<br>Seg: {seg_formatted}")
+                # Formato con etiquetas siempre visibles
+                row_text.append(f"${cps:,.0f}<br>{seg:,.0f}")
         text_matrix.append(row_text)
     
-    # Calcular rangos para la escala de colores (excluyendo ceros)
-    cps_nonzero = cps_array_filled[cps_array_filled > 0]
-    if len(cps_nonzero) > 0:
-        # Usar percentiles para evitar outliers
-        zmin = np.percentile(cps_nonzero, 5)
-        zmax = np.percentile(cps_nonzero, 95)
-    else:
-        zmin = 0
-        zmax = 100
-    
-    # Crear heatmap principal
     try:
-        fig_heatmap = go.Figure(data=go.Heatmap(
-            z=cps_array_filled,
+        # Calcular percentiles solo si hay datos
+        cps_flat = cps_array[~np.isnan(cps_array)]
+        if len(cps_flat) > 0:
+            zmin = np.nanpercentile(cps_flat, 5)
+            zmax = np.nanpercentile(cps_flat, 95)
+        else:
+            zmin = 0
+            zmax = 100
+        
+        # Crear heatmap - CORREGIDO: title_side en lugar de titleside
+        fig = go.Figure(data=go.Heatmap(
+            z=cps_array,
             x=col_labels,
             y=row_labels,
             colorscale='RdYlGn_r',  # Invertido: rojo (malo) a verde (bueno)
             zmin=zmin,
             zmax=zmax,
             colorbar=dict(
-                title="Costo por Seguidor ($)",
-                titleside="right",
+                title="CPS ($)",
                 tickformat="$,.0f",
-                tickvals=[zmin, (zmin+zmax)/2, zmax],
-                ticktext=[f"${zmin:,.0f}", f"${(zmin+zmax)/2:,.0f}", f"${zmax:,.0f}"]
+                len=0.8
             ),
             hovertemplate='<b>%{y} - %{x}</b><br>CPS: $%{z:,.0f}<br>Seguidores netos: %{customdata:,.0f}<extra></extra>',
-            customdata=seg_array_filled,
+            customdata=seg_array,
             text=text_matrix,
             texttemplate="%{text}",
-            textfont=dict(size=10, color="white"),
+            textfont=dict(size=10, color="white", family="Arial Black"),
             hoverongaps=False
         ))
-    except Exception as e:
-        st.error(f"Error al crear heatmap: {str(e)}")
-        # Crear un heatmap simple como respaldo
-        fig_heatmap = go.Figure(data=go.Heatmap(
-            z=cps_array_filled,
-            x=col_labels,
-            y=row_labels,
-            colorscale='RdYlGn_r',
-            hovertemplate='<b>%{y} - %{x}</b><br>CPS: $%{z:,.0f}<extra></extra>'
-        ))
-    
-    # Configurar layout del heatmap
-    fig_heatmap.update_layout(
-        height=600,
-        template='plotly_dark',
-        plot_bgcolor='rgba(11, 16, 32, 0.8)',
-        paper_bgcolor='rgba(11, 16, 32, 0.8)',
-        font=dict(color='white', size=12),
-        title=dict(
-            text="📈 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)<br><sub>Análisis por día de semana y semana ISO - CPS bajo = mejor eficiencia</sub>",
-            font=dict(size=22, color='white'),
-            x=0.5,
-            xanchor='center'
-        ),
-        xaxis=dict(
-            title="Semana ISO",
-            tickangle=45,
-            gridcolor='rgba(255,255,255,0.1)',
-            side="top",
-            showgrid=False
-        ),
-        yaxis=dict(
-            title="Día de la semana",
-            gridcolor='rgba(255,255,255,0.1)',
-            autorange="reversed",
-            showgrid=False
-        ),
-        margin=dict(l=60, r=60, t=120, b=60)
-    )
-    
-    # Crear gráfico de barras para resumen por día si hay datos
-    fig_bar = None
-    if summary_by_day and len(summary_by_day) > 0:
-        try:
+        
+        # Configurar layout con fondo azul oscuro
+        fig.update_layout(
+            height=650,
+            template='plotly_dark',
+            plot_bgcolor='rgba(11, 16, 32, 0.9)',
+            paper_bgcolor='rgba(11, 16, 32, 0.9)',
+            font=dict(color='white', size=12, family="Arial"),
+            title=dict(
+                text="📈 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)<br><sub>Análisis por día de semana y semana ISO - CPS bajo = mejor</sub>",
+                font=dict(size=24, color='white', family="Arial Black"),
+                x=0.5,
+                xanchor='center'
+            ),
+            xaxis=dict(
+                title="Semana ISO",
+                tickangle=45,
+                gridcolor='rgba(255,255,255,0.1)',
+                side="top",
+                tickfont=dict(size=11, color='#c7d2fe')
+            ),
+            yaxis=dict(
+                title="Día de la semana",
+                gridcolor='rgba(255,255,255,0.1)',
+                autorange="reversed",
+                tickfont=dict(size=12, color='#c7d2fe', family="Arial Black")
+            ),
+            margin=dict(l=80, r=50, t=120, b=80)
+        )
+        
+        # Añadir anotaciones para explicar colores
+        fig.add_annotation(
+            x=0.02, y=1.05,
+            xref="paper", yref="paper",
+            text="🟢 CPS BAJO = MEJOR EFICIENCIA",
+            showarrow=False,
+            font=dict(size=12, color="#10b981", family="Arial Black"),
+            bgcolor="rgba(0,0,0,0.5)",
+            bordercolor="#10b981",
+            borderwidth=2,
+            borderpad=4
+        )
+        
+        fig.add_annotation(
+            x=0.02, y=1.02,
+            xref="paper", yref="paper",
+            text="🔴 CPS ALTO = PEOR EFICIENCIA",
+            showarrow=False,
+            font=dict(size=12, color="#ef4444", family="Arial Black"),
+            bgcolor="rgba(0,0,0,0.5)",
+            bordercolor="#ef4444",
+            borderwidth=2,
+            borderpad=4
+        )
+        
+        # Mostrar heatmap
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
+        
+        # Gráfico de barras para resumen por día
+        if summary_by_day:
             df_summary = pd.DataFrame(summary_by_day)
             
-            # Filtrar filas con datos válidos
-            df_summary_valid = df_summary.dropna(subset=["CPS_total_dia", "Dia_Semana"])
+            # Crear gráfico de barras con fondo azul oscuro
+            fig_bar = go.Figure()
             
-            if not df_summary_valid.empty:
-                # Ordenar por día de semana
-                dias_order = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-                df_summary_valid["Dia_Semana"] = pd.Categorical(
-                    df_summary_valid["Dia_Semana"], 
-                    categories=dias_order, 
-                    ordered=True
+            fig_bar.add_trace(go.Bar(
+                x=df_summary["Dia_Semana"],
+                y=df_summary["CPS_total_dia"],
+                name="CPS por día",
+                marker=dict(
+                    color=df_summary["CPS_total_dia"],
+                    colorscale='RdYlGn_r',
+                    showscale=True,
+                    cmin=np.nanpercentile(df_summary["CPS_total_dia"].dropna(), 5) if not df_summary["CPS_total_dia"].dropna().empty else 0,
+                    cmax=np.nanpercentile(df_summary["CPS_total_dia"].dropna(), 95) if not df_summary["CPS_total_dia"].dropna().empty else 100,
+                ),
+                hovertemplate='<b>%{x}</b><br>CPS: $%{y:,.0f}<br>Seguidores: %{customdata:,.0f}<extra></extra>',
+                customdata=df_summary["Seguidores_sum"],
+                text=df_summary["CPS_total_dia"].apply(lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A"),
+                textposition='outside',
+                textfont=dict(size=11, color='white', family="Arial Black")
+            ))
+            
+            fig_bar.update_layout(
+                height=450,
+                template='plotly_dark',
+                plot_bgcolor='rgba(11, 16, 32, 0.9)',
+                paper_bgcolor='rgba(11, 16, 32, 0.9)',
+                font=dict(color='white', size=12, family="Arial"),
+                title=dict(
+                    text="📊 RESUMEN POR DÍA DE LA SEMANA",
+                    font=dict(size=22, color='white', family="Arial Black"),
+                    x=0.5,
+                    xanchor='center'
+                ),
+                xaxis=dict(
+                    title="Día de la semana",
+                    gridcolor='rgba(255,255,255,0.1)',
+                    tickfont=dict(size=12, color='#c7d2fe', family="Arial Black")
+                ),
+                yaxis=dict(
+                    title="CPS (Costo por Seguidor $)",
+                    gridcolor='rgba(255,255,255,0.1)',
+                    tickprefix="$",
+                    tickfont=dict(size=11, color='#c7d2fe')
+                ),
+                hovermode='x unified',
+                margin=dict(l=60, r=50, t=80, b=80),
+                coloraxis_colorbar=dict(
+                    title="CPS ($)",
+                    tickformat="$,.0f"
                 )
-                df_summary_valid = df_summary_valid.sort_values("Dia_Semana")
-                
-                # Crear gráfico de barras
-                fig_bar = go.Figure()
-                
-                fig_bar.add_trace(go.Bar(
-                    x=df_summary_valid["Dia_Semana"],
-                    y=df_summary_valid["CPS_total_dia"],
-                    name="CPS por día",
-                    marker=dict(
-                        color=df_summary_valid["CPS_total_dia"],
-                        colorscale='RdYlGn_r',
-                        showscale=True,
-                        colorbar=dict(
-                            title="CPS ($)",
-                            titleside="right",
-                            tickformat="$,.0f"
-                        )
-                    ),
-                    hovertemplate='<b>%{x}</b><br>CPS: $%{y:,.0f}<br>Seguidores: %{customdata:,.0f}<extra></extra>',
-                    customdata=df_summary_valid["Seguidores_sum"]
-                ))
-                
-                fig_bar.update_layout(
-                    height=400,
-                    template='plotly_dark',
-                    plot_bgcolor='rgba(11, 16, 32, 0.8)',
-                    paper_bgcolor='rgba(11, 16, 32, 0.8)',
-                    font=dict(color='white', size=12),
-                    title=dict(
-                        text="📊 RESUMEN POR DÍA DE LA SEMANA",
-                        font=dict(size=18, color='white'),
-                        x=0.5,
-                        xanchor='center'
-                    ),
-                    xaxis=dict(
-                        title="Día de la semana",
-                        gridcolor='rgba(255,255,255,0.1)',
-                        showgrid=False
-                    ),
-                    yaxis=dict(
-                        title="CPS (Costo por Seguidor $)",
-                        gridcolor='rgba(255,255,255,0.1)',
-                        tickprefix="$",
-                        showgrid=True
-                    ),
-                    hovermode='x unified',
-                    margin=dict(l=60, r=60, t=80, b=60)
+            )
+            
+            st.plotly_chart(fig_bar, use_container_width=True)
+        
+        # Mostrar tabla de resumen por día
+        with st.expander("📋 Ver datos detallados del heatmap"):
+            if summary_by_day:
+                display_summary = pd.DataFrame(summary_by_day)
+                display_summary["Costo_sum"] = display_summary["Costo_sum"].apply(lambda x: f"${x:,.0f}")
+                display_summary["Seguidores_sum"] = display_summary["Seguidores_sum"].apply(lambda x: f"{x:,.0f}")
+                display_summary["CPS_total_dia"] = display_summary["CPS_total_dia"].apply(
+                    lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A"
                 )
-        except Exception as e:
-            st.warning(f"Error al crear gráfico de barras: {str(e)}")
-            fig_bar = None
-    
-    return fig_heatmap, fig_bar
+                st.dataframe(display_summary, use_container_width=True)
+                
+    except Exception as e:
+        st.error(f"Error al crear heatmap: {str(e)}")
+        st.info("Mostrando datos en formato de tabla como respaldo...")
+        
+        # Mostrar datos en tabla como respaldo
+        st.dataframe(pd.DataFrame({
+            'Día': row_labels,
+            **{f'Semana {i+1}': cps_matrix[:, i] if i < len(cps_matrix[0]) else [] for i in range(len(col_labels))}
+        }))
 
 #############################################
 # FIN NUEVAS FUNCIONES CORREGIDAS
@@ -1090,28 +1112,30 @@ st.markdown("""
 
 /* Gráficas avanzadas */
 .grafica-container {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    background: linear-gradient(135deg, #0b1020 0%, #0f172a 100%);
     border-radius: 16px;
     padding: 25px;
     margin: 20px 0;
     border: 1px solid #334155;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .grafica-title {
     color: white;
-    font-size: 24px;
-    font-weight: 700;
+    font-size: 28px;
+    font-weight: 800;
     margin-bottom: 10px;
     display: flex;
     align-items: center;
     gap: 10px;
+    font-family: 'Arial Black', sans-serif;
 }
 
 .grafica-subtitle {
     color: #94a3b8;
-    font-size: 14px;
+    font-size: 16px;
     margin-bottom: 25px;
+    font-family: 'Arial', sans-serif;
 }
 
 /* Tabs para gráficas */
@@ -1127,10 +1151,11 @@ st.markdown("""
     border-radius: 10px;
     background: rgba(255, 255, 255, 0.05);
     color: #cbd5e1;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.3s;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    font-family: 'Arial', sans-serif;
 }
 
 .grafica-tab:hover {
@@ -1142,7 +1167,7 @@ st.markdown("""
     background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
     color: white;
     border-color: transparent;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
 }
 
 /* Botones de acción */
@@ -1159,11 +1184,12 @@ st.markdown("""
     cursor: pointer;
     transition: all 0.3s;
     text-decoration: none;
+    font-family: 'Arial', sans-serif;
 }
 
 .action-button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
 }
 
 /* Tooltips */
@@ -1190,6 +1216,7 @@ st.markdown("""
     transition: opacity 0.3s;
     font-size: 12px;
     border: 1px solid #334155;
+    font-family: 'Arial', sans-serif;
 }
 
 .tooltip:hover .tooltiptext {
@@ -1197,73 +1224,38 @@ st.markdown("""
     opacity: 1;
 }
 
-/* Mensajes de error */
-.error-message {
-    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
-    border-radius: 12px;
-    padding: 20px;
-    margin: 20px 0;
-    border: 1px solid #ef4444;
-    color: white;
+/* Etiquetas de gráficas */
+.chart-label {
+    font-family: 'Arial Black', sans-serif !important;
+    font-weight: 800 !important;
+    color: white !important;
 }
 
-.error-message h4 {
-    margin: 0 0 10px 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.heatmap-cell {
+    font-family: 'Arial Black', sans-serif !important;
+    font-weight: 800 !important;
+    font-size: 10px !important;
 }
 
-.warning-message {
-    background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
-    border-radius: 12px;
-    padding: 20px;
-    margin: 20px 0;
-    border: 1px solid #f59e0b;
-    color: white;
+/* Leyenda mejorada */
+.legend-item {
+    font-family: 'Arial', sans-serif !important;
+    font-weight: 600 !important;
 }
 
-.warning-message h4 {
-    margin: 0 0 10px 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+/* Ejes mejorados */
+.axis-label {
+    font-family: 'Arial Black', sans-serif !important;
+    font-weight: 800 !important;
+    color: #c7d2fe !important;
 }
 
-.success-message {
-    background: linear-gradient(135deg, #065f46 0%, #047857 100%);
-    border-radius: 12px;
-    padding: 20px;
-    margin: 20px 0;
-    border: 1px solid #10b981;
-    color: white;
+/* Texto en gráficas */
+.chart-text {
+    font-family: 'Arial', sans-serif !important;
+    font-weight: 500 !important;
 }
 
-.success-message h4 {
-    margin: 0 0 10px 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-/* Spinner personalizado */
-.custom-spinner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
-}
-
-.spinner {
-    border: 4px solid rgba(59, 130, 246, 0.1);
-    border-radius: 50%;
-    border-top: 4px solid #3B82F6;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin-bottom: 15px;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1280,8 +1272,8 @@ with st.sidebar:
                     margin: 0 auto 12px auto; font-size: 26px;">
             📊
         </div>
-        <h2 style="color: white; margin-bottom: 4px; font-size: 20px;">DASHBOARD PRO</h2>
-        <p style="color: #94a3b8; font-size: 12px; margin: 0;">Social Media Analytics v3.1</p>
+        <h2 style="color: white; margin-bottom: 4px; font-size: 20px; font-family: 'Arial Black', sans-serif;">DASHBOARD PRO</h2>
+        <p style="color: #94a3b8; font-size: 12px; margin: 0; font-family: 'Arial', sans-serif;">Social Media Analytics v3.2</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1295,7 +1287,7 @@ with st.sidebar:
     except Exception as e:
         st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Offline</div>', unsafe_allow_html=True)
     
-    st.markdown('<p class="sidebar-title">🔗 Panel Professional</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-title" style="font-family: Arial Black, sans-serif;">🔗 Panel Professional</p>', unsafe_allow_html=True)
     
     # Botones de plataformas con botón GENERAL
     platforms = {
@@ -1319,7 +1311,7 @@ with st.sidebar:
     st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
     
     # Nueva sección para gráficas avanzadas
-    st.markdown('<p class="sidebar-title">📊 GRÁFICAS AVANZADAS</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-title" style="font-family: Arial Black, sans-serif;">📊 GRÁFICAS AVANZADAS</p>', unsafe_allow_html=True)
     
     col_graf1, col_graf2 = st.columns(2)
     
@@ -1329,7 +1321,6 @@ with st.sidebar:
             st.session_state["show_grafica1"] = not st.session_state.get("show_grafica1", False)
             if "show_grafica2" in st.session_state:
                 st.session_state["show_grafica2"] = False
-            st.rerun()
     
     with col_graf2:
         if st.button("📊 Gráfica 2", key="grafica2_btn", use_container_width=True,
@@ -1337,7 +1328,6 @@ with st.sidebar:
             st.session_state["show_grafica2"] = not st.session_state.get("show_grafica2", False)
             if "show_grafica1" in st.session_state:
                 st.session_state["show_grafica1"] = False
-            st.rerun()
     
     # Botón para ocultar gráficas
     if st.session_state.get("show_grafica1", False) or st.session_state.get("show_grafica2", False):
@@ -1352,7 +1342,7 @@ with st.sidebar:
     
     # Filtros de tiempo cuando no está en modo GENERAL
     if selected_platform != "general":
-        st.markdown('<p class="sidebar-title">📅 Filtros de Tiempo</p>', unsafe_allow_html=True)
+        st.markdown('<p class="sidebar-title" style="font-family: Arial Black, sans-serif;">📅 Filtros de Tiempo</p>', unsafe_allow_html=True)
         
         tiempo_filtro = st.selectbox(
             "Seleccionar período:",
@@ -1360,7 +1350,7 @@ with st.sidebar:
             key="tiempo_filtro"
         )
     
-    st.markdown('<p class="sidebar-title">📈 Status Conexiones</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-title" style="font-family: Arial Black, sans-serif;">📈 Status Conexiones</p>', unsafe_allow_html=True)
     
     # Estado de conexiones basado en datos reales
     connection_status = []
@@ -1388,8 +1378,8 @@ with st.sidebar:
         st.markdown(f"""
         <div class="status-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #e2e8f0;">{platform}</span>
-                <span class="{status_class}">{icon} {status.title()}</span>
+                <span style="color: #e2e8f0; font-family: 'Arial', sans-serif;">{platform}</span>
+                <span class="{status_class}" style="font-family: 'Arial', sans-serif;">{icon} {status.title()}</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1398,206 +1388,15 @@ with st.sidebar:
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
 st.markdown(f"""
 <div class="dashboard-header">
-    <h1>📊 SOCIAL MEDIA DASHBOARD PRO</h1>
-    <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 15px; font-weight: 400;">
+    <h1 style="font-family: 'Arial Black', sans-serif;">📊 SOCIAL MEDIA DASHBOARD PRO</h1>
+    <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 15px; font-weight: 400; font-family: 'Arial', sans-serif;">
         Analytics en Tiempo Real • Monitoreo de Performance • Insights Inteligentes
     </p>
-    <div style="position: absolute; bottom: 15px; right: 25px; font-size: 13px; opacity: 0.8;">
+    <div style="position: absolute; bottom: 15px; right: 25px; font-size: 13px; opacity: 0.8; font-family: 'Arial', sans-serif;">
         Actualizado: {current_time}
     </div>
 </div>
 """, unsafe_allow_html=True)
-
-# ================================================================
-# SECCIÓN: GRÁFICAS AVANZADAS (si están activadas)
-# ================================================================
-
-# Gráfica 1: Inversión vs Seguidores
-if st.session_state.get("show_grafica1", False):
-    st.markdown("""
-    <div class="grafica-container">
-        <div class="grafica-title">📈 GRÁFICA 1: INVERSIÓN VS SEGUIDORES</div>
-        <div class="grafica-subtitle">
-            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
-        </div>
-    """, unsafe_allow_html=True)
-    
-    with st.spinner("Cargando datos de la gráfica 1..."):
-        data_grafica1 = cargar_datos_grafica1()
-        
-        if data_grafica1.get("status") == "success":
-            fig_grafica1 = crear_grafica1_interactiva(data_grafica1)
-            
-            if fig_grafica1:
-                st.plotly_chart(fig_grafica1, use_container_width=True, config={'displayModeBar': True})
-                
-                # Mostrar información adicional
-                summary = data_grafica1.get("summary", {})
-                optimal_point = data_grafica1.get("optimal_point", {})
-                parameters = data_grafica1.get("parameters", {})
-                
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    st.metric(
-                        "📊 Días analizados",
-                        f"{summary.get('total_dias_validos', 0):,}",
-                        help="Total de días con inversión y seguidores positivos"
-                    )
-                
-                with col2:
-                    st.metric(
-                        "💰 Inversión promedio",
-                        f"${summary.get('INV_mean', 0):,.0f}",
-                        help="Inversión promedio por día válido"
-                    )
-                
-                with col3:
-                    st.metric(
-                        "👥 Seguidores promedio",
-                        f"{summary.get('SEG_mean', 0):,.0f}",
-                        help="Seguidores promedio por día válido"
-                    )
-                
-                with col4:
-                    if optimal_point and "CPS_curva" in optimal_point:
-                        st.metric(
-                            "⭐ CPS óptimo",
-                            f"${optimal_point.get('CPS_curva', 0):,.0f}",
-                            help="Costo por seguidor en el punto óptimo"
-                        )
-                    else:
-                        st.metric(
-                            "⭐ CPS óptimo",
-                            "N/A",
-                            help="Costo por seguidor en el punto óptimo"
-                        )
-                
-                # Mostrar tabla de datos de la curva
-                with st.expander("📋 Ver datos detallados de la curva"):
-                    curve_data = pd.DataFrame(data_grafica1.get("curve_data", []))
-                    if not curve_data.empty:
-                        display_curve = curve_data.copy()
-                        display_curve["Inversion_promedio"] = display_curve["Inversion_promedio"].apply(lambda x: f"${x:,.0f}")
-                        display_curve["Seguidores_promedio"] = display_curve["Seguidores_promedio"].apply(lambda x: f"{x:,.0f}")
-                        display_curve["CPS_curva"] = display_curve["CPS_curva"].apply(
-                            lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A"
-                        )
-                        display_curve["Dias_para_meta"] = display_curve["Dias_para_meta"].apply(
-                            lambda x: f"{x:.1f} días" if not pd.isna(x) else "N/A"
-                        )
-                        st.dataframe(display_curve, use_container_width=True)
-                    else:
-                        st.info("No hay datos de curva disponibles")
-            else:
-                st.error("No se pudo generar la gráfica 1. Verifique los datos.")
-        else:
-            st.error(f"Error al cargar datos de gráfica 1: {data_grafica1.get('message', 'Error desconocido')}")
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
-
-# Gráfica 2: Heatmap CPS
-elif st.session_state.get("show_grafica2", False):
-    st.markdown("""
-    <div class="grafica-container">
-        <div class="grafica-title">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</div>
-        <div class="grafica-subtitle">
-            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia
-        </div>
-    """, unsafe_allow_html=True)
-    
-    with st.spinner("Cargando datos de la gráfica 2..."):
-        data_grafica2 = cargar_datos_grafica2()
-        
-        if data_grafica2.get("status") == "success":
-            fig_heatmap, fig_bar = crear_grafica2_interactiva(data_grafica2)
-            
-            if fig_heatmap:
-                st.plotly_chart(fig_heatmap, use_container_width=True, config={'displayModeBar': True})
-                
-                # Mostrar gráfico de barras si existe
-                if fig_bar:
-                    st.plotly_chart(fig_bar, use_container_width=True)
-                
-                # Mostrar información adicional
-                heatmap_data = data_grafica2.get("heatmap_data", {})
-                summary_by_day = data_grafica2.get("summary_by_day", [])
-                
-                if summary_by_day and len(summary_by_day) > 0:
-                    df_summary = pd.DataFrame(summary_by_day)
-                    
-                    # Calcular estadísticas
-                    total_costo = df_summary["Costo_sum"].sum() if "Costo_sum" in df_summary.columns else 0
-                    total_seguidores = df_summary["Seguidores_sum"].sum() if "Seguidores_sum" in df_summary.columns else 0
-                    
-                    col1, col2, col3, col4 = st.columns(4)
-                    
-                    with col1:
-                        st.metric(
-                            "💰 Inversión total",
-                            f"${total_costo:,.0f}",
-                            help="Inversión total en el período analizado"
-                        )
-                    
-                    with col2:
-                        st.metric(
-                            "👥 Seguidores totales",
-                            f"{total_seguidores:,.0f}",
-                            help="Seguidores totales en el período"
-                        )
-                    
-                    with col3:
-                        if total_seguidores > 0:
-                            cps_promedio = total_costo / total_seguidores
-                            st.metric(
-                                "📊 CPS promedio",
-                                f"${cps_promedio:,.0f}",
-                                help="Costo por seguidor promedio"
-                            )
-                        else:
-                            st.metric(
-                                "📊 CPS promedio",
-                                "N/A",
-                                help="Costo por seguidor promedio"
-                            )
-                    
-                    with col4:
-                        semanas = len(heatmap_data.get("col_labels", []))
-                        st.metric(
-                            "📅 Semanas analizadas",
-                            f"{semanas}",
-                            help="Número de semanas en el heatmap"
-                        )
-                    
-                    # Mostrar tabla de resumen por día
-                    with st.expander("📋 Ver datos detallados por día"):
-                        if not df_summary.empty:
-                            display_summary = df_summary.copy()
-                            if "Costo_sum" in display_summary.columns:
-                                display_summary["Costo_sum"] = display_summary["Costo_sum"].apply(lambda x: f"${x:,.0f}")
-                            if "Seguidores_sum" in display_summary.columns:
-                                display_summary["Seguidores_sum"] = display_summary["Seguidores_sum"].apply(lambda x: f"{x:,.0f}")
-                            if "CPS_total_dia" in display_summary.columns:
-                                display_summary["CPS_total_dia"] = display_summary["CPS_total_dia"].apply(
-                                    lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A"
-                                )
-                            st.dataframe(display_summary, use_container_width=True)
-                        else:
-                            st.info("No hay datos de resumen por día disponibles")
-                else:
-                    st.warning("No hay datos de resumen por día disponibles")
-            else:
-                st.error("No se pudo generar el heatmap. Verifique los datos.")
-        else:
-            st.error(f"Error al cargar datos de gráfica 2: {data_grafica2.get('message', 'Error desconocido')}")
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
-
-# ================================================================
-# DASHBOARD NORMAL (si no se están mostrando gráficas avanzadas)
-# ================================================================
 
 # Determinar datos según plataforma seleccionada
 if selected_platform == "general":
@@ -1658,6 +1457,48 @@ if df.empty:
     st.info("Conectando al backend para cargar datos en tiempo real...")
     st.stop()
 
+# ================================================================
+# SECCIÓN: GRÁFICAS AVANZADAS (si están activadas)
+# ================================================================
+
+# Gráfica 1: Inversión vs Seguidores
+if st.session_state.get("show_grafica1", False):
+    st.markdown("""
+    <div class="grafica-container">
+        <div class="grafica-title">📈 GRÁFICA 1: INVERSIÓN VS SEGUIDORES</div>
+        <div class="grafica-subtitle">
+            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Cargando datos de la gráfica 1..."):
+        data_grafica1 = cargar_datos_grafica1()
+        crear_grafica1_interactiva(data_grafica1)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
+
+# Gráfica 2: Heatmap CPS
+elif st.session_state.get("show_grafica2", False):
+    st.markdown("""
+    <div class="grafica-container">
+        <div class="grafica-title">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</div>
+        <div class="grafica-subtitle">
+            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia • Etiquetas siempre visibles
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Cargando datos de la gráfica 2..."):
+        data_grafica2 = cargar_datos_grafica2()
+        crear_grafica2_interactiva(data_grafica2)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
+
+# ================================================================
+# DASHBOARD NORMAL (si no se están mostrando gráficas avanzadas)
+# ================================================================
+
 # Calcular métricas clave
 total_posts = len(df)
 total_views = df['visualizaciones'].sum() if 'visualizaciones' in df.columns else 0
@@ -1689,16 +1530,16 @@ with col_header1:
     st.markdown(f'<div style="font-size: 38px; text-align: center; color: {platform_color};">{platform_icon}</div>', unsafe_allow_html=True)
 
 with col_header2:
-    st.markdown(f'<h2 style="margin: 0; color: {platform_color}; font-size: 26px; text-align: center;">{platform_name} ANALYTICS</h2>', unsafe_allow_html=True)
-    st.markdown(f'<p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">{total_posts} contenidos analizados • Última actualización: {current_time_short}</p>', unsafe_allow_html=True)
+    st.markdown(f'<h2 style="margin: 0; color: {platform_color}; font-size: 26px; text-align: center; font-family: Arial Black, sans-serif;">{platform_name} ANALYTICS</h2>', unsafe_allow_html=True)
+    st.markdown(f'<p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px; text-align: center; font-family: Arial, sans-serif;">{total_posts} contenidos analizados • Última actualización: {current_time_short}</p>', unsafe_allow_html=True)
     if selected_platform != "general":
-        st.markdown(f'<p style="margin: 2px 0 0 0; color: #9ca3af; font-size: 11px; text-align: center;">Filtro: {st.session_state.get("tiempo_filtro", "Todo el período")}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p style="margin: 2px 0 0 0; color: #9ca3af; font-size: 11px; text-align: center; font-family: Arial, sans-serif;">Filtro: {st.session_state.get("tiempo_filtro", "Todo el período")}</p>', unsafe_allow_html=True)
 
 with col_header3:
     st.markdown(f'''
     <div style="background: {platform_color}15; color: {platform_color}; padding: 8px 18px; 
                 border-radius: 18px; font-size: 13px; font-weight: 600; text-align: center; 
-                border: 1px solid {platform_color}30;">
+                border: 1px solid {platform_color}30; font-family: Arial Black, sans-serif;">
         {total_posts} {platform_name} Posts
     </div>
     ''', unsafe_allow_html=True)
@@ -1749,10 +1590,10 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
                 border-radius: 16px; padding: 20px; margin-bottom: 20px; 
                 border-left: 5px solid #0ea5e9;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin: 0; color: #0369a1; font-size: 20px; display: flex; align-items: center; gap: 8px;">
+            <h3 style="margin: 0; color: #0369a1; font-size: 20px; display: flex; align-items: center; gap: 8px; font-family: Arial Black, sans-serif;">
                 📢 MÉTRICAS DE PAUTA PUBLICITARIA (SUMAS)
             </h3>
-            <div style="color: #64748b; font-size: 12px; background: white; padding: 5px 12px; border-radius: 15px; border: 1px solid #cbd5e1;">
+            <div style="color: #64748b; font-size: 12px; background: white; padding: 5px 12px; border-radius: 15px; border: 1px solid #cbd5e1; font-family: Arial, sans-serif;">
                 Período: {rango_fechas}
             </div>
         </div>
@@ -1765,27 +1606,27 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
     with col_pauta1:
         st.markdown(f"""
         <div class="pauta-card">
-            <div class="pauta-label">COSTE ANUNCIO</div>
-            <div class="pauta-value">${coste_anuncio}</div>
-            <div class="pauta-period">Suma total en pesos</div>
+            <div class="pauta-label" style="font-family: Arial, sans-serif;">COSTE ANUNCIO</div>
+            <div class="pauta-value" style="font-family: Arial Black, sans-serif;">${coste_anuncio}</div>
+            <div class="pauta-period" style="font-family: Arial, sans-serif;">Suma total en pesos</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col_pauta2:
         st.markdown(f"""
         <div class="pauta-card">
-            <div class="pauta-label">VISUALIZACIONES VIDEOS</div>
-            <div class="pauta-value">{visualizaciones_videos}</div>
-            <div class="pauta-period">Suma de reproducciones</div>
+            <div class="pauta-label" style="font-family: Arial, sans-serif;">VISUALIZACIONES VIDEOS</div>
+            <div class="pauta-value" style="font-family: Arial Black, sans-serif;">{visualizaciones_videos}</div>
+            <div class="pauta-period" style="font-family: Arial, sans-serif;">Suma de reproducciones</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col_pauta3:
         st.markdown(f"""
         <div class="pauta-card">
-            <div class="pauta-label">NUEVOS SEGUIDORES</div>
-            <div class="pauta-value">{nuevos_seguidores}</div>
-            <div class="pauta-period">Suma de audiencia ganada</div>
+            <div class="pauta-label" style="font-family: Arial, sans-serif;">NUEVOS SEGUIDORES</div>
+            <div class="pauta-value" style="font-family: Arial Black, sans-serif;">{nuevos_seguidores}</div>
+            <div class="pauta-period" style="font-family: Arial, sans-serif;">Suma de audiencia ganada</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1801,9 +1642,9 @@ if selected_platform == "general" or selected_platform == "tiktok":
     with col1:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">TOTAL SEGUIDORES</div>
-            <div class="metric-value">{total_followers:,}</div>
-            <div class="metric-trend trend-up">
+            <div class="metric-label" style="font-family: Arial, sans-serif;">TOTAL SEGUIDORES</div>
+            <div class="metric-value" style="font-family: Arial Black, sans-serif;">{total_followers:,}</div>
+            <div class="metric-trend trend-up" style="font-family: Arial, sans-serif;">
                 <span>👥 TikTok Followers</span>
             </div>
         </div>
@@ -1812,9 +1653,9 @@ if selected_platform == "general" or selected_platform == "tiktok":
     with col2:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">TOTAL CONTENIDOS</div>
-            <div class="metric-value">{total_posts}</div>
-            <div class="metric-trend trend-up">
+            <div class="metric-label" style="font-family: Arial, sans-serif;">TOTAL CONTENIDOS</div>
+            <div class="metric-value" style="font-family: Arial Black, sans-serif;">{total_posts}</div>
+            <div class="metric-trend trend-up" style="font-family: Arial, sans-serif;">
                 <span>📈 Contenido Activo</span>
             </div>
         </div>
@@ -1823,9 +1664,9 @@ if selected_platform == "general" or selected_platform == "tiktok":
     with col3:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">VISUALIZACIONES TOTALES</div>
-            <div class="metric-value">{total_views:,}</div>
-            <div class="metric-trend trend-up">
+            <div class="metric-label" style="font-family: Arial, sans-serif;">VISUALIZACIONES TOTALES</div>
+            <div class="metric-value" style="font-family: Arial Black, sans-serif;">{total_views:,}</div>
+            <div class="metric-trend trend-up" style="font-family: Arial, sans-serif;">
                 <span>👁️ Alcance Total</span>
             </div>
         </div>
@@ -1834,9 +1675,9 @@ if selected_platform == "general" or selected_platform == "tiktok":
     with col4:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">RENDIMIENTO DIARIO</div>
-            <div class="metric-value">{avg_daily_perf:.1f}</div>
-            <div class="metric-trend trend-up">
+            <div class="metric-label" style="font-family: Arial, sans-serif;">RENDIMIENTO DIARIO</div>
+            <div class="metric-value" style="font-family: Arial Black, sans-serif;">{avg_daily_perf:.1f}</div>
+            <div class="metric-trend trend-up" style="font-family: Arial, sans-serif;">
                 <span>🚀 Views/Día</span>
             </div>
         </div>
@@ -1845,9 +1686,9 @@ if selected_platform == "general" or selected_platform == "tiktok":
     with col5:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">TASA DE ENGAGEMENT</div>
-            <div class="metric-value">{engagement_rate:.2f}%</div>
-            <div class="metric-trend trend-up">
+            <div class="metric-label" style="font-family: Arial, sans-serif;">TASA DE ENGAGEMENT</div>
+            <div class="metric-value" style="font-family: Arial Black, sans-serif;">{engagement_rate:.2f}%</div>
+            <div class="metric-trend trend-up" style="font-family: Arial, sans-serif;">
                 <span>💬 Interacción</span>
             </div>
         </div>
@@ -1859,9 +1700,9 @@ else:
     with col1:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">TOTAL CONTENIDOS</div>
-            <div class="metric-value">{total_posts}</div>
-            <div class="metric-trend trend-up">
+            <div class="metric-label" style="font-family: Arial, sans-serif;">TOTAL CONTENIDOS</div>
+            <div class="metric-value" style="font-family: Arial Black, sans-serif;">{total_posts}</div>
+            <div class="metric-trend trend-up" style="font-family: Arial, sans-serif;">
                 <span>📈 Contenido Activo</span>
             </div>
         </div>
@@ -1870,9 +1711,9 @@ else:
     with col2:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">VISUALIZACIONES TOTALES</div>
-            <div class="metric-value">{total_views:,}</div>
-            <div class="metric-trend trend-up">
+            <div class="metric-label" style="font-family: Arial, sans-serif;">VISUALIZACIONES TOTALES</div>
+            <div class="metric-value" style="font-family: Arial Black, sans-serif;">{total_views:,}</div>
+            <div class="metric-trend trend-up" style="font-family: Arial, sans-serif;">
                 <span>👁️ Alcance Total</span>
             </div>
         </div>
@@ -1881,9 +1722,9 @@ else:
     with col3:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">RENDIMIENTO DIARIO</div>
-            <div class="metric-value">{avg_daily_perf:.1f}</div>
-            <div class="metric-trend trend-up">
+            <div class="metric-label" style="font-family: Arial, sans-serif;">RENDIMIENTO DIARIO</div>
+            <div class="metric-value" style="font-family: Arial Black, sans-serif;">{avg_daily_perf:.1f}</div>
+            <div class="metric-trend trend-up" style="font-family: Arial, sans-serif;">
                 <span>🚀 Views/Día</span>
             </div>
         </div>
@@ -1892,9 +1733,9 @@ else:
     with col4:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">TASA DE ENGAGEMENT</div>
-            <div class="metric-value">{engagement_rate:.2f}%</div>
-            <div class="metric-trend trend-up">
+            <div class="metric-label" style="font-family: Arial, sans-serif;">TASA DE ENGAGEMENT</div>
+            <div class="metric-value" style="font-family: Arial Black, sans-serif;">{engagement_rate:.2f}%</div>
+            <div class="metric-trend trend-up" style="font-family: Arial, sans-serif;">
                 <span>💬 Interacción</span>
             </div>
         </div>
@@ -1905,10 +1746,10 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
     st.markdown("""
     <div class="performance-chart">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 20px; font-family: Arial Black, sans-serif;">
                 📈 EVOLUCIÓN DE SEGUIDORES TIKTOK Y MÉTRICAS DE PAUTA
             </h3>
-            <div style="color: #6b7280; font-size: 12px;">
+            <div style="color: #6b7280; font-size: 12px; font-family: Arial, sans-serif;">
                 Total Seguidores: {:,}
             </div>
         </div>
@@ -2103,10 +1944,10 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
 st.markdown("""
 <div class="performance-chart">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
+        <h3 style="margin: 0; color: #1f2937; font-size: 20px; font-family: Arial Black, sans-serif;">
             📈 PERFORMANCE OVER TIME - EVOLUCIÓN DETALLADA
         </h3>
-        <div style="color: #6b7280; font-size: 12px;">
+        <div style="color: #6b7280; font-size: 12px; font-family: Arial, sans-serif;">
             Gráfica multi-línea interactiva
         </div>
     </div>
@@ -2264,14 +2105,14 @@ st.markdown("""
 <div class="data-table-container">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
-            <h3 style="margin: 0; color: #1f2937; font-size: 20px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 20px; font-family: Arial Black, sans-serif;">
                 📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA
             </h3>
-            <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px;">
+            <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px; font-family: Arial, sans-serif;">
                 Lista completa de contenidos con todos los detalles
             </p>
         </div>
-        <div style="color: #6b7280; font-size: 12px; background: #f8fafc; padding: 6px 14px; border-radius: 18px; border: 1px solid #e5e7eb;">
+        <div style="color: #6b7280; font-size: 12px; background: #f8fafc; padding: 6px 14px; border-radius: 18px; border: 1px solid #e5e7eb; font-family: Arial, sans-serif;">
             {total_posts} contenidos totales
         </div>
     </div>
@@ -2442,7 +2283,7 @@ with col_analysis1:
     st.markdown("""
     <div class="performance-chart" style="height: 100%;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-            <h3 style="margin: 0; color: #1f2937; font-size: 18px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 18px; font-family: Arial Black, sans-serif;">
                 📊 PERFORMANCE ANALYTICS
             </h3>
         </div>
@@ -2494,8 +2335,8 @@ with col_analysis1:
         st.markdown(f"""
         <div style="margin-top: 18px; padding: 18px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); 
                     border-radius: 12px; border-left: 4px solid #3B82F6;">
-            <h4 style="margin: 0 0 12px 0; color: #374151; font-size: 15px;">📈 ANÁLISIS DE PERFORMANCE</h4>
-            <div style="color: #4b5563; font-size: 13px;">
+            <h4 style="margin: 0 0 12px 0; color: #374151; font-size: 15px; font-family: Arial Black, sans-serif;">📈 ANÁLISIS DE PERFORMANCE</h4>
+            <div style="color: #4b5563; font-size: 13px; font-family: Arial, sans-serif;">
                 <div style="margin-bottom: 6px;">
                     <span style="display: inline-block; width: 160px;">🟢 Alto rendimiento:</span>
                     <span style="font-weight: 700; color: #10b981;">{high_perf} posts ({high_perf_pct:.1f}%)</span>
@@ -2533,7 +2374,7 @@ with col_analysis2:
     st.markdown("""
     <div class="performance-chart" style="height: 100%;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-            <h3 style="margin: 0; color: #1f2937; font-size: 18px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 18px; font-family: Arial Black, sans-serif;">
                 📈 KEY METRICS - MÉTRICAS CLAVE
             </h3>
         </div>
@@ -2599,9 +2440,9 @@ with col_analysis2:
                         border-radius: 8px; margin: 3px 0; border: 1px solid #e5e7eb;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 16px;">{icon}</span>
-                    <span style="color: #4b5563; font-size: 13px; font-weight: 500;">{metric_name}</span>
+                    <span style="color: #4b5563; font-size: 13px; font-weight: 500; font-family: Arial, sans-serif;">{metric_name}</span>
                 </div>
-                <span style="font-weight: 700; color: #1f2937; font-size: 14px;">
+                <span style="font-weight: 700; color: #1f2937; font-size: 14px; font-family: Arial Black, sans-serif;">
                     {value}
                 </span>
             </div>
@@ -2611,8 +2452,8 @@ with col_analysis2:
         st.markdown("""
         <div style="margin-top: 18px; padding: 18px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
                     border-radius: 12px; border-left: 4px solid #0ea5e9;">
-            <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 15px;">📊 ANÁLISIS DE ENGAGEMENT AVANZADO</h4>
-            <div style="color: #4b5563; font-size: 13px;">
+            <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 15px; font-family: Arial Black, sans-serif;">📊 ANÁLISIS DE ENGAGEMENT AVANZADO</h4>
+            <div style="color: #4b5563; font-size: 13px; font-family: Arial, sans-serif;">
         """, unsafe_allow_html=True)
         
         engagement_html = ""
@@ -2660,8 +2501,8 @@ current_time_full = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 st.markdown(f"""
 <div style="text-align: center; color: #6b7280; font-size: 12px; padding: 25px; 
             border-top: 1px solid #e5e7eb; margin-top: 30px;">
-    <div style="display: flex; justify-content: center; gap: 25px; margin-bottom: 12px; flex-wrap: wrap;">
-        <span>Social Media Dashboard PRO v3.1</span>
+    <div style="display: flex; justify-content: center; gap: 25px; margin-bottom: 12px; flex-wrap: wrap; font-family: Arial, sans-serif;">
+        <span>Social Media Dashboard PRO v3.2</span>
         <span>•</span>
         <span>Data from Backend API</span>
         <span>•</span>
@@ -2671,7 +2512,7 @@ st.markdown(f"""
         <span>•</span>
         <span>Gráficas Avanzadas: Inversión vs Seguidores • Heatmap CPS</span>
     </div>
-    <div style="font-size: 11px; color: #9ca3af;">
+    <div style="font-size: 11px; color: #9ca3af; font-family: Arial, sans-serif;">
         © 2025 Social Media Analytics Platform • Connected to: <strong>{BACKEND_URL}</strong> • {current_time_full}
     </div>
 </div>
