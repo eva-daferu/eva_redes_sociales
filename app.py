@@ -158,7 +158,7 @@ def cargar_datos_pauta():
         return pd.DataFrame()
 
 #############################################
-# NUEVAS FUNCIONES PARA GRÁFICAS AVANZADAS - AJUSTADAS CON FONDO AZUL OSCURO
+# NUEVAS FUNCIONES PARA GRÁFICAS AVANZADAS - AJUSTADAS CON FONDO AZUL OSCURO Y ETIQUETAS VISIBLES
 #############################################
 
 def cargar_datos_grafica1():
@@ -184,7 +184,7 @@ def cargar_datos_grafica2():
         return {"status": "error", "message": str(e)}
 
 def crear_grafica1_interactiva(data_grafica1):
-    """Crea la gráfica 1 interactiva con Plotly - FONDO AZUL OSCURO COMO ORIGINAL"""
+    """Crea la gráfica 1 interactiva con Plotly - FONDO AZUL OSCURO COMO ORIGINAL CON ETIQUETAS SIEMPRE VISIBLES"""
     if data_grafica1.get("status") != "success":
         st.error(f"No se pudo cargar la gráfica 1: {data_grafica1.get('message')}")
         return
@@ -213,6 +213,18 @@ def crear_grafica1_interactiva(data_grafica1):
         except Exception:
             return "—"
     
+    # Formateador para días
+    def fmt_days(x):
+        if x is None or (isinstance(x, float) and np.isnan(x)):
+            return "—"
+        try:
+            v = float(x)
+            if v <= 0:
+                return "—"
+            return f"{v:.1f}"
+        except Exception:
+            return "—"
+    
     # Crear figura con FONDO AZUL OSCURO
     fig = go.Figure()
     
@@ -227,7 +239,9 @@ def crear_grafica1_interactiva(data_grafica1):
         'linea_curva': '#38bdf8',
         'puntos_curva': '#f59e0b',
         'linea_promedio': '#22d3ee',
-        'punto_optimo': '#22c55e'
+        'punto_optimo': '#22c55e',
+        'etiqueta_fondo': '#0b1020',
+        'etiqueta_borde': '#334155'
     }
     
     # 1. Puntos de días reales (scatter) - más opacos como original
@@ -257,27 +271,56 @@ def crear_grafica1_interactiva(data_grafica1):
         customdata=curve_data["CPS_curva"]
     ))
     
-    # 3. Puntos de la curva promedio
-    fig.add_trace(go.Scatter(
-        x=curve_data["Inversion_promedio"],
-        y=curve_data["Seguidores_promedio"],
-        mode='markers',
-        name='Puntos promedio (hover/click)',
-        marker=dict(
-            size=12,
-            color=colors['puntos_curva'],
-            opacity=0.98,
-            line=dict(width=1, color='white')
-        ),
-        hovertemplate='<b>Punto curva</b><br>Inv: $%{x:,.0f}<br>SEG: %{y:,.0f}<br>CPS: $%{customdata:,.0f}<extra></extra>',
-        customdata=curve_data["CPS_curva"]
-    ))
+    # 3. Puntos de la curva promedio CON TEXTO SIEMPRE VISIBLE
+    for idx, row in curve_data.iterrows():
+        # Crear texto para la etiqueta (igual al original)
+        dias_meta = row.get("Dias_para_meta", np.nan)
+        label_text = (f"Inv {fmt_int_plain(row['Inversion_promedio'])}<br>"
+                     f"SEG {fmt_int_plain(row['Seguidores_promedio'])}<br>"
+                     f"CPS {fmt_int_plain(row['CPS_curva'])}<br>"
+                     f"1000 SEG ~ {fmt_days(dias_meta)} días<br>"
+                     f"Días {int(row['Dias'])}")
+        
+        # Añadir punto con etiqueta
+        fig.add_trace(go.Scatter(
+            x=[row["Inversion_promedio"]],
+            y=[row["Seguidores_promedio"]],
+            mode='markers+text',
+            name='Puntos promedio',
+            marker=dict(
+                size=12,
+                color=colors['puntos_curva'],
+                opacity=0.98,
+                line=dict(width=1, color='white')
+            ),
+            text=[label_text],
+            textposition="top center",
+            textfont=dict(
+                size=9,
+                color=colors['texto'],
+                family="Arial"
+            ),
+            hovertemplate='<b>Punto curva</b><br>Inv: $%{x:,.0f}<br>SEG: %{y:,.0f}<br>CPS: $%{customdata:,.0f}<extra></extra>',
+            customdata=[row["CPS_curva"]],
+            showlegend=False if idx > 0 else True
+        ))
     
-    # 4. Punto óptimo
+    # 4. Punto óptimo CON ETIQUETA SIEMPRE VISIBLE
     if optimal_point and "Inversion_promedio" in optimal_point and "Seguidores_promedio" in optimal_point:
         opt_cps = optimal_point.get("CPS_curva", 0)
         opt_dias = optimal_point.get("Dias", 0)
         opt_dias_meta = optimal_point.get("Dias_para_meta", 0)
+        cps_min = summary.get("cps_min_curva", 0)
+        cps_max = summary.get("cps_max_tol", 0)
+        
+        # Crear texto para la etiqueta del punto óptimo
+        opt_label_text = (f"Óptimo<br>"
+                         f"Inv {fmt_int_plain(optimal_point['Inversion_promedio'])}<br>"
+                         f"SEG {fmt_int_plain(optimal_point['Seguidores_promedio'])}<br>"
+                         f"CPS {fmt_int_plain(opt_cps)}<br>"
+                         f"1000 SEG ~ {fmt_days(opt_dias_meta)} días<br>"
+                         f"CPS_min {fmt_int_plain(cps_min)}<br>"
+                         f"CPS_max {fmt_int_plain(cps_max)}")
         
         hover_text = (f"<b>PUNTO ÓPTIMO</b><br>"
                      f"Inversión: ${optimal_point['Inversion_promedio']:,.0f}<br>"
@@ -289,13 +332,20 @@ def crear_grafica1_interactiva(data_grafica1):
         fig.add_trace(go.Scatter(
             x=[optimal_point["Inversion_promedio"]],
             y=[optimal_point["Seguidores_promedio"]],
-            mode='markers',
+            mode='markers+text',
             name=f'Punto óptimo (max SEG dentro del mejor CPS, tol {int(parameters.get("OPT_CPS_TOL", 0.20)*100)}%)',
             marker=dict(
                 size=25,
                 color=colors['punto_optimo'],
                 symbol='star',
                 line=dict(width=1.8, color='white')
+            ),
+            text=[opt_label_text],
+            textposition="top center",
+            textfont=dict(
+                size=9,
+                color=colors['texto'],
+                family="Arial"
             ),
             hovertemplate=hover_text + '<extra></extra>'
         ))
@@ -330,14 +380,14 @@ def crear_grafica1_interactiva(data_grafica1):
     
     # Configurar layout con FONDO AZUL OSCURO
     fig.update_layout(
-        height=650,
+        height=700,
         template='plotly_dark',
         plot_bgcolor=colors['fondo_ejes'],
         paper_bgcolor=colors['fondo_figura'],
         font=dict(color=colors['texto'], size=12, family="Arial"),
         title=dict(
             text=f"Inversión vs Seguidores (curva por niveles) — Hover/Click en puntos naranjas<br>"
-                 f"<span style='font-size:14px; color:#94a3b8'>Impacto {impact_days}d | STEP ${parameters.get('STEP', 15000):,}</span>",
+                 f"<span style='font-size:14px; color:#94a3b8'>Impacto {impact_days}d | STEP ${parameters.get('STEP', 15000):,} | Promedio SEG = {fmt_int_plain(summary.get('SEG_mean', 0))} | Promedio inversión = {fmt_int_plain(summary.get('INV_mean', 0))}</span>",
             font=dict(size=22, color='white', family="Arial Black"),
             x=0.5,
             xanchor='center',
