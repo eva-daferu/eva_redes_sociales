@@ -199,9 +199,15 @@ def cargar_datos():
     
     return df, youtobe_data, tiktok_data, df_followers, df_pauta
 
-# Estilos CSS mejorados
+# Estilos CSS mejorados con fondo profesional
 st.markdown("""
 <style>
+/* Fondo profesional con gradiente suave */
+.stApp {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+    min-height: 100vh;
+}
+
 /* Eliminar espacio superior */
 .main { 
     padding: 0 !important;
@@ -210,27 +216,46 @@ st.markdown("""
 .block-container {
     padding-top: 0.5rem !important;
     padding-bottom: 0 !important;
+    background: transparent !important;
 }
 
-/* Sidebar styling - AZUL PROFESIONAL */
+/* Sidebar styling - AZUL PROFESIONAL CON FONDO DE GRANDE */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     border-right: 1px solid #334155;
+    position: relative;
+    overflow: hidden;
+}
+
+[data-testid="stSidebar"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
+    z-index: 0;
 }
 
 [data-testid="stSidebar"] > div:first-child {
     padding-top: 0.8rem;
+    position: relative;
+    z-index: 1;
 }
 
-/* Botones de plataformas */
+/* Botones de plataformas con diseño mejorado */
 .stButton > button {
     display: flex;
     align-items: center;
-    padding: 8px 15px;
-    margin: 3px 0;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 10px 16px;
+    margin: 4px 0;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     color: #e2e8f0;
     font-size: 13px;
     font-weight: 500;
@@ -239,60 +264,59 @@ st.markdown("""
     width: 100%;
     text-align: left;
     justify-content: flex-start;
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+}
+
+.stButton > button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: 0.5s;
 }
 
 .stButton > button:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
-    transform: translateX(3px);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateX(4px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.stButton > button:hover::before {
+    left: 100%;
 }
 
 .stButton > button[kind="primary"] {
-    background: rgba(59, 130, 246, 0.2);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0.15) 100%);
     border-color: #3B82F6;
     color: #3B82F6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
-/* Métricas en una sola franja horizontal - DISEÑO MEJORADO */
-.metrics-horizontal {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 15px;
-    width: 100%;
-    overflow-x: auto;
-    padding-bottom: 5px;
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 #f1f5f9;
-}
-
-.metrics-horizontal::-webkit-scrollbar {
-    height: 6px;
-}
-
-.metrics-horizontal::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 3px;
-}
-
-.metrics-horizontal::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
-}
-
+/* Tarjetas de métricas con fondo de vidrio y efectos premium */
 .metric-horizontal-item {
-    flex: 1 0 auto;
-    min-width: 160px;
-    max-width: 200px;
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-    border-radius: 12px;
-    padding: 15px 12px;
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
+    border-radius: 14px;
+    padding: 18px 14px;
+    box-shadow: 
+        0 8px 20px rgba(0, 0, 0, 0.08),
+        0 4px 6px rgba(0, 0, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.9);
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
     overflow: hidden;
     text-align: center;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(20px);
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .metric-horizontal-item::before {
@@ -305,6 +329,32 @@ st.markdown("""
     background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
     background-size: 200% 100%;
     animation: shimmer 3s infinite linear;
+    border-radius: 14px 14px 0 0;
+}
+
+.metric-horizontal-item::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.metric-horizontal-item:hover {
+    transform: translateY(-8px) scale(1.03);
+    box-shadow: 
+        0 15px 35px rgba(59, 130, 246, 0.25),
+        0 5px 15px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.metric-horizontal-item:hover::after {
+    opacity: 1;
 }
 
 @keyframes shimmer {
@@ -312,20 +362,16 @@ st.markdown("""
     100% { background-position: 200% 0; }
 }
 
-.metric-horizontal-item:hover {
-    transform: translateY(-5px) scale(1.02);
-    box-shadow: 0 12px 25px rgba(59, 130, 246, 0.15);
-    border-color: #3B82F6;
-}
-
 .metric-horizontal-value {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 900;
     color: #1f2937;
-    margin: 8px 0 4px 0;
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    margin: 8px 0 5px 0;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
     text-shadow: 0 1px 2px rgba(0,0,0,0.05);
     letter-spacing: -0.5px;
+    position: relative;
+    z-index: 2;
 }
 
 .metric-horizontal-label {
@@ -333,31 +379,39 @@ st.markdown("""
     color: #6b7280;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
-    line-height: 1.3;
+    letter-spacing: 1px;
+    line-height: 1.4;
+    position: relative;
+    z-index: 2;
 }
 
 .metric-horizontal-icon {
-    font-size: 20px;
-    margin-bottom: 8px;
-    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.1));
+    font-size: 22px;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,0.1));
+    position: relative;
+    z-index: 2;
 }
 
-/* Tarjetas de pauta publicitaria en horizontal - DISEÑO MEJORADO */
+/* Tarjetas de pauta publicitaria con fondo premium */
 .pauta-horizontal-item {
-    flex: 1 0 auto;
-    min-width: 160px;
-    max-width: 200px;
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    border-radius: 12px;
-    padding: 15px 12px;
-    box-shadow: 0 6px 15px rgba(14, 165, 233, 0.12);
-    border: 1px solid #bae6fd;
+    background: linear-gradient(135deg, rgba(240, 249, 255, 0.95) 0%, rgba(224, 242, 254, 0.9) 100%);
+    border-radius: 14px;
+    padding: 18px 14px;
+    box-shadow: 
+        0 8px 20px rgba(14, 165, 233, 0.15),
+        0 4px 6px rgba(14, 165, 233, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(186, 230, 253, 0.8);
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
     overflow: hidden;
     text-align: center;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(20px);
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .pauta-horizontal-item::before {
@@ -370,21 +424,43 @@ st.markdown("""
     background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
     background-size: 200% 100%;
     animation: shimmer 3s infinite linear;
+    border-radius: 14px 14px 0 0;
+}
+
+.pauta-horizontal-item::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
 .pauta-horizontal-item:hover {
-    transform: translateY(-5px) scale(1.02);
-    box-shadow: 0 12px 25px rgba(14, 165, 233, 0.2);
-    border-color: #0ea5e9;
+    transform: translateY(-8px) scale(1.03);
+    box-shadow: 
+        0 15px 35px rgba(14, 165, 233, 0.3),
+        0 5px 15px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    border-color: rgba(14, 165, 233, 0.4);
+}
+
+.pauta-horizontal-item:hover::after {
+    opacity: 1;
 }
 
 .pauta-horizontal-value {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 900;
     color: #0369a1;
-    margin: 8px 0 4px 0;
+    margin: 8px 0 5px 0;
     text-shadow: 0 1px 2px rgba(0,0,0,0.05);
     letter-spacing: -0.5px;
+    position: relative;
+    z-index: 2;
 }
 
 .pauta-horizontal-label {
@@ -392,101 +468,155 @@ st.markdown("""
     color: #475569;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
-    line-height: 1.3;
+    letter-spacing: 1px;
+    line-height: 1.4;
+    position: relative;
+    z-index: 2;
 }
 
 .pauta-horizontal-icon {
-    font-size: 20px;
-    margin-bottom: 8px;
+    font-size: 22px;
+    margin-bottom: 10px;
     color: #0ea5e9;
-    filter: drop-shadow(0 2px 3px rgba(14, 165, 233, 0.3));
+    filter: drop-shadow(0 3px 5px rgba(14, 165, 233, 0.3));
+    position: relative;
+    z-index: 2;
 }
 
-/* Header principal */
+/* Header principal con diseño premium */
 .dashboard-header {
     background: linear-gradient(135deg, #1e40af 0%, #3B82F6 100%);
-    border-radius: 12px;
-    padding: 18px 22px;
+    border-radius: 16px;
+    padding: 22px 26px;
     color: white;
-    margin-bottom: 12px;
-    box-shadow: 0 6px 18px rgba(59, 130, 246, 0.25);
+    margin-bottom: 15px;
+    box-shadow: 
+        0 10px 25px rgba(59, 130, 246, 0.35),
+        0 5px 10px rgba(59, 130, 246, 0.2);
     position: relative;
     overflow: hidden;
-    border: 1px solid #3B82F6;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dashboard-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
 }
 
 .dashboard-header h1 {
     margin: 0;
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 800;
     line-height: 1.2;
-    font-family: 'Arial Black', sans-serif;
+    font-family: 'Inter', 'Arial Black', sans-serif;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    position: relative;
+    z-index: 2;
 }
 
-.dashboard-header::before {
+.dashboard-header::after {
     content: '';
     position: absolute;
     top: -50%;
     right: -50%;
     width: 200%;
     height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
-    background-size: 20px 20px;
-    opacity: 0.1;
+    background: radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px);
+    background-size: 25px 25px;
+    opacity: 0.15;
+    animation: float 20s linear infinite;
 }
 
-/* Selector de gráficas - DISEÑO MEJORADO CON FONDO Y EFECTOS */
+@keyframes float {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    100% { transform: translate(-50px, -50px) rotate(360deg); }
+}
+
+/* Selector de gráficas - DISEÑO PREMIUM */
 .grafica-selector-container {
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    border-radius: 12px;
-    padding: 10px;
-    margin: 12px 0 15px 0;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(135deg, rgba(248, 250, 252, 0.9) 0%, rgba(241, 245, 249, 0.9) 100%);
+    border-radius: 16px;
+    padding: 15px;
+    margin: 15px 0 18px 0;
+    border: 1px solid rgba(229, 231, 235, 0.8);
+    box-shadow: 
+        0 10px 25px rgba(0, 0, 0, 0.12),
+        0 5px 10px rgba(0, 0, 0, 0.06);
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+}
+
+.grafica-selector-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 10% 90%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 90% 10%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+    z-index: 1;
 }
 
 .grafica-selector-title {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 800;
     color: #1f2937;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
+    position: relative;
+    z-index: 2;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .grafica-selector-buttons {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     justify-content: center;
+    position: relative;
+    z-index: 2;
 }
 
-/* Botones de selección de gráficas - DISEÑO MEJORADO */
+/* Botones de selección de gráficas - DISEÑO PREMIUM */
 .grafica-selector-btn {
     flex: 1;
-    max-width: 220px;
-    padding: 16px 15px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-    border: 2px solid #e5e7eb;
+    max-width: 240px;
+    padding: 18px 16px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%);
+    border: 2px solid rgba(229, 231, 235, 0.9);
     color: #64748b;
     font-weight: 800;
     cursor: pointer;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     text-align: center;
-    font-size: 13px;
+    font-size: 14px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+    gap: 8px;
+    box-shadow: 
+        0 8px 20px rgba(0,0,0,0.1),
+        0 4px 6px rgba(0,0,0,0.05);
     position: relative;
     overflow: hidden;
+    backdrop-filter: blur(10px);
 }
 
 .grafica-selector-btn::before {
@@ -496,15 +626,17 @@ st.markdown("""
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
     transition: 0.5s;
 }
 
 .grafica-selector-btn:hover {
-    transform: translateY(-5px) scale(1.03);
-    box-shadow: 0 12px 25px rgba(0,0,0,0.15);
-    border-color: #cbd5e1;
-    background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+    transform: translateY(-6px) scale(1.04);
+    box-shadow: 
+        0 15px 30px rgba(0,0,0,0.18),
+        0 8px 15px rgba(0,0,0,0.1);
+    border-color: rgba(203, 213, 225, 0.9);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 245, 249, 0.98) 100%);
 }
 
 .grafica-selector-btn:hover::before {
@@ -515,48 +647,92 @@ st.markdown("""
     background: linear-gradient(135deg, #3B82F6 0%, #2563eb 100%);
     color: white;
     border-color: #3B82F6;
-    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
-    transform: translateY(-3px);
+    box-shadow: 
+        0 12px 30px rgba(59, 130, 246, 0.5),
+        0 6px 15px rgba(59, 130, 246, 0.3);
+    transform: translateY(-4px);
 }
 
 .grafica-selector-btn.active:hover {
     background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-    transform: translateY(-5px) scale(1.03);
-    box-shadow: 0 15px 30px rgba(59, 130, 246, 0.5);
+    transform: translateY(-6px) scale(1.04);
+    box-shadow: 
+        0 18px 35px rgba(59, 130, 246, 0.6),
+        0 8px 20px rgba(59, 130, 246, 0.4);
 }
 
 .grafica-btn-icon {
-    font-size: 24px;
-    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.1));
+    font-size: 26px;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,0.15));
+    position: relative;
+    z-index: 2;
 }
 
 .grafica-selector-btn.active .grafica-btn-icon {
-    filter: drop-shadow(0 2px 3px rgba(255,255,255,0.3));
+    filter: drop-shadow(0 3px 5px rgba(255,255,255,0.4));
 }
 
 .grafica-btn-text {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.4px;
+    position: relative;
+    z-index: 2;
 }
 
-/* Contenedores */
+/* Contenedores premium con fondo de vidrio */
 .performance-chart {
-    background: white;
-    border-radius: 12px;
-    padding: 16px;
-    margin: 12px 0;
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.92) 100%);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 15px 0;
+    box-shadow: 
+        0 10px 25px rgba(0, 0, 0, 0.12),
+        0 5px 10px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(229, 231, 235, 0.8);
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+}
+
+.performance-chart::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.03) 0%, transparent 50%);
+    pointer-events: none;
 }
 
 .data-table-container {
-    background: white;
-    border-radius: 12px;
-    padding: 16px;
-    margin: 12px 0;
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.92) 100%);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 15px 0;
+    box-shadow: 
+        0 10px 25px rgba(0, 0, 0, 0.12),
+        0 5px 10px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(229, 231, 235, 0.8);
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+}
+
+.data-table-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.03) 0%, transparent 50%);
+    pointer-events: none;
 }
 
 /* Sidebar titles */
@@ -564,83 +740,153 @@ st.markdown("""
     color: #cbd5e1 !important;
     font-size: 11px;
     font-weight: 600;
-    margin-bottom: 6px;
-    margin-top: 12px;
-    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    margin-top: 15px;
+    letter-spacing: 0.8px;
     text-transform: uppercase;
+    position: relative;
+    padding-left: 10px;
+}
+
+.sidebar-title::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 12px;
+    background: linear-gradient(180deg, #3B82F6 0%, #8B5CF6 100%);
+    border-radius: 2px;
 }
 
 /* Status containers */
 .status-container {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 5px 8px;
-    border-radius: 6px;
-    margin-bottom: 3px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     transition: all 0.3s;
     font-size: 10px;
+    backdrop-filter: blur(5px);
 }
 
 /* Chat container */
 .chat-container {
     max-height: 220px;
     overflow-y: auto;
-    margin-top: 8px;
+    margin-top: 10px;
+    padding-right: 5px;
+}
+
+.chat-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.chat-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 2px;
+}
+
+.chat-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
 }
 
 .chat-message {
-    padding: 7px 9px;
-    border-radius: 7px;
-    margin-bottom: 5px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    margin-bottom: 6px;
     font-size: 11px;
     max-width: 90%;
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
 }
 
 .user-message {
-    background: #3B82F6;
+    background: linear-gradient(135deg, #3B82F6 0%, #2563eb 100%);
     color: white;
     margin-left: auto;
+    box-shadow: 0 3px 8px rgba(59, 130, 246, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.user-message:hover {
+    transform: translateX(-2px);
+    box-shadow: 0 5px 12px rgba(59, 130, 246, 0.4);
 }
 
 .assistant-message {
-    background: #f1f5f9;
+    background: linear-gradient(135deg, rgba(241, 245, 249, 0.95) 0%, rgba(226, 232, 240, 0.95) 100%);
     color: #1f2937;
-    border: 1px solid #e5e7eb;
+    border: 1px solid rgba(229, 231, 235, 0.8);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+}
+
+.assistant-message:hover {
+    transform: translateX(2px);
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* Tabla compacta */
 .dataframe {
     font-size: 11px !important;
+    background: transparent !important;
 }
 
 .dataframe th {
-    padding: 8px 10px !important;
+    padding: 10px 12px !important;
     font-size: 11px !important;
-    background: #f8fafc;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    font-weight: 700 !important;
+    border-bottom: 2px solid #e5e7eb !important;
 }
 
 .dataframe td {
-    padding: 6px 10px !important;
+    padding: 8px 12px !important;
     font-size: 11px !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.dataframe tr:hover {
+    background: rgba(59, 130, 246, 0.05) !important;
+}
+
+/* Footer mejorado */
+.footer-container {
+    text-align: center;
+    color: #6b7280;
+    font-size: 10px;
+    padding: 12px 0;
+    margin-top: 15px;
+    border-top: 1px solid rgba(229, 231, 235, 0.8);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%);
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-    .metric-horizontal-value, .pauta-horizontal-value { font-size: 18px; }
-    .metric-horizontal-label, .pauta-horizontal-label { font-size: 10px; }
-    .dashboard-header { padding: 15px; }
-    .dashboard-header h1 { font-size: 20px; }
+    .metric-horizontal-value, .pauta-horizontal-value { font-size: 20px; }
+    .metric-horizontal-label, .pauta-horizontal-label { font-size: 10px; letter-spacing: 0.6px; }
+    .dashboard-header { padding: 18px; }
+    .dashboard-header h1 { font-size: 22px; }
     .metric-horizontal-item, .pauta-horizontal-item {
-        min-width: 140px;
+        min-width: 135px;
+        padding: 15px 10px;
     }
     .grafica-selector-buttons {
         flex-wrap: wrap;
     }
     .grafica-selector-btn {
-        min-width: calc(50% - 4px);
-        padding: 14px 10px;
+        min-width: calc(50% - 5px);
+        padding: 16px 12px;
+        margin-bottom: 8px;
     }
-    .grafica-btn-icon { font-size: 20px; }
+    .grafica-btn-icon { font-size: 22px; }
+    .grafica-selector-title { font-size: 13px; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -648,18 +894,40 @@ st.markdown("""
 # Cargar datos
 df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
 
-# Sidebar
+# Sidebar con diseño mejorado
 with st.sidebar:
     st.markdown("""
-    <div style="text-align: center; margin-bottom: 15px; padding: 0 8px;">
-        <div style="background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%); 
-                    width: 40px; height: 40px; border-radius: 8px; 
-                    display: flex; align-items: center; justify-content: center; 
-                    margin: 0 auto 6px auto; font-size: 20px;">
+    <div style="text-align: center; margin-bottom: 20px; padding: 0 10px; position: relative; z-index: 2;">
+        <div style="
+            background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+            width: 48px; 
+            height: 48px; 
+            border-radius: 12px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            margin: 0 auto 10px auto; 
+            font-size: 22px;
+            box-shadow: 0 6px 15px rgba(59, 130, 246, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            animation: pulse 2s infinite;
+        ">
             📊
         </div>
-        <h3 style="color: white; margin-bottom: 2px; font-size: 13px; font-weight: 700;">DASHBOARD PRO</h3>
-        <p style="color: #94a3b8; font-size: 9px; margin: 0;">Social Media Analytics</p>
+        <h3 style="
+            color: white; 
+            margin-bottom: 4px; 
+            font-size: 14px; 
+            font-weight: 800;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        ">DASHBOARD PRO</h3>
+        <p style="
+            color: #94a3b8; 
+            font-size: 10px; 
+            margin: 0;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        ">Social Media Analytics Platform</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -667,11 +935,11 @@ with st.sidebar:
     try:
         backend_test = requests.get(BACKEND_URL, timeout=5)
         if backend_test.status_code == 200:
-            st.markdown('<div class="status-container" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2);">✅ Backend Conectado</div>', unsafe_allow_html=True)
+            st.markdown('<div class="status-container" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.08) 100%); color: #10b981; border-color: rgba(16, 185, 129, 0.25);">✅ <strong>Backend Conectado</strong></div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="status-container" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2);">⚠️ Backend Error</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="status-container" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.08) 100%); color: #ef4444; border-color: rgba(239, 68, 68, 0.25);">⚠️ <strong>Backend Error</strong></div>', unsafe_allow_html=True)
     except:
-        st.markdown('<div class="status-container" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2);">⚠️ Backend Offline</div>', unsafe_allow_html=True)
+        st.markdown('<div class="status-container" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.08) 100%); color: #ef4444; border-color: rgba(239, 68, 68, 0.25);">⚠️ <strong>Backend Offline</strong></div>', unsafe_allow_html=True)
     
     # Botones de plataformas
     st.markdown('<p class="sidebar-title">🔗 PANEL PROFESIONAL</p>', unsafe_allow_html=True)
@@ -690,7 +958,7 @@ with st.sidebar:
             st.session_state["selected_platform"] = platform_key
             st.rerun()
     
-    st.markdown('<div style="height: 8px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
     
     # Asistente de Chat
     st.markdown('<p class="sidebar-title">🤖 ASISTENTE DE DATOS</p>', unsafe_allow_html=True)
@@ -699,8 +967,8 @@ with st.sidebar:
     if "messages" not in st.session_state:
         st.session_state.messages = []
     
-    # Contenedor del chat
-    with st.container(height=200):
+    # Contenedor del chat con diseño mejorado
+    with st.container(height=220):
         for message in st.session_state.messages:
             if message["role"] == "user":
                 st.markdown(f'<div class="chat-message user-message">{message["content"]}</div>', unsafe_allow_html=True)
@@ -766,25 +1034,52 @@ with st.sidebar:
         except Exception as e:
             st.error(f"Error al conectar con OpenAI: {str(e)}")
 
-# Contenido principal - HEADER MEJORADO
+# Contenido principal - HEADER PREMIUM
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
 st.markdown(f"""
 <div class="dashboard-header">
-    <div style="display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 2;">
         <div>
-            <h1 style="font-family: 'Arial Black', sans-serif; margin-bottom: 4px; letter-spacing: 0.5px;">📊 SOCIAL MEDIA DASHBOARD PRO</h1>
-            <p style="margin: 0; opacity: 0.9; font-size: 12px; font-weight: 400;">
+            <h1 style="
+                font-family: 'Inter', 'Arial Black', sans-serif; 
+                margin-bottom: 6px; 
+                letter-spacing: 0.8px;
+                font-size: 28px;
+                background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            ">📊 SOCIAL MEDIA DASHBOARD PRO</h1>
+            <p style="
+                margin: 0; 
+                opacity: 0.9; 
+                font-size: 13px; 
+                font-weight: 500;
+                color: rgba(255, 255, 255, 0.9);
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            ">
                 Analytics en Tiempo Real • Monitoreo de Performance • Insights Inteligentes
             </p>
         </div>
-        <div style="font-size: 11px; opacity: 0.8; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 15px; font-weight: 500;">
-            {current_time}
+        <div style="
+            font-size: 12px; 
+            opacity: 0.9; 
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
+            padding: 6px 14px; 
+            border-radius: 20px; 
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        ">
+            ⏱️ {current_time}
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Métricas en UNA SOLA FRANJA HORIZONTAL - SOLUCIÓN DEFINITIVA
+# Métricas en UNA SOLA FRANJA HORIZONTAL - DISEÑO PREMIUM
 def format_number(num):
     try:
         if num >= 1000000:
@@ -826,7 +1121,7 @@ with col1:
         <div class="pauta-horizontal-label">COSTE ANUNCIO</div>
         <div class="pauta-horizontal-value">${format_number(coste_anuncio_sum)}</div>
     </div>
-    """, height=120)
+    """, height=135)
 
 with col2:
     html(f"""
@@ -835,7 +1130,7 @@ with col2:
         <div class="pauta-horizontal-label">VISUALIZACIONES VIDEOS</div>
         <div class="pauta-horizontal-value">{format_number(visualizaciones_videos_sum)}</div>
     </div>
-    """, height=120)
+    """, height=135)
 
 with col3:
     html(f"""
@@ -844,7 +1139,7 @@ with col3:
         <div class="pauta-horizontal-label">NUEVOS SEGUIDORES</div>
         <div class="pauta-horizontal-value">{format_number(nuevos_seguidores_sum)}</div>
     </div>
-    """, height=120)
+    """, height=135)
 
 with col4:
     html(f"""
@@ -853,7 +1148,7 @@ with col4:
         <div class="metric-horizontal-label">TOTAL SEGUIDORES</div>
         <div class="metric-horizontal-value">{format_number(total_seguidores)}</div>
     </div>
-    """, height=120)
+    """, height=135)
 
 with col5:
     html(f"""
@@ -862,7 +1157,7 @@ with col5:
         <div class="metric-horizontal-label">TOTAL CONTENIDOS</div>
         <div class="metric-horizontal-value">{format_number(total_contenidos)}</div>
     </div>
-    """, height=120)
+    """, height=135)
 
 with col6:
     html(f"""
@@ -871,9 +1166,9 @@ with col6:
         <div class="metric-horizontal-label">VISUALIZACIONES TOTALES</div>
         <div class="metric-horizontal-value">{format_number(total_visualizaciones)}</div>
     </div>
-    """, height=120)
+    """, height=135)
 
-# Selector de gráficas - DISEÑO MEJORADO CON BOTONES EN HORIZONTAL
+# Selector de gráficas - DISEÑO PREMIUM
 st.markdown('<div class="grafica-selector-container">', unsafe_allow_html=True)
 st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁFICA</div>', unsafe_allow_html=True)
 
@@ -884,7 +1179,7 @@ if "grafica_seleccionada" not in st.session_state:
 # Selector visual mejorado con HTML/CSS personalizado
 st.markdown('<div class="grafica-selector-buttons">', unsafe_allow_html=True)
 
-# Crear botones con HTML/CSS personalizado para mejor control visual
+# Crear botones con diseño premium
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -1095,7 +1390,7 @@ else:  # Gráfica de evolución
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Tabla de contenido - COMPACTA
+# Tabla de contenido - COMPACTA CON DISEÑO PREMIUM
 st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
 st.markdown("##### 📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA")
 
@@ -1159,10 +1454,28 @@ if not df_all.empty:
     
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Footer minimalista
+# Footer premium
 current_time_full = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 st.markdown(f"""
-<div style="text-align: center; color: #6b7280; font-size: 9px; padding: 8px 0; margin-top: 12px; border-top: 1px solid #e5e7eb;">
-    Social Media Dashboard PRO v3.2 • Analytics en Tiempo Real • {current_time_full}
+<div class="footer-container">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 4px;">
+        <span style="display: flex; align-items: center; gap: 4px;">
+            <span style="color: #3B82F6; font-size: 12px;">⚡</span>
+            <span style="font-weight: 700;">Social Media Dashboard PRO v3.3</span>
+        </span>
+        <span style="width: 4px; height: 4px; background: #cbd5e1; border-radius: 50%;"></span>
+        <span style="display: flex; align-items: center; gap: 4px;">
+            <span style="color: #10b981; font-size: 12px;">🔄</span>
+            <span>Analytics en Tiempo Real</span>
+        </span>
+        <span style="width: 4px; height: 4px; background: #cbd5e1; border-radius: 50%;"></span>
+        <span style="display: flex; align-items: center; gap: 4px;">
+            <span style="color: #8B5CF6; font-size: 12px;">📊</span>
+            <span>{current_time_full}</span>
+        </span>
+    </div>
+    <div style="font-size: 9px; color: #94a3b8; font-weight: 500;">
+        Powered by Streamlit • Data Visualization • Professional Analytics Platform
+    </div>
 </div>
 """, unsafe_allow_html=True)
