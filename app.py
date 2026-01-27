@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import warnings
 import requests
 import numpy as np
+from io import BytesIO
 
 warnings.filterwarnings('ignore')
 
@@ -26,36 +27,6 @@ FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
 PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
 GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
 GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
-
-def verificar_backend():
-    """Verifica el estado de todos los endpoints"""
-    endpoints = {
-        "Datos principales": BACKEND_URL,
-        "Seguidores": FOLLOWERS_URL,
-        "Pauta": PAUTA_URL,
-        "Gráfica 1": GRAFICA1_URL,
-        "Gráfica 2": GRAFICA2_URL
-    }
-    
-    status = {}
-    for nombre, url in endpoints.items():
-        try:
-            r = requests.get(url, timeout=10)
-            status[nombre] = {
-                "estado": "✅ Conectado" if r.status_code == 200 else f"❌ Error {r.status_code}",
-                "url": url,
-                "codigo": r.status_code,
-                "datos": r.json() if r.status_code == 200 else None
-            }
-        except Exception as e:
-            status[nombre] = {
-                "estado": f"❌ Error: {str(e)[:50]}...",
-                "url": url,
-                "codigo": "N/A",
-                "datos": None
-            }
-    
-    return status
 
 def cargar_datos_backend():
     try:
@@ -188,1324 +159,48 @@ def cargar_datos_pauta():
         return pd.DataFrame()
 
 #############################################
-# FUNCIONES DE DATOS DE EJEMPLO PARA GRÁFICAS
+# NUEVAS FUNCIONES PARA GRÁFICAS (ARCHIVOS)
 #############################################
 
-def generar_datos_ejemplo_grafica1():
-    """Genera datos de ejemplo para la gráfica 1 usando la misma lógica de grafica Principal.txt"""
-    import numpy as np
-    
-    # Crear datos realistas basados en los datos reales del usuario
-    # Basado en los datos: inversiones reales entre ~$10,000 y ~$70,000
-    
-    # Generar 30 días de datos
-    np.random.seed(42)
-    n_dias = 30
-    
-    # Patrón realista: la mayoría de días con inversión baja, algunos picos
-    inversiones_base = np.random.lognormal(9, 0.5, n_dias)  # Media alrededor de $10,000
-    # Añadir algunos picos ocasionales
-    picos = np.random.choice(n_dias, size=5, replace=False)
-    inversiones_base[picos] = inversiones_base[picos] * np.random.uniform(2, 4, 5)
-    
-    # Seguidores proporcionales a la inversión pero con rendimiento decreciente
-    seguidores_base = inversiones_base * np.random.uniform(0.01, 0.03, n_dias)
-    # Añadir variabilidad
-    seguidores_base = seguidores_base * np.random.uniform(0.7, 1.3, n_dias)
-    
-    # Crear DataFrame de días válidos
-    dias_validos = []
-    for i in range(n_dias):
-        costo = max(10000, min(80000, inversiones_base[i]))
-        seguidores = max(50, min(2000, seguidores_base[i]))
-        dias_validos.append({
-            "Costo": float(costo),
-            "Seguidores_Impacto": float(seguidores),
-            "Neto_Diario_Real": float(seguidores),
-            "CPS_real": float(costo / seguidores) if seguidores > 0 else np.nan
-        })
-    
-    # Filtrar solo días válidos (costo > 0, seguidores > 0)
-    dias_validos = [d for d in dias_validos if d["Costo"] > 0 and d["Seguidores_Impacto"] > 0]
-    
-    # Calcular rangos de inversión (STEP = 15000)
-    STEP = 15000
-    BREAK_X = 80000.0
-    K = 0.28
-    
-    # Obtener min y max de costos
-    costos = [d["Costo"] for d in dias_validos]
-    cmin = min(costos)
-    cmax = max(costos)
-    
-    # Crear bins
-    start = np.floor(cmin / STEP) * STEP
-    end = np.ceil(cmax / STEP) * STEP + STEP
-    bins = np.arange(start, end + 1, STEP)
-    
-    # Agrupar por bins
-    curva_data = []
-    for i in range(len(bins) - 1):
-        bin_min = bins[i]
-        bin_max = bins[i + 1]
-        
-        # Filtrar días en este bin
-        dias_en_bin = [d for d in dias_validos if bin_min <= d["Costo"] < bin_max]
-        
-        if len(dias_en_bin) > 0:
-            inv_prom = np.mean([d["Costo"] for d in dias_en_bin])
-            seg_prom = np.mean([d["Seguidores_Impacto"] for d in dias_en_bin])
-            cps_curva = inv_prom / seg_prom if seg_prom > 0 else np.nan
-            dias_meta = 1000 / (seg_prom / 30) if seg_prom > 0 else np.nan
-            
-            curva_data.append({
-                "Inversion_promedio": float(inv_prom),
-                "Seguidores_promedio": float(seg_prom),
-                "CPS_curva": float(cps_curva),
-                "Dias_para_meta": float(dias_meta),
-                "Dias": len(dias_en_bin)
-            })
-    
-    # Calcular promedios generales
-    inv_mean = np.mean([d["Costo"] for d in dias_validos])
-    seg_mean = np.mean([d["Seguidores_Impacto"] for d in dias_validos])
-    
-    # Encontrar punto óptimo (simplificado)
-    if curva_data:
-        # Ordenar por CPS (menor es mejor) y luego por seguidores
-        curva_ordenada = sorted(curva_data, key=lambda x: (x["CPS_curva"], -x["Seguidores_promedio"]))
-        opt_point = curva_ordenada[0] if curva_ordenada else None
-    else:
-        opt_point = None
-    
-    return {
-        "status": "success",
-        "tables": {
-            "df_merge_fecha": [],
-            "dias_validos": dias_validos,
-            "curva_15k": curva_data
-        },
-        "parameters": {
-            "STEP": STEP,
-            "BREAK_X": BREAK_X,
-            "K": K,
-            "IMPACT_DAYS": 3,
-            "USE_IMPACT": True,
-            "OPT_CPS_TOL": 0.20,
-            "OPT_MIN_DAYS": 3,
-            "TARGET_FOLLOWERS": 1000
-        },
-        "results_summary": {
-            "total_dias_validos": len(dias_validos),
-            "cps_minimo": 85.5,
-            "cps_maximo": 215.3
-        },
-        "calc": {
-            "INV_mean": float(inv_mean) if dias_validos else 0,
-            "SEG_mean": float(seg_mean) if dias_validos else 0,
-            "opt": opt_point,
-            "cps_min_curva": 85.5,
-            "cps_max_tol": 102.6
-        }
-    }
+def _descargar_bytes(url, timeout=30):
+    r = requests.get(url, timeout=timeout)
+    r.raise_for_status()
+    return r.content, r.headers.get("Content-Type", "")
 
-def generar_datos_ejemplo_grafica2():
-    """Genera datos de ejemplo para el heatmap"""
-    import numpy as np
-    
-    # Días de la semana y semanas
-    dias_order = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-    weeks = [f"2025-W{i:02d}" for i in range(1, 9)]
-    
-    # Generar datos más realistas
-    np.random.seed(42)
-    
-    # Patrón semanal: mejores días (Miércoles a Viernes), peores (Lunes y Domingo)
-    base_pattern = [1.5, 1.3, 1.0, 0.8, 0.9, 1.2, 1.6]  # Multiplicadores de CPS
-    
-    vals_cps_raw = np.zeros((7, 8))
-    vals_seg = np.zeros((7, 8))
-    
-    for i, dia in enumerate(dias_order):
-        for j in range(8):
-            # CPS base con patrón semanal + variación aleatoria
-            cps_base = 150 * base_pattern[i]
-            cps_var = np.random.uniform(0.8, 1.2)
-            cps = cps_base * cps_var
-            
-            # Seguidores: más en días buenos
-            seg_base = 1000 / base_pattern[i]  # Inversamente proporcional al CPS
-            seg_var = np.random.uniform(0.7, 1.3)
-            seg = int(seg_base * seg_var)
-            
-            # Añadir algunos NaN (20% de probabilidad)
-            if np.random.random() < 0.2:
-                vals_cps_raw[i, j] = np.nan
-                vals_seg[i, j] = np.nan
-            else:
-                vals_cps_raw[i, j] = cps
-                vals_seg[i, j] = seg
-    
-    # CPS clip para visualización
-    vals_cps_clip = np.copy(vals_cps_raw)
-    finite_mask = np.isfinite(vals_cps_raw)
-    if np.any(finite_mask):
-        p5 = np.nanpercentile(vals_cps_raw, 5)
-        p95 = np.nanpercentile(vals_cps_raw, 95)
-        vals_cps_clip = np.clip(vals_cps_clip, p5, p95)
-    
-    # Resumen por día
-    sum_day = []
-    for i, dia in enumerate(dias_order):
-        # Filtrar valores finitos
-        valid_mask = np.isfinite(vals_seg[i, :]) & np.isfinite(vals_cps_raw[i, :])
-        
-        if np.any(valid_mask):
-            costos_dia = np.nansum(vals_seg[i, valid_mask] * vals_cps_raw[i, valid_mask])
-            seguidores_dia = np.nansum(vals_seg[i, valid_mask])
-            cps_dia = costos_dia / seguidores_dia if seguidores_dia > 0 else np.nan
-        else:
-            costos_dia = 0
-            seguidores_dia = 0
-            cps_dia = np.nan
-        
-        sum_day.append({
-            "Dia_Semana": dia,
-            "Costo_sum": float(costos_dia),
-            "Seguidores_sum": float(seguidores_dia),
-            "CPS_total_dia": float(cps_dia) if not np.isnan(cps_dia) else np.nan
-        })
-    
-    return {
-        "status": "success",
-        "plot_data": {
-            "vals_cps_raw": vals_cps_raw.tolist(),
-            "vals_seg": vals_seg.tolist(),
-            "vals_cps_clip": vals_cps_clip.tolist(),
-            "dias_order": dias_order,
-            "weeks": weeks
-        },
-        "tables": {
-            "sum_day": sum_day
-        }
-    }
-
-#############################################
-# FUNCIONES PARA CARGAR GRÁFICAS AVANZADAS
-#############################################
-
-def cargar_datos_grafica1():
-    """Carga datos para la gráfica 1: Inversión vs Seguidores"""
-    # Verificar si debemos usar datos de ejemplo
-    if st.session_state.get("use_test_data", False):
-        st.info("📊 Usando datos de ejemplo para Gráfica 1")
-        return generar_datos_ejemplo_grafica1()
-    
+def cargar_imagen_grafica1_bytes():
+    """Descarga la imagen PNG de /grafica1"""
     try:
-        r = requests.get(GRAFICA1_URL, timeout=20)
-        r.raise_for_status()
-        data = r.json()
-        
-        # Verificar estructura básica
-        if data.get("status") != "success":
-            st.warning("Backend no retornó status 'success'. Usando datos de ejemplo.")
-            return generar_datos_ejemplo_grafica1()
-        
-        # Verificar que tenga los datos mínimos
-        tables = data.get("tables", {})
-        if not tables or not tables.get("dias_validos") or not tables.get("curva_15k"):
-            st.warning("Datos incompletos del backend. Usando datos de ejemplo.")
-            return generar_datos_ejemplo_grafica1()
-            
-        return data
-        
+        content, _ = _descargar_bytes(GRAFICA1_URL, timeout=30)
+        return content
     except Exception as e:
-        st.warning(f"Error al cargar datos de gráfica 1: {str(e)[:100]}... Usando datos de ejemplo.")
-        return generar_datos_ejemplo_grafica1()
+        st.error(f"Error al cargar imagen de gráfica 1: {str(e)}")
+        return b""
 
-def cargar_datos_grafica2():
-    """Carga datos para la gráfica 2: Heatmap CPS"""
-    # Verificar si debemos usar datos de ejemplo
-    if st.session_state.get("use_test_data", False):
-        st.info("📊 Usando datos de ejemplo para Gráfica 2")
-        return generar_datos_ejemplo_grafica2()
-    
+
+def cargar_excel_metricas_bytes():
+    """Descarga el Excel XLSX de /grafica2"""
     try:
-        r = requests.get(GRAFICA2_URL, timeout=20)
-        r.raise_for_status()
-        data = r.json()
-        
-        # Verificar estructura básica
-        if data.get("status") != "success":
-            st.warning("Backend no retornó status 'success'. Usando datos de ejemplo.")
-            return generar_datos_ejemplo_grafica2()
-        
-        # Verificar que tenga los datos mínimos
-        plot_data = data.get("plot_data", {})
-        if not plot_data or not plot_data.get("vals_cps_raw"):
-            st.warning("Datos incompletos del backend. Usando datos de ejemplo.")
-            return generar_datos_ejemplo_grafica2()
-            
-        return data
-        
+        content, _ = _descargar_bytes(GRAFICA2_URL, timeout=60)
+        return content
     except Exception as e:
-        st.warning(f"Error al cargar datos de gráfica 2: {str(e)[:100]}... Usando datos de ejemplo.")
-        return generar_datos_ejemplo_grafica2()
+        st.error(f"Error al cargar Excel de métricas: {str(e)}")
+        return b""
 
-# FUNCIONES DE FORMATO IDÉNTICAS A grafica Principal.txt
-def fmt_int_plain(x):
-    """Formato de números igual al original (gráfica.txt)"""
-    if x is None or (isinstance(x, float) and np.isnan(x)):
-        return "—"
+
+def leer_excel_primer_sheet(excel_bytes):
+    """Lee SOLO la primera hoja del Excel (la más relevante por defecto)."""
+    if not excel_bytes:
+        return pd.DataFrame()
     try:
-        return str(int(round(float(x))))
+        xls = pd.ExcelFile(BytesIO(excel_bytes))
+        if not xls.sheet_names:
+            return pd.DataFrame()
+        return xls.parse(xls.sheet_names[0])
     except Exception:
-        return "—"
-
-def fmt_k(x):
-    """Formato en 'k' igual al original (gráfica.txt)"""
-    if x is None or (isinstance(x, float) and np.isnan(x)):
-        return "—"
-    try:
-        return f"{int(round(float(x)/1000.0))}k"
-    except Exception:
-        return "—"
-
-def fmt_days(x):
-    """Formato de días igual al original"""
-    if x is None or (isinstance(x, float) and np.isnan(x)):
-        return "—"
-    try:
-        v = float(x)
-        if v <= 0:
-            return "—"
-        return f"{v:.1f}"
-    except Exception:
-        return "—"
-
-# FUNCIONES DE CÁLCULO IDÉNTICAS A grafica Principal.txt
-def x_warp(x, BREAK_X=80000.0, K=0.28):
-    """Compresión del eje X - IGUAL A grafica Principal.txt"""
-    x = float(x)
-    if x <= BREAK_X:
-        return x
-    return BREAK_X + (x - BREAK_X) * K
-
-def pick_optimal_point_seg_then_cps(df_curve, min_days=3, cps_tol=0.20):
-    """Selecciona punto óptimo - IGUAL A grafica Principal.txt"""
-    d = df_curve.copy()
-    
-    # Filtrar puntos válidos
-    m = (
-        d["Inversion_promedio"].notna() &
-        d["Seguidores_promedio"].notna() &
-        d["CPS_curva"].notna() &
-        (d["Inversion_promedio"] > 0) &
-        (d["Seguidores_promedio"] > 0) &
-        (d["CPS_curva"] > 0) &
-        (d["Dias"] >= int(min_days))
-    )
-    
-    d = d[m].copy()
-    if d.empty:
-        return None, None, None
-    
-    # Calcular CPS mínimo y máximo con tolerancia
-    cps_min = float(d["CPS_curva"].min())
-    cps_max = cps_min * (1.0 + float(cps_tol))
-    
-    # Filtrar puntos dentro de la tolerancia de CPS
-    d2 = d[d["CPS_curva"] <= cps_max].copy()
-    if d2.empty:
-        d2 = d.copy()
-    
-    # Ordenar por: 1) Mayor seguidores, 2) Menor CPS, 3) Menor inversión
-    d2 = d2.sort_values(
-        by=["Seguidores_promedio", "CPS_curva", "Inversion_promedio"],
-        ascending=[False, True, True]
-    )
-    
-    return d2.iloc[0].copy(), cps_min, cps_max
-
-def procesar_datos_grafica1_local(df_merge_fecha, parameters):
-    """
-    Procesa los datos localmente usando la misma lógica que grafica Principal.txt
-    """
-    if df_merge_fecha.empty:
-        return None, None, None, None, None, None, None, None, None, None, None, None
-    
-    # Extraer parámetros
-    STEP = parameters.get("STEP", 15000)
-    IMPACT_DAYS = parameters.get("IMPACT_DAYS", 3)
-    USE_IMPACT = parameters.get("USE_IMPACT", True)
-    BREAK_X = parameters.get("BREAK_X", 80000.0)
-    K = parameters.get("K", 0.28)
-    OPT_MIN_DAYS = parameters.get("OPT_MIN_DAYS", 3)
-    OPT_CPS_TOL = parameters.get("OPT_CPS_TOL", 0.20)
-    TARGET_FOLLOWERS = parameters.get("TARGET_FOLLOWERS", 1000)
-    
-    # Asegurar columnas necesarias
-    df = df_merge_fecha.copy()
-    
-    # 1. Calcular Neto_Diario_Real (diferencia de seguidores)
-    if 'Seguidores_Totales' in df.columns:
-        df = df.sort_values('fecha')
-        df['Neto_Diario_Real'] = df['Seguidores_Totales'].diff()
-        # Reemplazar valores negativos o cero con NaN
-        df.loc[df['Neto_Diario_Real'] <= 0, 'Neto_Diario_Real'] = np.nan
-    
-    # 2. Calcular Seguidores_Impacto (suma en ventana de IMPACT_DAYS)
-    if IMPACT_DAYS < 1:
-        IMPACT_DAYS = 1
-    
-    neto = df["Neto_Diario_Real"].astype("float64")
-    impact = np.full(len(df), np.nan, dtype="float64")
-    
-    for i in range(len(df)):
-        s = 0.0
-        ok = False
-        for k in range(IMPACT_DAYS):
-            j = i + k
-            if j >= len(df):
-                break
-            v = neto.iloc[j]
-            if pd.notna(v) and v > 0:
-                s += float(v)
-                ok = True
-        impact[i] = s if ok else np.nan
-    
-    df["Seguidores_Impacto"] = impact
-    RESULT_COL = "Seguidores_Impacto" if USE_IMPACT else "Neto_Diario_Real"
-    
-    # 3. Filtrar días válidos (Costo > 0 y resultado > 0)
-    cand = df[(df["Costo"] > 0) & (df[RESULT_COL].notna()) & (df[RESULT_COL] > 0)].copy()
-    if cand.empty:
-        st.warning("No hay días válidos después del procesamiento local")
-        return None, None, None, None, None, None, None, None, None, None, None, None
-    
-    # Calcular CPS real
-    cand["CPS_real"] = cand["Costo"] / cand[RESULT_COL]
-    
-    # Calcular promedios generales
-    INV_mean = float(cand["Costo"].mean())
-    SEG_mean = float(cand[RESULT_COL].mean())
-    
-    # 4. Agrupar por rangos de inversión (STEP)
-    cmin = float(cand["Costo"].min())
-    cmax = float(cand["Costo"].max())
-    start = float(np.floor(cmin / STEP) * STEP)
-    end = float(np.ceil(cmax / STEP) * STEP) + STEP
-    bins = np.arange(start, end + 1, STEP)
-    
-    # Asignar bins
-    cand["Costo_bin"] = pd.cut(cand["Costo"], bins=bins, include_lowest=True, right=False)
-    
-    # Calcular curva por rangos
-    curve = cand.groupby("Costo_bin", observed=True).agg(
-        Inversion_promedio=("Costo", "mean"),
-        Seguidores_promedio=(RESULT_COL, "mean"),
-        Dias=("Costo", "count"),
-    ).reset_index(drop=True).sort_values("Inversion_promedio").reset_index(drop=True)
-    
-    # Calcular CPS de la curva
-    curve["CPS_curva"] = np.nan
-    mc = (curve["Inversion_promedio"] > 0) & (curve["Seguidores_promedio"] > 0)
-    curve.loc[mc, "CPS_curva"] = (curve.loc[mc, "Inversion_promedio"] / curve.loc[mc, "Seguidores_promedio"]).astype("float64")
-    
-    # Calcular días para meta
-    curve["Dias_para_meta"] = np.nan
-    mt = curve["Seguidores_promedio"].notna() & (curve["Seguidores_promedio"] > 0)
-    curve.loc[mt, "Dias_para_meta"] = (float(TARGET_FOLLOWERS) / curve.loc[mt, "Seguidores_promedio"]).astype("float64")
-    
-    # 5. Encontrar punto óptimo
-    opt, cps_min, cps_max = pick_optimal_point_seg_then_cps(curve, min_days=OPT_MIN_DAYS, cps_tol=OPT_CPS_TOL)
-    
-    if opt is not None:
-        opt_x = float(opt["Inversion_promedio"])
-        opt_y = float(opt["Seguidores_promedio"])
-        opt_cps = float(opt["CPS_curva"])
-        opt_days_meta = float(opt["Dias_para_meta"]) if pd.notna(opt.get("Dias_para_meta", np.nan)) else np.nan
-    else:
-        opt_x = 0
-        opt_y = 0
-        opt_cps = 0
-        opt_days_meta = 0
-    
-    # 6. Aplicar compresión del eje X
-    cand["xw"] = cand["Costo"].apply(lambda x: x_warp(x, BREAK_X, K))
-    curve["xw"] = curve["Inversion_promedio"].apply(lambda x: x_warp(x, BREAK_X, K))
-    opt_xw = x_warp(opt_x, BREAK_X, K) if opt_x > 0 else 0
-    
-    return cand, curve, INV_mean, SEG_mean, opt, cps_min, cps_max, opt_x, opt_y, opt_cps, opt_days_meta, opt_xw
-
-def crear_grafica1_interactiva(data_grafica1):
-    """Crea la gráfica 1 interactiva - IDÉNTICA A grafica Principal.txt"""
-    if not data_grafica1 or data_grafica1.get("status") != "success":
-        st.error("No se pudo cargar la gráfica 1: Datos inválidos o vacíos")
-        
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            if st.button("🔄 Recargar datos", key="reload_graf1"):
-                st.cache_data.clear()
-                st.rerun()
-        
-        with col2:
-            if st.button("🧪 Usar datos de ejemplo", key="use_example_graf1"):
-                st.session_state["use_test_data"] = True
-                st.rerun()
-        return
-    
-    # Extraer datos COMPLETOS del backend
-    df_merge_fecha = pd.DataFrame(data_grafica1.get("tables", {}).get("df_merge_fecha", []))
-    cand_backend = pd.DataFrame(data_grafica1.get("tables", {}).get("dias_validos", []))
-    curve_backend = pd.DataFrame(data_grafica1.get("tables", {}).get("curva_15k", []))
-    parameters = data_grafica1.get("parameters", {})
-    
-    # Extraer parámetros clave
-    STEP = parameters.get("STEP", 15000)
-    BREAK_X = parameters.get("BREAK_X", 80000.0)
-    K = parameters.get("K", 0.28)
-    IMPACT_DAYS = parameters.get("IMPACT_DAYS", 3)
-    USE_IMPACT = parameters.get("USE_IMPACT", True)
-    RESULT_COL = "Seguidores_Impacto" if USE_IMPACT else "Neto_Diario_Real"
-    OPT_MIN_DAYS = parameters.get("OPT_MIN_DAYS", 3)
-    OPT_CPS_TOL = parameters.get("OPT_CPS_TOL", 0.20)
-    
-    # DECISIÓN: Usar procesamiento local si tenemos df_merge_fecha, sino usar datos del backend
-    if not df_merge_fecha.empty and 'Costo' in df_merge_fecha.columns and 'Seguidores_Totales' in df_merge_fecha.columns:
-        st.info("📊 Procesando datos localmente con lógica de grafica Principal.txt")
-        
-        # Procesar datos localmente
-        resultado = procesar_datos_grafica1_local(df_merge_fecha, parameters)
-        if resultado[0] is not None:
-            cand, curve, INV_mean, SEG_mean, opt, cps_min, cps_max, opt_x, opt_y, opt_cps, opt_days_meta, opt_xw = resultado
-            
-            # Actualizar datos del backend con nuestros cálculos
-            cand_backend = cand
-            curve_backend = curve
-            
-            # Crear objeto opt para consistencia
-            if opt is not None:
-                opt_dict = {
-                    "Inversion_promedio": opt_x,
-                    "Seguidores_promedio": opt_y,
-                    "CPS_curva": opt_cps,
-                    "Dias_para_meta": opt_days_meta,
-                    "Dias": int(opt["Dias"]) if "Dias" in opt else OPT_MIN_DAYS
-                }
-            else:
-                opt_dict = {}
-        else:
-            # Si el procesamiento local falla, usar datos del backend
-            st.warning("Procesamiento local falló. Usando datos del backend.")
-            cand = cand_backend
-            curve = curve_backend
-            opt_dict = data_grafica1.get("calc", {}).get("opt", {})
-            INV_mean = data_grafica1.get("calc", {}).get("INV_mean", 0)
-            SEG_mean = data_grafica1.get("calc", {}).get("SEG_mean", 0)
-            cps_min = data_grafica1.get("calc", {}).get("cps_min_curva", 0)
-            cps_max = data_grafica1.get("calc", {}).get("cps_max_tol", 0)
-            
-            # Calcular valores del punto óptimo
-            opt_x = opt_dict.get("Inversion_promedio", 0)
-            opt_y = opt_dict.get("Seguidores_promedio", 0)
-            opt_cps = opt_dict.get("CPS_curva", 0)
-            opt_days_meta = opt_dict.get("Dias_para_meta", 0)
-            opt_xw = x_warp(opt_x, BREAK_X, K) if opt_x > 0 else 0
-    else:
-        # Usar datos del backend directamente
-        cand = cand_backend
-        curve = curve_backend
-        opt_dict = data_grafica1.get("calc", {}).get("opt", {})
-        INV_mean = data_grafica1.get("calc", {}).get("INV_mean", 0)
-        SEG_mean = data_grafica1.get("calc", {}).get("SEG_mean", 0)
-        cps_min = data_grafica1.get("calc", {}).get("cps_min_curva", 0)
-        cps_max = data_grafica1.get("calc", {}).get("cps_max_tol", 0)
-        
-        # Calcular valores del punto óptimo
-        opt_x = opt_dict.get("Inversion_promedio", 0)
-        opt_y = opt_dict.get("Seguidores_promedio", 0)
-        opt_cps = opt_dict.get("CPS_curva", 0)
-        opt_days_meta = opt_dict.get("Dias_para_meta", 0)
-        opt_xw = x_warp(opt_x, BREAK_X, K) if opt_x > 0 else 0
-        
-        # Aplicar compresión del eje X a los datos del backend
-        if not cand.empty and "Costo" in cand.columns:
-            cand["xw"] = cand["Costo"].apply(lambda x: x_warp(x, BREAK_X, K))
-        
-        if not curve.empty and "Inversion_promedio" in curve.columns:
-            curve["xw"] = curve["Inversion_promedio"].apply(lambda x: x_warp(x, BREAK_X, K))
-    
-    # Verificar que tenemos datos
-    if cand.empty or curve.empty:
-        st.warning("No hay datos suficientes para generar la gráfica 1")
-        
-        with st.expander("🔍 Información de depuración"):
-            st.write(f"Días válidos: {len(cand)} registros")
-            st.write(f"Curva 15k: {len(curve)} registros")
-            st.write(f"Parámetros: {parameters}")
-            
-            if not cand.empty:
-                st.write("Primeras filas de días válidos:")
-                st.dataframe(cand.head())
-            
-            if not curve.empty:
-                st.write("Primeras filas de curva:")
-                st.dataframe(curve.head())
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 Intentar de nuevo", key="retry_graf1"):
-                st.rerun()
-        
-        with col2:
-            if st.button("🧪 Usar datos de ejemplo", key="force_example_graf1"):
-                st.session_state["use_test_data"] = True
-                st.rerun()
-        return
-    
-    # Asegurar que tenemos la columna RESULT_COL
-    if RESULT_COL not in cand.columns:
-        if "Seguidores_Impacto" in cand.columns:
-            RESULT_COL = "Seguidores_Impacto"
-        elif "Neto_Diario_Real" in cand.columns:
-            RESULT_COL = "Neto_Diario_Real"
-        elif len(cand.columns) > 1:
-            # Usar la segunda columna como fallback
-            for col in cand.columns:
-                if col != "Costo" and col != "CPS_real":
-                    RESULT_COL = col
-                    break
-    
-    # Calcular ticks del eje X (IGUAL AL ORIGINAL)
-    if not cand.empty and "Costo" in cand.columns:
-        data_min = float(cand["Costo"].min())
-        data_max = float(cand["Costo"].max())
-        
-        # Generar bins
-        start = float(np.floor(data_min / STEP) * STEP)
-        end = float(np.ceil(data_max / STEP) * STEP) + STEP
-        bins = np.arange(start, end + 1, STEP)
-        
-        # Filtrar bins visibles
-        edge_ticks_real = np.unique(bins)
-        edge_ticks_real = [x for x in edge_ticks_real if (x >= (np.floor(data_min/STEP)*STEP) - 1e-9 and x <= (np.ceil(data_max/STEP)*STEP) + 1e-9)]
-        edge_ticks_w = [x_warp(x, BREAK_X, K) for x in edge_ticks_real]
-        edge_tick_labels = [fmt_k(x) for x in edge_ticks_real]
-        
-        # Limitar número de ticks
-        MAX_X_TICKS = 12
-        stride = 1 if len(edge_ticks_real) <= MAX_X_TICKS else 2
-        edge_ticks_real = edge_ticks_real[::stride]
-        edge_ticks_w = edge_ticks_w[::stride]
-        edge_tick_labels = edge_tick_labels[::stride]
-    else:
-        # Valores por defecto si no hay datos
-        edge_ticks_w = []
-        edge_tick_labels = []
-    
-    # Colores del gráfico original (EXACTAMENTE IGUALES)
-    colors = {
-        'fondo_figura': '#060913',
-        'fondo_ejes': '#0b1020',
-        'borde_ejes': '#334155',
-        'texto': '#e0e7ff',
-        'ticks': '#c7d2fe',
-        'puntos_reales': '#60a5fa',
-        'linea_curva': '#38bdf8',
-        'puntos_curva': '#f59e0b',
-        'linea_promedio': '#22d3ee',
-        'punto_optimo': '#22c55e'
-    }
-    
-    # Crear figura con FONDO AZUL OSCURO
-    fig = go.Figure()
-    
-    # 1. Agregar líneas verticales para los bins (rangos de inversión)
-    if 'bins' in locals():
-        for x_real in bins:
-            if x_real >= (np.floor(data_min/STEP)*STEP) - 1e-9 and x_real <= (np.ceil(data_max/STEP)*STEP) + 1e-9:
-                fig.add_vline(
-                    x=x_warp(x_real, BREAK_X, K),
-                    line_width=1.0,
-                    line_dash="dash",
-                    line_color="#cbd5e1",
-                    opacity=0.18
-                )
-    
-    # 2. Puntos de días reales (scatter) - EXACTAMENTE IGUAL AL ORIGINAL
-    if "xw" in cand.columns and RESULT_COL in cand.columns:
-        fig.add_trace(go.Scatter(
-            x=cand["xw"],
-            y=cand[RESULT_COL],
-            mode='markers',
-            name='Días reales',
-            marker=dict(
-                size=6,
-                color=colors['puntos_reales'],
-                opacity=0.12,
-                line=dict(width=0)
-            ),
-            hovertemplate='<b>📅 Día Real</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<extra></extra>'
-        ))
-    
-    # 3. Línea de curva promedio
-    if "xw" in curve.columns and "Seguidores_promedio" in curve.columns:
-        fig.add_trace(go.Scatter(
-            x=curve["xw"],
-            y=curve["Seguidores_promedio"],
-            mode='lines',
-            name='Promedio esperado (por nivel inversión)',
-            line=dict(color=colors['linea_curva'], width=2.8),
-            opacity=0.95,
-            hovertemplate='<b>📈 Curva promedio</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>CPS: $%{customdata:,.0f}<extra></extra>',
-            customdata=curve["CPS_curva"] if "CPS_curva" in curve.columns else [0] * len(curve)
-        ))
-    
-    # 4. Puntos de la curva promedio (NARANJAS - VISIBLES SIEMPRE)
-    if "xw" in curve.columns and "Seguidores_promedio" in curve.columns:
-        for idx, row in curve.iterrows():
-            # Crear etiqueta para cada punto (IGUAL AL ORIGINAL)
-            dias_meta = row.get("Dias_para_meta", np.nan)
-            label_text = (
-                f"Inv {fmt_int_plain(row.get('Inversion_promedio', 0))}<br>"
-                f"SEG {fmt_int_plain(row.get('Seguidores_promedio', 0))}<br>"
-                f"CPS {fmt_int_plain(row.get('CPS_curva', 0))}<br>"
-                f"1000 SEG ~ {fmt_days(dias_meta)} días<br>"
-                f"Días {int(row.get('Dias', 0))}"
-            )
-            
-            # POSICIONES FIJAS PARA ETIQUETAS
-            offsets = [
-                (18, 52), (18, -78), (-190, 52), (-190, -78),
-                (60, 56), (60, -84), (-240, 56), (-240, -84),
-                (110, 62), (110, -92), (-300, 62), (-300, -92),
-                (0, 78), (0, -110), (160, 40), (160, -64),
-                (-360, 40), (-360, -64)
-            ]
-            
-            # Usar un offset basado en la posición del punto
-            offset_idx = idx % len(offsets)
-            dx, dy = offsets[offset_idx]
-            
-            # Añadir anotación SIEMPRE VISIBLE
-            fig.add_annotation(
-                x=row["xw"],
-                y=row["Seguidores_promedio"],
-                text=label_text,
-                showarrow=True,
-                arrowhead=2,
-                arrowsize=1,
-                arrowwidth=0.8,
-                arrowcolor="#94a3b8",
-                ax=dx,
-                ay=dy,
-                font=dict(size=8, color="white", family="Arial"),
-                bgcolor="#0b1020",
-                bordercolor="#334155",
-                borderwidth=1,
-                borderpad=4,
-                opacity=0.90
-            )
-    
-    # 5. Puntos naranjas de la curva (MARCADORES VISIBLES)
-    if "xw" in curve.columns and "Seguidores_promedio" in curve.columns:
-        fig.add_trace(go.Scatter(
-            x=curve["xw"],
-            y=curve["Seguidores_promedio"],
-            mode='markers',
-            name='Puntos promedio (hover/click)',
-            marker=dict(
-                size=12,
-                color=colors['puntos_curva'],
-                opacity=0.98,
-                line=dict(width=1, color='white')
-            ),
-            hovertemplate='<b>🎯 Punto curva</b><br>Inv: $%{x:,.0f}<br>SEG: %{y:,.0f}<br>CPS: $%{customdata:,.0f}<extra></extra>',
-            customdata=curve["CPS_curva"] if "CPS_curva" in curve.columns else [0] * len(curve),
-            showlegend=True
-        ))
-    
-    # 6. Punto óptimo (ESTRELLA VERDE)
-    if opt_x > 0 and opt_y > 0:
-        # Texto del punto óptimo (IGUAL AL ORIGINAL)
-        opt_label_text = (
-            f"Óptimo<br>"
-            f"Inv {fmt_int_plain(opt_x)}<br>"
-            f"SEG {fmt_int_plain(opt_y)}<br>"
-            f"CPS {fmt_int_plain(opt_cps)}<br>"
-            f"1000 SEG ~ {fmt_days(opt_days_meta)} días<br>"
-            f"CPS_min {fmt_int_plain(cps_min)}<br>"
-            f"CPS_max {fmt_int_plain(cps_max)}"
-        )
-        
-        # Añadir punto óptimo (ESTRELLA)
-        fig.add_trace(go.Scatter(
-            x=[opt_xw],
-            y=[opt_y],
-            mode='markers',
-            name=f'Punto óptimo (max SEG dentro del mejor CPS, tol {int(OPT_CPS_TOL*100)}%)',
-            marker=dict(
-                size=25,
-                color=colors['punto_optimo'],
-                symbol='star',
-                line=dict(width=1.8, color='white')
-            ),
-            hovertemplate='<b>⭐ PUNTO ÓPTIMO</b><br>Inversión: $%{x:,.0f}<br>Seguidores: %{y:,.0f}<br>CPS: $%{customdata:,.0f}<extra></extra>',
-            customdata=[opt_cps]
-        ))
-        
-        # Añadir etiqueta del punto óptimo (POSICIÓN FIJA)
-        opt_offsets = [(-320, 70), (-360, 50), (-280, 90), (-260, 40), (-400, 70)]
-        opt_dx, opt_dy = opt_offsets[0]
-        
-        fig.add_annotation(
-            x=opt_xw,
-            y=opt_y,
-            text=opt_label_text,
-            showarrow=True,
-            arrowhead=2,
-            arrowsize=1,
-            arrowwidth=0.8,
-            arrowcolor="#94a3b8",
-            ax=opt_dx,
-            ay=opt_dy,
-            font=dict(size=8, color="white", family="Arial"),
-            bgcolor="#0b1020",
-            bordercolor="#22c55e",
-            borderwidth=1,
-            borderpad=4,
-            opacity=0.90
-        )
-    
-    # 7. Líneas de promedio general
-    # Línea horizontal de promedio SEG
-    fig.add_hline(
-        y=SEG_mean,
-        line_dash="dot",
-        line_color=colors['linea_promedio'],
-        line_width=2.0,
-        opacity=0.8,
-        annotation_text=f"Promedio SEG = {fmt_int_plain(SEG_mean)}",
-        annotation_position="top right",
-        annotation_font=dict(size=10, color=colors['linea_promedio']),
-        annotation_bgcolor=colors['fondo_ejes']
-    )
-    
-    # Línea vertical de promedio INV
-    fig.add_vline(
-        x=x_warp(INV_mean, BREAK_X, K),
-        line_dash="dot",
-        line_color=colors['linea_promedio'],
-        line_width=1.8,
-        opacity=0.75,
-        annotation_text=f"Promedio inversión = {fmt_int_plain(INV_mean)}",
-        annotation_position="top left",
-        annotation_font=dict(size=10, color=colors['linea_promedio']),
-        annotation_bgcolor=colors['fondo_ejes']
-    )
-    
-    # Configurar layout COMPLETAMENTE IGUAL AL ORIGINAL
-    fig.update_layout(
-        height=700,
-        plot_bgcolor=colors['fondo_ejes'],
-        paper_bgcolor=colors['fondo_figura'],
-        font=dict(color=colors['texto'], size=12, family="Arial"),
-        title=dict(
-            text=f"Inversión vs Seguidores (curva por niveles) — Hover/Click en puntos naranjas<br>"
-                 f"<span style='font-size:14px; color:#94a3b8'>Impacto {IMPACT_DAYS}d | STEP ${STEP:,} | Compresión X: {BREAK_X/1000:.0f}k+ (K={K})</span>",
-            font=dict(size=22, color='white', family="Arial Black"),
-            x=0.5,
-            xanchor='center',
-            y=0.95
-        ),
-        xaxis=dict(
-            title="",
-            gridcolor='rgba(255,255,255,0.1)',
-            tickvals=edge_ticks_w if len(edge_ticks_w) > 0 else None,
-            ticktext=edge_tick_labels if len(edge_tick_labels) > 0 else None,
-            tickfont=dict(size=11, color=colors['ticks']),
-            zeroline=False,
-            showgrid=True,
-            gridwidth=0.6
-        ),
-        yaxis=dict(
-            title=f"Seguidores ({'Impacto' if USE_IMPACT else 'Neto'} {IMPACT_DAYS}d)",
-            gridcolor='rgba(255,255,255,0.1)',
-            tickformat=",",
-            tickfont=dict(size=11, color=colors['ticks']),
-            title_font=dict(size=13, color=colors['texto'])
-        ),
-        hovermode='closest',
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            bgcolor='rgba(11, 16, 32, 0.8)',
-            bordercolor='rgba(255,255,255,0.2)',
-            borderwidth=1,
-            font=dict(size=11, color=colors['texto'])
-        ),
-        margin=dict(l=60, r=40, t=120, b=60),
-        showlegend=True
-    )
-    
-    # Añadir grid horizontal
-    fig.update_xaxes(showgrid=True, gridwidth=0.6, gridcolor='rgba(255,255,255,0.15)')
-    fig.update_yaxes(showgrid=True, gridwidth=0.6, gridcolor='rgba(255,255,255,0.15)')
-    
-    # Mostrar gráfica
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
-    
-    # Mostrar información adicional en tarjetas
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        st.metric(
-            "📊 Días válidos",
-            f"{len(cand):,}",
-            help="Total de días con inversión y seguidores positivos"
-        )
-    
-    with col2:
-        st.metric(
-            "💰 Inv promedio",
-            f"${INV_mean:,.0f}",
-            help="Inversión promedio por día válido"
-        )
-    
-    with col3:
-        st.metric(
-            "👥 SEG promedio",
-            f"{SEG_mean:,.0f}",
-            help="Seguidores promedio por día válido"
-        )
-    
-    with col4:
-        st.metric(
-            "⭐ CPS mínimo",
-            f"${cps_min:,.0f}",
-            help="CPS mínimo encontrado en la curva"
-        )
-    
-    with col5:
-        cps_tol = parameters.get('OPT_CPS_TOL', 0.20)
-        st.metric(
-            "🎯 CPS óptimo",
-            f"${opt_cps:,.0f}",
-            delta=f"Tol {int(cps_tol*100)}%",
-            help=f"Costo por seguidor en el punto óptimo (tolerancia {int(cps_tol*100)}%)"
-        )
-    
-    # Mostrar tabla de datos de la curva
-    with st.expander("📋 Ver datos detallados de la curva (rangos de inversión)"):
-        if not curve.empty:
-            display_curve = curve.copy()
-            # Formatear como en el gráfico original
-            if "Inversion_promedio" in display_curve.columns:
-                display_curve["Inversion_promedio"] = display_curve["Inversion_promedio"].apply(lambda x: f"${x:,.0f}")
-            if "Seguidores_promedio" in display_curve.columns:
-                display_curve["Seguidores_promedio"] = display_curve["Seguidores_promedio"].apply(lambda x: f"{x:,.0f}")
-            if "CPS_curva" in display_curve.columns:
-                display_curve["CPS_curva"] = display_curve["CPS_curva"].apply(lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A")
-            if "Dias_para_meta" in display_curve.columns:
-                display_curve["Dias_para_meta"] = display_curve["Dias_para_meta"].apply(lambda x: f"{x:.1f}" if not pd.isna(x) else "N/A")
-            
-            # Renombrar columnas
-            rename_map = {}
-            if "Inversion_promedio" in display_curve.columns:
-                rename_map["Inversion_promedio"] = "💰 Inversión promedio"
-            if "Seguidores_promedio" in display_curve.columns:
-                rename_map["Seguidores_promedio"] = "👥 Seguidores promedio"
-            if "CPS_curva" in display_curve.columns:
-                rename_map["CPS_curva"] = "📊 CPS"
-            if "Dias" in display_curve.columns:
-                rename_map["Dias"] = "📅 Días en rango"
-            if "Dias_para_meta" in display_curve.columns:
-                rename_map["Dias_para_meta"] = "⏱️ 1000 SEG (días)"
-            
-            display_curve = display_curve.rename(columns=rename_map)
-            
-            st.dataframe(display_curve, use_container_width=True)
-        else:
-            st.info("No hay datos de curva para mostrar")
-    
-    # Botón para cambiar entre datos reales y de ejemplo
-    st.markdown("---")
-    col_switch1, col_switch2 = st.columns(2)
-    
-    with col_switch1:
-        if st.session_state.get("use_test_data", False):
-            if st.button("🔄 Cambiar a datos reales", key="switch_to_real"):
-                st.session_state["use_test_data"] = False
-                st.rerun()
-        else:
-            if st.button("🧪 Usar datos de ejemplo", key="switch_to_example"):
-                st.session_state["use_test_data"] = True
-                st.rerun()
-    
-    with col_switch2:
-        if st.button("📊 Ver datos crudos", key="show_raw_data"):
-            with st.expander("📁 Datos crudos de la gráfica"):
-                st.write("**Parámetros:**", parameters)
-                
-                if not cand.empty:
-                    st.write(f"**Días válidos ({len(cand)} registros):**")
-                    st.dataframe(cand.head(20))
-                
-                if not curve.empty:
-                    st.write("**Curva completa:**")
-                    st.dataframe(curve)
-
-def crear_grafica2_interactiva(data_grafica2):
-    """Crea la gráfica 2 interactiva (Heatmap CPS) - IDÉNTICA AL ORIGINAL"""
-    if not data_grafica2 or data_grafica2.get("status") != "success":
-        st.error("No se pudo cargar la gráfica 2: Datos inválidos o vacíos")
-        
-        # Mostrar botón para recargar
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            if st.button("🔄 Recargar datos", key="reload_graf2"):
-                st.cache_data.clear()
-                st.rerun()
-        
-        with col2:
-            if st.button("🧪 Usar datos de ejemplo", key="use_example_graf2"):
-                st.session_state["use_test_data"] = True
-                st.rerun()
-        return
-    
-    # Extraer datos COMPLETOS del backend
-    heatmap_data = data_grafica2.get("plot_data", {})
-    summary_by_day = pd.DataFrame(data_grafica2.get("tables", {}).get("sum_day", []))
-    
-    if not heatmap_data:
-        st.warning("No hay datos suficientes para generar el heatmap")
-        
-        # Botones de acción
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 Intentar de nuevo", key="retry_graf2"):
-                st.rerun()
-        
-        with col2:
-            if st.button("🧪 Usar datos de ejemplo", key="force_example_graf2"):
-                st.session_state["use_test_data"] = True
-                st.rerun()
-        return
-    
-    # Extraer matrices del heatmap
-    vals_cps_raw = np.array(heatmap_data.get("vals_cps_raw", []))
-    vals_seg = np.array(heatmap_data.get("vals_seg", []))
-    vals_cps_clip = np.array(heatmap_data.get("vals_cps_clip", []))
-    dias_order = heatmap_data.get("dias_order", [])
-    weeks = heatmap_data.get("weeks", [])
-    
-    if vals_cps_raw.size == 0 or len(dias_order) == 0 or len(weeks) == 0:
-        st.warning("Datos del heatmap incompletos")
-        
-        # Mostrar información de depuración
-        with st.expander("🔍 Información de depuración"):
-            st.write(f"Tamaño vals_cps_raw: {vals_cps_raw.shape}")
-            st.write(f"Días order: {len(dias_order)}")
-            st.write(f"Semanas: {len(weeks)}")
-            st.write(f"Sum day: {len(summary_by_day)} registros")
-        
-        return
-    
-    # Función para formatear números (IGUAL AL ORIGINAL)
-    def fmt_int_or_dash(x):
-        if x is None or (isinstance(x, float) and np.isnan(x)):
-            return "—"
-        try:
-            return f"{int(round(float(x))):,}".replace(",", ".")
-        except Exception:
-            return "—"
-    
-    # Colores del gráfico original (EXACTAMENTE IGUALES)
-    colors = {
-        'fondo_figura': '#060913',
-        'fondo_ejes': '#0b1020',
-        'borde_ejes': '#334155',
-        'texto': '#e0e7ff',
-        'ticks': '#c7d2fe',
-        'texto_celda': 'white',
-        'sombra_texto': 'rgba(0, 0, 0, 0.45)'
-    }
-    
-    # Calcular percentiles para recorte de color (p5-p95) IGUAL AL ORIGINAL
-    cps_flat = vals_cps_raw[np.isfinite(vals_cps_raw)]
-    if len(cps_flat) > 0:
-        p5 = np.nanpercentile(cps_flat, 5)
-        p95 = np.nanpercentile(cps_flat, 95)
-        zmin = p5
-        zmax = p95
-    else:
-        zmin = 0
-        zmax = 100
-        p5 = p95 = 0
-    
-    # Crear texto para cada celda - ETIQUETAS SIEMPRE VISIBLES (IGUAL AL ORIGINAL)
-    text_matrix = []
-    hover_text_matrix = []
-    for i in range(len(vals_cps_raw)):
-        row_text = []
-        row_hover = []
-        for j in range(len(vals_cps_raw[i])):
-            cps_v = vals_cps_raw[i, j]
-            seg_v = vals_seg[i, j]
-            if np.isfinite(cps_v) and cps_v > 0:
-                # Formato EXACTO: CPS y Seg en dos líneas
-                line1 = f"CPS {fmt_int_or_dash(cps_v)}"
-                line2 = f"Seg {fmt_int_or_dash(seg_v)}"
-                row_text.append(f"{line1}<br>{line2}")
-                row_hover.append(f"CPS: ${cps_v:,.0f}<br>Seguidores: {seg_v:,.0f}")
-            else:
-                row_text.append("")
-                row_hover.append("")
-        text_matrix.append(row_text)
-        hover_text_matrix.append(row_hover)
-    
-    try:
-        # Crear heatmap con colores invertidos (RdYlGn_r) - IGUAL AL ORIGINAL
-        fig = go.Figure(data=go.Heatmap(
-            z=vals_cps_clip,
-            x=weeks,
-            y=dias_order,
-            colorscale='RdYlGn_r',  # EXACTO: rojo (malo) a verde (bueno) INVERTIDO
-            zmin=zmin,
-            zmax=zmax,
-            colorbar=dict(
-                title="CPS (recortado p5–p95)",
-                tickformat="$,.0f",
-                len=0.8,
-                thickness=15,
-                tickfont=dict(size=10, color=colors['texto'])
-            ),
-            hovertemplate='<b>%{y} - %{x}</b><br>%{customdata}<extra></extra>',
-            customdata=hover_text_matrix,
-            text=text_matrix,
-            texttemplate="%{text}",
-            textfont=dict(size=9, color=colors['texto_celda'], family="Arial"),
-            hoverongaps=False,
-            showscale=True
-        ))
-        
-        # Configurar layout - FONDO AZUL OSCURO IGUAL AL ORIGINAL
-        fig.update_layout(
-            height=750,
-            plot_bgcolor=colors['fondo_ejes'],
-            paper_bgcolor=colors['fondo_figura'],
-            font=dict(color=colors['texto'], size=12, family="Arial"),
-            title=dict(
-                text="Mapa de calor — CPS (Costo/Seguidor) + Seguidores (neto)<br>"
-                     "<span style='font-size:14px; color:#94a3b8'>CPS bajo = mejor | Negro = sin inversión o sin seguidores positivos</span>",
-                font=dict(size=22, color='white', family="Arial Black"),
-                x=0.5,
-                xanchor='center',
-                y=0.95
-            ),
-            xaxis=dict(
-                title="Semana ISO",
-                tickangle=45,
-                gridcolor='rgba(255,255,255,0.1)',
-                tickfont=dict(size=10, color=colors['ticks'], family="Arial"),
-                title_font=dict(size=13, color=colors['texto']),
-                side="top"
-            ),
-            yaxis=dict(
-                title="Día de la semana",
-                gridcolor='rgba(255,255,255,0.1)',
-                autorange="reversed",  # IGUAL AL ORIGINAL: Lunes arriba
-                tickfont=dict(size=12, color=colors['ticks'], family="Arial"),
-                title_font=dict(size=13, color=colors['texto'])
-            ),
-            margin=dict(l=80, r=50, t=120, b=80)
-        )
-        
-        # Añadir grid como en el original (líneas finas)
-        fig.update_xaxes(
-            showgrid=True, 
-            gridwidth=0.6, 
-            gridcolor='rgba(255,255,255,0.15)',
-            minor=dict(
-                ticklen=4,
-                showgrid=True,
-                gridcolor='rgba(255,255,255,0.05)',
-                gridwidth=0.4
-            )
-        )
-        
-        fig.update_yaxes(
-            showgrid=True, 
-            gridwidth=0.6, 
-            gridcolor='rgba(255,255,255,0.15)',
-            minor=dict(
-                ticklen=4,
-                showgrid=True,
-                gridcolor='rgba(255,255,255,0.05)',
-                gridwidth=0.4
-            )
-        )
-        
-        # Añadir anotaciones para explicar colores
-        fig.add_annotation(
-            x=0.02, y=1.05,
-            xref="paper", yref="paper",
-            text="🟢 CPS BAJO = MEJOR EFICIENCIA",
-            showarrow=False,
-            font=dict(size=12, color="#10b981", family="Arial"),
-            bgcolor="rgba(0,0,0,0.5)",
-            bordercolor="#10b981",
-            borderwidth=1,
-            borderpad=4
-        )
-        
-        fig.add_annotation(
-            x=0.02, y=1.02,
-            xref="paper", yref="paper",
-            text="🔴 CPS ALTO = PEOR EFICIENCIA",
-            showarrow=False,
-            font=dict(size=12, color="#ef4444", family="Arial"),
-            bgcolor="rgba(0,0,0,0.5)",
-            bordercolor="#ef4444",
-            borderwidth=1,
-            borderpad=4
-        )
-        
-        # Mostrar heatmap
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
-        
-        # Gráfico de barras para resumen por día (BARRA DERECHA) - IGUAL AL ORIGINAL
-        if not summary_by_day.empty:
-            # Ordenar por día de semana (Lunes a Domingo) - IGUAL AL ORIGINAL
-            dias_order = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-            summary_by_day['Dia_Semana'] = pd.Categorical(
-                summary_by_day['Dia_Semana'], 
-                categories=dias_order, 
-                ordered=True
-            )
-            summary_by_day = summary_by_day.sort_values('Dia_Semana')
-            
-            # Crear gráfico de barras HORIZONTAL - IGUAL AL ORIGINAL (barra derecha)
-            fig_bar = go.Figure()
-            
-            fig_bar.add_trace(go.Bar(
-                x=summary_by_day["CPS_total_dia"],
-                y=summary_by_day["Dia_Semana"],
-                orientation='h',
-                name="CPS por día",
-                marker=dict(
-                    color=summary_by_day["CPS_total_dia"],
-                    colorscale='RdYlGn_r',
-                    showscale=False,
-                    cmin=np.nanpercentile(summary_by_day["CPS_total_dia"].dropna(), 5) if not summary_by_day["CPS_total_dia"].dropna().empty else 0,
-                    cmax=np.nanpercentile(summary_by_day["CPS_total_dia"].dropna(), 95) if not summary_by_day["CPS_total_dia"].dropna().empty else 100,
-                ),
-                hovertemplate='<b>%{y}</b><br>CPS: $%{x:,.0f}<br>Seguidores: %{customdata:,.0f}<extra></extra>',
-                customdata=summary_by_day["Seguidores_sum"],
-                text=summary_by_day.apply(
-                    lambda row: f"CPS {fmt_int_or_dash(row['CPS_total_dia'])}<br>Seg {fmt_int_or_dash(row['Seguidores_sum'])}" 
-                    if not pd.isna(row['CPS_total_dia']) else "", 
-                    axis=1
-                ),
-                textposition='outside',
-                textfont=dict(size=10, color='white', family="Arial")
-            ))
-            
-            fig_bar.update_layout(
-                height=500,
-                plot_bgcolor=colors['fondo_ejes'],
-                paper_bgcolor=colors['fondo_figura'],
-                font=dict(color=colors['texto'], size=12, family="Arial"),
-                title=dict(
-                    text="Resumen por día",
-                    font=dict(size=20, color='white', family="Arial Black"),
-                    x=0.5,
-                    xanchor='center'
-                ),
-                xaxis=dict(
-                    title="CPS total por día",
-                    gridcolor='rgba(255,255,255,0.18)',
-                    tickprefix="$",
-                    tickfont=dict(size=11, color=colors['ticks']),
-                    title_font=dict(size=13, color=colors['texto'])
-                ),
-                yaxis=dict(
-                    title="",
-                    gridcolor='rgba(255,255,255,0.1)',
-                    tickfont=dict(size=12, color=colors['ticks'], family="Arial"),
-                    autorange="reversed"  # IGUAL AL ORIGINAL: Lunes arriba
-                ),
-                hovermode='y',
-                margin=dict(l=20, r=50, t=80, b=80),
-                showlegend=False
-            )
-            
-            st.plotly_chart(fig_bar, use_container_width=True)
-        
-        # Mostrar tabla de resumen por día
-        with st.expander("📋 Ver datos detallados del heatmap"):
-            if not summary_by_day.empty:
-                display_summary = summary_by_day.copy()
-                # Formatear
-                display_summary["Costo_sum"] = display_summary["Costo_sum"].apply(lambda x: f"${x:,.0f}")
-                display_summary["Seguidores_sum"] = display_summary["Seguidores_sum"].apply(lambda x: f"{x:,.0f}")
-                display_summary["CPS_total_dia"] = display_summary["CPS_total_dia"].apply(
-                    lambda x: f"${x:,.0f}" if not pd.isna(x) else "N/A"
-                )
-                
-                # Renombrar
-                display_summary = display_summary.rename(columns={
-                    "Dia_Semana": "📅 Día",
-                    "Costo_sum": "💰 Costo total",
-                    "Seguidores_sum": "👥 Seguidores total",
-                    "CPS_total_dia": "📊 CPS total"
-                })
-                
-                st.dataframe(display_summary, use_container_width=True)
-                
-    except Exception as e:
-        st.error(f"Error al crear heatmap: {str(e)}")
-        st.info("Mostrando datos en formato de tabla como respaldo...")
-        
-        # Mostrar datos en tabla como respaldo
-        if len(vals_cps_raw) > 0 and len(weeks) > 0:
-            heatmap_df = pd.DataFrame(vals_cps_raw, index=dias_order, columns=weeks)
-            st.dataframe(heatmap_df.style.format("${:,.0f}"))
-    
-    # Botón para cambiar entre datos reales y de ejemplo
-    st.markdown("---")
-    col_switch1, col_switch2 = st.columns(2)
-    
-    with col_switch1:
-        if st.session_state.get("use_test_data", False):
-            if st.button("🔄 Cambiar a datos reales", key="switch_to_real_2"):
-                st.session_state["use_test_data"] = False
-                st.rerun()
-        else:
-            if st.button("🧪 Usar datos de ejemplo", key="switch_to_example_2"):
-                st.session_state["use_test_data"] = True
-                st.rerun()
-    
-    with col_switch2:
-        if st.button("📊 Ver datos crudos", key="show_raw_data_2"):
-            with st.expander("📁 Datos crudos del heatmap"):
-                st.write("**Días order:**", dias_order)
-                st.write("**Semanas:**", weeks)
-                
-                if len(vals_cps_raw) > 0:
-                    st.write(f"**Matriz CPS raw (forma: {vals_cps_raw.shape}):**")
-                    st.write(vals_cps_raw)
-                
-                if not summary_by_day.empty:
-                    st.write("**Resumen por día:**")
-                    st.dataframe(summary_by_day)
+        return pd.DataFrame()
 
 #############################################
-# FIN FUNCIONES GRÁFICAS COMPLETAMENTE REESCRITAS
+# FIN NUEVAS FUNCIONES CORREGIDAS
 #############################################
 
 # Función para cargar datos con caché
@@ -2038,9 +733,9 @@ st.markdown("""
     border: 2px solid rgba(var(--platform-color-rgb), 0.2);
 }
 
-/* Gráficas avanzadas - CONTENEDOR AZUL OSCURO */
+/* Gráficas avanzadas */
 .grafica-container {
-    background: linear-gradient(135deg, #060913 0%, #0b1020 100%);
+    background: linear-gradient(135deg, #0b1020 0%, #0f172a 100%);
     border-radius: 16px;
     padding: 25px;
     margin: 20px 0;
@@ -2184,50 +879,11 @@ st.markdown("""
     font-weight: 500 !important;
 }
 
-/* Botones de control gráficas */
-.control-button {
-    margin: 5px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
-    color: white;
-    font-weight: 600;
-    border: none;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-family: 'Arial', sans-serif;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.control-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-}
-
-.control-button.secondary {
-    background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
-}
-
 </style>
 """, unsafe_allow_html=True)
 
 # Cargar datos
 df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
-
-# Inicializar estado de sesión para datos de ejemplo
-if "use_test_data" not in st.session_state:
-    st.session_state["use_test_data"] = False
-
-if "selected_platform" not in st.session_state:
-    st.session_state["selected_platform"] = "general"
-
-if "show_grafica1" not in st.session_state:
-    st.session_state["show_grafica1"] = False
-
-if "show_grafica2" not in st.session_state:
-    st.session_state["show_grafica2"] = False
 
 # Sidebar
 with st.sidebar:
@@ -2252,11 +908,7 @@ with st.sidebar:
         else:
             st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Error: {backend_test.status_code}</div>', unsafe_allow_html=True)
     except Exception as e:
-        st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Offline: {str(e)[:50]}</div>', unsafe_allow_html=True)
-    
-    # Estado de datos de ejemplo
-    if st.session_state.get("use_test_data", False):
-        st.markdown('<div class="backend-status backend-connected">🧪 Usando datos de ejemplo</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Offline</div>', unsafe_allow_html=True)
     
     st.markdown('<p class="sidebar-title" style="font-family: Arial Black, sans-serif;">🔗 Panel Professional</p>', unsafe_allow_html=True)
     
@@ -2289,44 +941,24 @@ with st.sidebar:
     with col_graf1:
         if st.button("📈 Gráfica 1", key="grafica1_btn", use_container_width=True, 
                     help="Inversión vs Seguidores - Análisis de eficiencia"):
-            st.session_state["show_grafica1"] = True
-            st.session_state["show_grafica2"] = False
-            st.rerun()
+            st.session_state["show_grafica1"] = not st.session_state.get("show_grafica1", False)
+            if "show_grafica2" in st.session_state:
+                st.session_state["show_grafica2"] = False
     
     with col_graf2:
         if st.button("📊 Gráfica 2", key="grafica2_btn", use_container_width=True,
                     help="Heatmap CPS - Análisis por día y semana"):
-            st.session_state["show_grafica2"] = True
-            st.session_state["show_grafica1"] = False
-            st.rerun()
-    
-    # Botón para verificar backend
-    if st.button("🔍 Verificar Backend", key="check_backend", use_container_width=True):
-        with st.spinner("Verificando endpoints..."):
-            status = verificar_backend()
-            with st.expander("Resultados de verificación", expanded=True):
-                for nombre, info in status.items():
-                    st.write(f"**{nombre}:** {info['estado']}")
-                    st.write(f"URL: `{info['url']}`")
-                    if info['datos']:
-                        st.write(f"Datos: {str(info['datos'])[:100]}...")
-                    st.divider()
-    
-    # Botón para datos de ejemplo
-    if st.session_state.get("use_test_data", False):
-        if st.button("🔄 Cambiar a datos reales", key="switch_to_real_sidebar", use_container_width=True):
-            st.session_state["use_test_data"] = False
-            st.rerun()
-    else:
-        if st.button("🧪 Usar datos de ejemplo", key="use_example_sidebar", use_container_width=True):
-            st.session_state["use_test_data"] = True
-            st.rerun()
+            st.session_state["show_grafica2"] = not st.session_state.get("show_grafica2", False)
+            if "show_grafica1" in st.session_state:
+                st.session_state["show_grafica1"] = False
     
     # Botón para ocultar gráficas
     if st.session_state.get("show_grafica1", False) or st.session_state.get("show_grafica2", False):
         if st.button("⬅️ Volver a Dashboard", key="back_dashboard", use_container_width=True):
-            st.session_state["show_grafica1"] = False
-            st.session_state["show_grafica2"] = False
+            if "show_grafica1" in st.session_state:
+                st.session_state["show_grafica1"] = False
+            if "show_grafica2" in st.session_state:
+                st.session_state["show_grafica2"] = False
             st.rerun()
     
     st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
@@ -2377,55 +1009,6 @@ with st.sidebar:
 
 # Contenido principal
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
-
-# ================================================================
-# SECCIÓN: GRÁFICAS AVANZADAS (si están activadas)
-# ================================================================
-
-# Gráfica 1: Inversión vs Seguidores
-if st.session_state.get("show_grafica1", False):
-    st.markdown(f"""
-    <div class="dashboard-header">
-        <h1 style="font-family: 'Arial Black', sans-serif;">📈 GRÁFICA 1: INVERSIÓN VS SEGUIDORES</h1>
-        <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 15px; font-weight: 400; font-family: 'Arial', sans-serif;">
-            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
-        </p>
-        <div style="position: absolute; bottom: 15px; right: 25px; font-size: 13px; opacity: 0.8; font-family: 'Arial', sans-serif;">
-            Actualizado: {current_time}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    with st.spinner("Cargando datos de la gráfica 1..."):
-        data_grafica1 = cargar_datos_grafica1()
-        crear_grafica1_interactiva(data_grafica1)
-    
-    st.stop()
-
-# Gráfica 2: Heatmap CPS
-elif st.session_state.get("show_grafica2", False):
-    st.markdown(f"""
-    <div class="dashboard-header">
-        <h1 style="font-family: 'Arial Black', sans-serif;">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</h1>
-        <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 15px; font-weight: 400; font-family: 'Arial', sans-serif;">
-            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia
-        </p>
-        <div style="position: absolute; bottom: 15px; right: 25px; font-size: 13px; opacity: 0.8; font-family: 'Arial', sans-serif;">
-            Actualizado: {current_time}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    with st.spinner("Cargando datos de la gráfica 2..."):
-        data_grafica2 = cargar_datos_grafica2()
-        crear_grafica2_interactiva(data_grafica2)
-    
-    st.stop()
-
-# ================================================================
-# DASHBOARD NORMAL (si no se están mostrando gráficas avanzadas)
-# ================================================================
-
 st.markdown(f"""
 <div class="dashboard-header">
     <h1 style="font-family: 'Arial Black', sans-serif;">📊 SOCIAL MEDIA DASHBOARD PRO</h1>
@@ -2495,20 +1078,81 @@ if df.empty:
             st.write(f"**Total registros TikTok:** {len(tiktok_df)}")
     
     st.info("Conectando al backend para cargar datos en tiempo real...")
-    
-    # Botones de acción
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🔄 Recargar datos", key="reload_main"):
-            st.cache_data.clear()
-            st.rerun()
-    
-    with col2:
-        if st.button("🧪 Usar datos de ejemplo", key="use_example_main"):
-            st.session_state["use_test_data"] = True
-            st.rerun()
-    
     st.stop()
+
+# ================================================================
+# SECCIÓN: GRÁFICAS AVANZADAS (si están activadas)
+# ================================================================
+
+# Gráfica 1: Inversión vs Seguidores
+if st.session_state.get("show_grafica1", False):
+    st.markdown("""
+    <div class="grafica-container">
+        <div class="grafica-title">📈 GRÁFICA 1: INVERSIÓN VS SEGUIDORES</div>
+        <div class="grafica-subtitle">
+            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Cargando imagen y métricas..."):
+        img_bytes = cargar_imagen_grafica1_bytes()
+        if img_bytes:
+            st.image(img_bytes, caption="Inversion vs Seguidores", use_container_width=True)
+            st.markdown(f"[Abrir imagen en navegador]({GRAFICA1_URL})")
+        else:
+            st.warning("No se pudo cargar la imagen.")
+
+        excel_bytes = cargar_excel_metricas_bytes()
+        if excel_bytes:
+            st.download_button(
+                label="⬇️ Descargar Excel: metricas_seguidores_vs_inversion.xlsx",
+                data=excel_bytes,
+                file_name="metricas_seguidores_vs_inversion.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+            st.markdown(f"[Abrir Excel en navegador]({GRAFICA2_URL})")
+        else:
+            st.warning("No se pudo cargar el Excel.")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
+
+# Gráfica 2: Heatmap CPS
+elif st.session_state.get("show_grafica2", False):
+    st.markdown("""
+    <div class="grafica-container">
+        <div class="grafica-title">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</div>
+        <div class="grafica-subtitle">
+            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia • Etiquetas siempre visibles
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Cargando Excel de métricas..."):
+        excel_bytes = cargar_excel_metricas_bytes()
+        df_metricas = leer_excel_primer_sheet(excel_bytes)
+
+        if not df_metricas.empty:
+            st.dataframe(df_metricas, use_container_width=True)
+        else:
+            st.warning("No hay datos para mostrar.")
+
+        if excel_bytes:
+            st.download_button(
+                label="⬇️ Descargar Excel: metricas_seguidores_vs_inversion.xlsx",
+                data=excel_bytes,
+                file_name="metricas_seguidores_vs_inversion.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+            st.markdown(f"[Abrir Excel en navegador]({GRAFICA2_URL})")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
+
+# ================================================================
+# DASHBOARD NORMAL (si no se están mostrando gráficas avanzadas)
+# ================================================================
 
 # Calcular métricas clave
 total_posts = len(df)
@@ -2611,7 +1255,7 @@ if (selected_platform == "general" or selected_platform == "tiktok") and not df_
     </div>
     """, unsafe_allow_html=True)
     
-    # Mostrar 3 tarjetas de métricas de pauta
+    # Mostrar 3 tarjetas de métricas de pauta (eliminada VISUALIZACIONES PERFIL)
     col_pauta1, col_pauta2, col_pauta3 = st.columns(3)
     
     with col_pauta1:
