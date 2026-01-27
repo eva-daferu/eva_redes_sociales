@@ -252,97 +252,136 @@ st.markdown("""
     color: #3B82F6;
 }
 
-/* FRANJA COMPACTA DE MÉTRICAS - TODO EN UNA SOLA LÍNEA */
-.metrics-compact-container {
+/* Métricas en una sola franja horizontal - DISEÑO MEJORADO */
+.metrics-horizontal {
     display: flex;
-    background: white;
-    border-radius: 10px;
-    padding: 10px 15px;
-    margin: 12px 0;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
-    border: 1px solid #e5e7eb;
+    gap: 8px;
+    margin-bottom: 15px;
+    width: 100%;
     overflow-x: auto;
-    gap: 20px;
-    align-items: center;
+    padding-bottom: 5px;
 }
 
-.metric-compact-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-    padding: 5px 0;
-}
-
-.metric-compact-icon {
-    font-size: 16px;
-    width: 24px;
+.metric-horizontal-item {
+    flex: 1;
+    min-width: 160px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 12px;
+    padding: 15px 12px;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e5e7eb;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
     text-align: center;
+    backdrop-filter: blur(10px);
 }
 
-.metric-compact-content {
-    display: flex;
-    flex-direction: column;
+.metric-horizontal-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s infinite linear;
 }
 
-.metric-compact-label {
-    font-size: 10px;
-    color: #6b7280;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    line-height: 1.2;
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
 }
 
-.metric-compact-value {
-    font-size: 14px;
-    font-weight: 800;
+.metric-horizontal-item:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 12px 25px rgba(59, 130, 246, 0.15);
+    border-color: #3B82F6;
+}
+
+.metric-horizontal-value {
+    font-size: 22px;
+    font-weight: 900;
     color: #1f2937;
-    margin-top: 2px;
+    margin: 8px 0 4px 0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    letter-spacing: -0.5px;
 }
 
-.pauta-compact-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-    padding: 5px 0;
-}
-
-.pauta-compact-icon {
-    font-size: 16px;
-    width: 24px;
-    text-align: center;
-    color: #0ea5e9;
-}
-
-.pauta-compact-content {
-    display: flex;
-    flex-direction: column;
-}
-
-.pauta-compact-label {
-    font-size: 10px;
-    color: #475569;
-    font-weight: 600;
+.metric-horizontal-label {
+    font-size: 11px;
+    color: #6b7280;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    line-height: 1.2;
+    letter-spacing: 0.8px;
+    line-height: 1.3;
 }
 
-.pauta-compact-value {
-    font-size: 14px;
-    font-weight: 800;
+.metric-horizontal-icon {
+    font-size: 20px;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.1));
+}
+
+/* Tarjetas de pauta publicitaria en horizontal - DISEÑO MEJORADO */
+.pauta-horizontal-item {
+    flex: 1;
+    min-width: 160px;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: 12px;
+    padding: 15px 12px;
+    box-shadow: 0 6px 15px rgba(14, 165, 233, 0.12);
+    border: 1px solid #bae6fd;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+
+.pauta-horizontal-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s infinite linear;
+}
+
+.pauta-horizontal-item:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 12px 25px rgba(14, 165, 233, 0.2);
+    border-color: #0ea5e9;
+}
+
+.pauta-horizontal-value {
+    font-size: 22px;
+    font-weight: 900;
     color: #0369a1;
-    margin-top: 2px;
+    margin: 8px 0 4px 0;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    letter-spacing: -0.5px;
 }
 
-/* Separador entre métricas */
-.metric-separator {
-    width: 1px;
-    height: 30px;
-    background: #e5e7eb;
-    margin: 0 5px;
+.pauta-horizontal-label {
+    font-size: 11px;
+    color: #475569;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    line-height: 1.3;
+}
+
+.pauta-horizontal-icon {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: #0ea5e9;
+    filter: drop-shadow(0 2px 3px rgba(14, 165, 233, 0.3));
 }
 
 /* Header principal */
@@ -378,81 +417,108 @@ st.markdown("""
     opacity: 0.1;
 }
 
-/* SELECTOR DE GRÁFICAS - DISEÑO MEJORADO CON BOTONES ATTRACTIVOS */
+/* Selector de gráficas - DISEÑO MEJORADO CON FONDO Y EFECTOS */
 .grafica-selector-container {
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border-radius: 12px;
-    padding: 12px;
+    padding: 10px;
     margin: 12px 0 15px 0;
     border: 1px solid #e5e7eb;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
 .grafica-selector-title {
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 800;
     color: #1f2937;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .grafica-selector-buttons {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     justify-content: center;
 }
 
-.selector-btn {
+/* Botones de selección de gráficas - DISEÑO MEJORADO */
+.grafica-selector-btn {
     flex: 1;
-    max-width: 200px;
-    padding: 14px 20px;
-    border-radius: 10px;
+    max-width: 220px;
+    padding: 16px 15px;
+    border-radius: 12px;
     background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-    border: 2px solid #d1d5db;
-    color: #374151;
-    font-weight: 700;
+    border: 2px solid #e5e7eb;
+    color: #64748b;
+    font-weight: 800;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     text-align: center;
-    font-size: 14px;
+    font-size: 13px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    gap: 6px;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+    position: relative;
+    overflow: hidden;
 }
 
-.selector-btn:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
-    border-color: #9ca3af;
-    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+.grafica-selector-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: 0.5s;
 }
 
-.selector-btn.active {
+.grafica-selector-btn:hover {
+    transform: translateY(-5px) scale(1.03);
+    box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+    border-color: #cbd5e1;
+    background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+}
+
+.grafica-selector-btn:hover::before {
+    left: 100%;
+}
+
+.grafica-selector-btn.active {
     background: linear-gradient(135deg, #3B82F6 0%, #2563eb 100%);
     color: white;
     border-color: #3B82F6;
-    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+    transform: translateY(-3px);
 }
 
-.selector-btn.active:hover {
+.grafica-selector-btn.active:hover {
     background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-    transform: translateY(-4px);
-    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.5);
+    transform: translateY(-5px) scale(1.03);
+    box-shadow: 0 15px 30px rgba(59, 130, 246, 0.5);
 }
 
-.selector-btn-icon {
-    font-size: 22px;
+.grafica-btn-icon {
+    font-size: 24px;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.1));
 }
 
-.selector-btn-text {
-    font-size: 13px;
+.grafica-selector-btn.active .grafica-btn-icon {
+    filter: drop-shadow(0 2px 3px rgba(255,255,255,0.3));
+}
+
+.grafica-btn-text {
+    font-size: 12px;
     font-weight: 700;
+    letter-spacing: 0.3px;
 }
 
 /* Contenedores */
@@ -461,7 +527,7 @@ st.markdown("""
     border-radius: 12px;
     padding: 16px;
     margin: 12px 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
     border: 1px solid #e5e7eb;
 }
 
@@ -470,7 +536,7 @@ st.markdown("""
     border-radius: 12px;
     padding: 16px;
     margin: 12px 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
     border: 1px solid #e5e7eb;
 }
 
@@ -541,21 +607,25 @@ st.markdown("""
 
 /* Responsive */
 @media (max-width: 768px) {
-    .metrics-compact-container {
-        flex-wrap: wrap;
-        gap: 10px;
-    }
-    .metric-compact-item, .pauta-compact-item {
-        min-width: calc(50% - 10px);
-    }
+    .metric-horizontal-value, .pauta-horizontal-value { font-size: 18px; }
+    .metric-horizontal-label, .pauta-horizontal-label { font-size: 10px; }
     .dashboard-header { padding: 15px; }
     .dashboard-header h1 { font-size: 20px; }
+    .metrics-horizontal {
+        flex-wrap: wrap;
+    }
+    .metric-horizontal-item, .pauta-horizontal-item {
+        min-width: calc(50% - 4px);
+        margin-bottom: 8px;
+    }
     .grafica-selector-buttons {
         flex-wrap: wrap;
     }
-    .selector-btn {
-        min-width: calc(50% - 5px);
+    .grafica-selector-btn {
+        min-width: calc(50% - 4px);
+        padding: 14px 10px;
     }
+    .grafica-btn-icon { font-size: 20px; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -699,8 +769,8 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# MÉTRICAS EN UNA SOLA FRANJA HORIZONTAL COMPACTA
-st.markdown('<div class="metrics-compact-container">', unsafe_allow_html=True)
+# Métricas en UNA SOLA FRANJA HORIZONTAL - DISEÑO MEJORADO
+st.markdown('<div class="metrics-horizontal">', unsafe_allow_html=True)
 
 # Métricas de pauta publicitaria
 if not df_pauta.empty:
@@ -719,40 +789,30 @@ if not df_pauta.empty:
         except:
             return "0"
     
-    # 1. COSTE ANUNCIO
+    # Tarjeta 1: COSTE ANUNCIO
     st.markdown(f"""
-    <div class="pauta-compact-item">
-        <div class="pauta-compact-icon">💰</div>
-        <div class="pauta-compact-content">
-            <div class="pauta-compact-label">COSTE ANUNCIO</div>
-            <div class="pauta-compact-value">${format_number(coste_anuncio_sum)}</div>
-        </div>
+    <div class="pauta-horizontal-item">
+        <div class="pauta-horizontal-icon">💰</div>
+        <div class="pauta-horizontal-label">COSTE ANUNCIO</div>
+        <div class="pauta-horizontal-value">${format_number(coste_anuncio_sum)}</div>
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown('<div class="metric-separator"></div>', unsafe_allow_html=True)
-    
-    # 2. VISUALIZACIONES VIDEOS
+    # Tarjeta 2: VISUALIZACIONES VIDEOS
     st.markdown(f"""
-    <div class="pauta-compact-item">
-        <div class="pauta-compact-icon">👁️</div>
-        <div class="pauta-compact-content">
-            <div class="pauta-compact-label">VISUALIZACIONES VIDEOS</div>
-            <div class="pauta-compact-value">{format_number(visualizaciones_videos_sum)}</div>
-        </div>
+    <div class="pauta-horizontal-item">
+        <div class="pauta-horizontal-icon">👁️</div>
+        <div class="pauta-horizontal-label">VISUALIZACIONES VIDEOS</div>
+        <div class="pauta-horizontal-value">{format_number(visualizaciones_videos_sum)}</div>
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown('<div class="metric-separator"></div>', unsafe_allow_html=True)
-    
-    # 3. NUEVOS SEGUIDORES
+    # Tarjeta 3: NUEVOS SEGUIDORES
     st.markdown(f"""
-    <div class="pauta-compact-item">
-        <div class="pauta-compact-icon">📈</div>
-        <div class="pauta-compact-content">
-            <div class="pauta-compact-label">NUEVOS SEGUIDORES</div>
-            <div class="pauta-compact-value">{format_number(nuevos_seguidores_sum)}</div>
-        </div>
+    <div class="pauta-horizontal-item">
+        <div class="pauta-horizontal-icon">📈</div>
+        <div class="pauta-horizontal-label">NUEVOS SEGUIDORES</div>
+        <div class="pauta-horizontal-value">{format_number(nuevos_seguidores_sum)}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -766,48 +826,36 @@ if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
 total_contenidos = len(df_all)
 total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
 
-st.markdown('<div class="metric-separator"></div>', unsafe_allow_html=True)
-
-# 4. TOTAL SEGUIDORES
+# Tarjeta 4: TOTAL SEGUIDORES
 st.markdown(f"""
-<div class="metric-compact-item">
-    <div class="metric-compact-icon">👥</div>
-    <div class="metric-compact-content">
-        <div class="metric-compact-label">TOTAL SEGUIDORES</div>
-        <div class="metric-compact-value">{format_number(total_seguidores)}</div>
-    </div>
+<div class="metric-horizontal-item">
+    <div class="metric-horizontal-icon">👥</div>
+    <div class="metric-horizontal-label">TOTAL SEGUIDORES</div>
+    <div class="metric-horizontal-value">{format_number(total_seguidores)}</div>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="metric-separator"></div>', unsafe_allow_html=True)
-
-# 5. TOTAL CONTENIDOS
+# Tarjeta 5: TOTAL CONTENIDOS
 st.markdown(f"""
-<div class="metric-compact-item">
-    <div class="metric-compact-icon">📊</div>
-    <div class="metric-compact-content">
-        <div class="metric-compact-label">TOTAL CONTENIDOS</div>
-        <div class="metric-compact-value">{format_number(total_contenidos)}</div>
-    </div>
+<div class="metric-horizontal-item">
+    <div class="metric-horizontal-icon">📊</div>
+    <div class="metric-horizontal-label">TOTAL CONTENIDOS</div>
+    <div class="metric-horizontal-value">{format_number(total_contenidos)}</div>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="metric-separator"></div>', unsafe_allow_html=True)
-
-# 6. VISUALIZACIONES TOTALES
+# Tarjeta 6: VISUALIZACIONES TOTALES
 st.markdown(f"""
-<div class="metric-compact-item">
-    <div class="metric-compact-icon">👁️</div>
-    <div class="metric-compact-content">
-        <div class="metric-compact-label">VISUALIZACIONES TOTALES</div>
-        <div class="metric-compact-value">{format_number(total_visualizaciones)}</div>
-    </div>
+<div class="metric-horizontal-item">
+    <div class="metric-horizontal-icon">👁️</div>
+    <div class="metric-horizontal-label">VISUALIZACIONES TOTALES</div>
+    <div class="metric-horizontal-value">{format_number(total_visualizaciones)}</div>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# SELECTOR DE GRÁFICAS - DISEÑO MEJORADO CON BOTONES ATTRACTIVOS
+# Selector de gráficas - DISEÑO MEJORADO CON BOTONES EN HORIZONTAL
 st.markdown('<div class="grafica-selector-container">', unsafe_allow_html=True)
 st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁFICA</div>', unsafe_allow_html=True)
 
@@ -815,15 +863,16 @@ st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁ
 if "grafica_seleccionada" not in st.session_state:
     st.session_state.grafica_seleccionada = "evolucion"
 
-# Selector visual mejorado con botones atractivos
+# Selector visual mejorado con HTML/CSS personalizado
 st.markdown('<div class="grafica-selector-buttons">', unsafe_allow_html=True)
 
-# Crear columnas para los botones
+# Crear botones con HTML/CSS personalizado para mejor control visual
 col1, col2, col3 = st.columns(3)
 
 with col1:
     btn1_active = st.session_state.grafica_seleccionada == "evolucion"
-    if st.button("📈 Evolución", 
+    button_class = "grafica-selector-btn active" if btn1_active else "grafica-selector-btn"
+    if st.button("**📈** **Evolución**", 
                  key="btn_evolucion",
                  use_container_width=True,
                  type="primary" if btn1_active else "secondary"):
@@ -832,7 +881,8 @@ with col1:
 
 with col2:
     btn2_active = st.session_state.grafica_seleccionada == "grafica1"
-    if st.button("💰 Inversión vs Seguidores", 
+    button_class = "grafica-selector-btn active" if btn2_active else "grafica-selector-btn"
+    if st.button("**💰** **Inversión vs Seguidores**", 
                  key="btn_grafica1",
                  use_container_width=True,
                  type="primary" if btn2_active else "secondary"):
@@ -841,7 +891,8 @@ with col2:
 
 with col3:
     btn3_active = st.session_state.grafica_seleccionada == "grafica2"
-    if st.button("📊 Heatmap CPS", 
+    button_class = "grafica-selector-btn active" if btn3_active else "grafica-selector-btn"
+    if st.button("**📊** **Heatmap CPS**", 
                  key="btn_grafica2",
                  use_container_width=True,
                  type="primary" if btn3_active else "secondary"):
