@@ -6,7 +6,6 @@ import warnings
 import requests
 from io import BytesIO
 from openai import OpenAI
-from streamlit.components.v1 import html
 
 warnings.filterwarnings('ignore')
 
@@ -298,11 +297,40 @@ st.markdown("""
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
+/* CONTAINER DE MÉTRICAS EN HORIZONTAL */
+.metrics-container {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    width: 100%;
+    overflow-x: auto;
+    padding: 5px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.metrics-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+.metrics-container::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.metrics-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
 /* Tarjetas de métricas con fondo de vidrio y efectos premium */
-.metric-horizontal-item {
+.metric-card {
+    flex: 1;
+    min-width: 180px;
+    max-width: 220px;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
     border-radius: 14px;
-    padding: 18px 14px;
+    padding: 20px 16px;
     box-shadow: 
         0 8px 20px rgba(0, 0, 0, 0.08),
         0 4px 6px rgba(0, 0, 0, 0.04),
@@ -313,13 +341,13 @@ st.markdown("""
     overflow: hidden;
     text-align: center;
     backdrop-filter: blur(20px);
-    min-height: 130px;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    align-items: center;
 }
 
-.metric-horizontal-item::before {
+.metric-card::before {
     content: '';
     position: absolute;
     top: 0;
@@ -332,29 +360,13 @@ st.markdown("""
     border-radius: 14px 14px 0 0;
 }
 
-.metric-horizontal-item::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
+.metric-card.pauta {
+    background: linear-gradient(135deg, rgba(240, 249, 255, 0.95) 0%, rgba(224, 242, 254, 0.9) 100%);
+    border: 1px solid rgba(186, 230, 253, 0.8);
 }
 
-.metric-horizontal-item:hover {
-    transform: translateY(-8px) scale(1.03);
-    box-shadow: 
-        0 15px 35px rgba(59, 130, 246, 0.25),
-        0 5px 15px rgba(0, 0, 0, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    border-color: rgba(59, 130, 246, 0.3);
-}
-
-.metric-horizontal-item:hover::after {
-    opacity: 1;
+.metric-card.pauta::before {
+    background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
 }
 
 @keyframes shimmer {
@@ -362,11 +374,40 @@ st.markdown("""
     100% { background-position: 200% 0; }
 }
 
-.metric-horizontal-value {
+.metric-card:hover {
+    transform: translateY(-8px) scale(1.03);
+    box-shadow: 
+        0 15px 35px rgba(59, 130, 246, 0.25),
+        0 5px 15px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.metric-card.pauta:hover {
+    box-shadow: 
+        0 15px 35px rgba(14, 165, 233, 0.3),
+        0 5px 15px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    border-color: rgba(14, 165, 233, 0.4);
+}
+
+.metric-icon {
     font-size: 24px;
+    margin-bottom: 12px;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,0.1));
+    position: relative;
+    z-index: 2;
+}
+
+.metric-card.pauta .metric-icon {
+    color: #0ea5e9;
+    filter: drop-shadow(0 3px 5px rgba(14, 165, 233, 0.3));
+}
+
+.metric-value {
+    font-size: 26px;
     font-weight: 900;
     color: #1f2937;
-    margin: 8px 0 5px 0;
+    margin: 8px 0 6px 0;
     font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
     text-shadow: 0 1px 2px rgba(0,0,0,0.05);
     letter-spacing: -0.5px;
@@ -374,8 +415,12 @@ st.markdown("""
     z-index: 2;
 }
 
-.metric-horizontal-label {
-    font-size: 11px;
+.metric-card.pauta .metric-value {
+    color: #0369a1;
+}
+
+.metric-label {
+    font-size: 12px;
     color: #6b7280;
     font-weight: 700;
     text-transform: uppercase;
@@ -385,102 +430,8 @@ st.markdown("""
     z-index: 2;
 }
 
-.metric-horizontal-icon {
-    font-size: 22px;
-    margin-bottom: 10px;
-    filter: drop-shadow(0 3px 5px rgba(0,0,0,0.1));
-    position: relative;
-    z-index: 2;
-}
-
-/* Tarjetas de pauta publicitaria con fondo premium */
-.pauta-horizontal-item {
-    background: linear-gradient(135deg, rgba(240, 249, 255, 0.95) 0%, rgba(224, 242, 254, 0.9) 100%);
-    border-radius: 14px;
-    padding: 18px 14px;
-    box-shadow: 
-        0 8px 20px rgba(14, 165, 233, 0.15),
-        0 4px 6px rgba(14, 165, 233, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(186, 230, 253, 0.8);
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    position: relative;
-    overflow: hidden;
-    text-align: center;
-    backdrop-filter: blur(20px);
-    min-height: 130px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.pauta-horizontal-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
-    background-size: 200% 100%;
-    animation: shimmer 3s infinite linear;
-    border-radius: 14px 14px 0 0;
-}
-
-.pauta-horizontal-item::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.pauta-horizontal-item:hover {
-    transform: translateY(-8px) scale(1.03);
-    box-shadow: 
-        0 15px 35px rgba(14, 165, 233, 0.3),
-        0 5px 15px rgba(0, 0, 0, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    border-color: rgba(14, 165, 233, 0.4);
-}
-
-.pauta-horizontal-item:hover::after {
-    opacity: 1;
-}
-
-.pauta-horizontal-value {
-    font-size: 24px;
-    font-weight: 900;
-    color: #0369a1;
-    margin: 8px 0 5px 0;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    letter-spacing: -0.5px;
-    position: relative;
-    z-index: 2;
-}
-
-.pauta-horizontal-label {
-    font-size: 11px;
+.metric-card.pauta .metric-label {
     color: #475569;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    line-height: 1.4;
-    position: relative;
-    z-index: 2;
-}
-
-.pauta-horizontal-icon {
-    font-size: 22px;
-    margin-bottom: 10px;
-    color: #0ea5e9;
-    filter: drop-shadow(0 3px 5px rgba(14, 165, 233, 0.3));
-    position: relative;
-    z-index: 2;
 }
 
 /* Header principal con diseño premium */
@@ -489,7 +440,7 @@ st.markdown("""
     border-radius: 16px;
     padding: 22px 26px;
     color: white;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     box-shadow: 
         0 10px 25px rgba(59, 130, 246, 0.35),
         0 5px 10px rgba(59, 130, 246, 0.2);
@@ -869,13 +820,13 @@ st.markdown("""
 
 /* Responsive */
 @media (max-width: 768px) {
-    .metric-horizontal-value, .pauta-horizontal-value { font-size: 20px; }
-    .metric-horizontal-label, .pauta-horizontal-label { font-size: 10px; letter-spacing: 0.6px; }
+    .metric-value { font-size: 22px; }
+    .metric-label { font-size: 10px; letter-spacing: 0.6px; }
     .dashboard-header { padding: 18px; }
     .dashboard-header h1 { font-size: 22px; }
-    .metric-horizontal-item, .pauta-horizontal-item {
-        min-width: 135px;
-        padding: 15px 10px;
+    .metric-card {
+        min-width: 145px;
+        padding: 16px 12px;
     }
     .grafica-selector-buttons {
         flex-wrap: wrap;
@@ -1079,7 +1030,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Métricas en UNA SOLA FRANJA HORIZONTAL - DISEÑO PREMIUM
+# Métricas en UNA SOLA FRANJA HORIZONTAL - SOLUCIÓN DEFINITIVA
 def format_number(num):
     try:
         if num >= 1000000:
@@ -1111,62 +1062,49 @@ if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
 total_contenidos = len(df_all)
 total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
 
-# Usar st.columns para crear una fila horizontal
-col1, col2, col3, col4, col5, col6 = st.columns(6)
-
-with col1:
-    html(f"""
-    <div class="pauta-horizontal-item">
-        <div class="pauta-horizontal-icon">💰</div>
-        <div class="pauta-horizontal-label">COSTE ANUNCIO</div>
-        <div class="pauta-horizontal-value">${format_number(coste_anuncio_sum)}</div>
+# Crear HTML para las métricas con el nuevo diseño
+metrics_html = f"""
+<div class="metrics-container">
+    <div class="metric-card pauta">
+        <div class="metric-icon">💰</div>
+        <div class="metric-value">${format_number(coste_anuncio_sum)}</div>
+        <div class="metric-label">COSTE ANUNCIO</div>
     </div>
-    """, height=135)
-
-with col2:
-    html(f"""
-    <div class="pauta-horizontal-item">
-        <div class="pauta-horizontal-icon">👁️</div>
-        <div class="pauta-horizontal-label">VISUALIZACIONES VIDEOS</div>
-        <div class="pauta-horizontal-value">{format_number(visualizaciones_videos_sum)}</div>
+    
+    <div class="metric-card pauta">
+        <div class="metric-icon">👁️</div>
+        <div class="metric-value">{format_number(visualizaciones_videos_sum)}</div>
+        <div class="metric-label">VISUALIZACIONES VIDEOS</div>
     </div>
-    """, height=135)
-
-with col3:
-    html(f"""
-    <div class="pauta-horizontal-item">
-        <div class="pauta-horizontal-icon">📈</div>
-        <div class="pauta-horizontal-label">NUEVOS SEGUIDORES</div>
-        <div class="pauta-horizontal-value">{format_number(nuevos_seguidores_sum)}</div>
+    
+    <div class="metric-card pauta">
+        <div class="metric-icon">📈</div>
+        <div class="metric-value">{format_number(nuevos_seguidores_sum)}</div>
+        <div class="metric-label">NUEVOS SEGUIDORES</div>
     </div>
-    """, height=135)
-
-with col4:
-    html(f"""
-    <div class="metric-horizontal-item">
-        <div class="metric-horizontal-icon">👥</div>
-        <div class="metric-horizontal-label">TOTAL SEGUIDORES</div>
-        <div class="metric-horizontal-value">{format_number(total_seguidores)}</div>
+    
+    <div class="metric-card">
+        <div class="metric-icon">👥</div>
+        <div class="metric-value">{format_number(total_seguidores)}</div>
+        <div class="metric-label">TOTAL SEGUIDORES</div>
     </div>
-    """, height=135)
-
-with col5:
-    html(f"""
-    <div class="metric-horizontal-item">
-        <div class="metric-horizontal-icon">📊</div>
-        <div class="metric-horizontal-label">TOTAL CONTENIDOS</div>
-        <div class="metric-horizontal-value">{format_number(total_contenidos)}</div>
+    
+    <div class="metric-card">
+        <div class="metric-icon">📊</div>
+        <div class="metric-value">{format_number(total_contenidos)}</div>
+        <div class="metric-label">TOTAL CONTENIDOS</div>
     </div>
-    """, height=135)
-
-with col6:
-    html(f"""
-    <div class="metric-horizontal-item">
-        <div class="metric-horizontal-icon">👁️</div>
-        <div class="metric-horizontal-label">VISUALIZACIONES TOTALES</div>
-        <div class="metric-horizontal-value">{format_number(total_visualizaciones)}</div>
+    
+    <div class="metric-card">
+        <div class="metric-icon">👁️</div>
+        <div class="metric-value">{format_number(total_visualizaciones)}</div>
+        <div class="metric-label">VISUALIZACIONES TOTALES</div>
     </div>
-    """, height=135)
+</div>
+"""
+
+# Mostrar las métricas
+st.markdown(metrics_html, unsafe_allow_html=True)
 
 # Selector de gráficas - DISEÑO PREMIUM
 st.markdown('<div class="grafica-selector-container">', unsafe_allow_html=True)
