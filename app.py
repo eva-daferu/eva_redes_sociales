@@ -7,9 +7,15 @@ from datetime import datetime, timedelta
 import warnings
 import requests
 import numpy as np
+import openai
 from io import BytesIO
+import base64
 
 warnings.filterwarnings('ignore')
+
+# Configuración de la API de OpenAI
+OPENAI_API_KEY = "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"
+openai.api_key = OPENAI_API_KEY
 
 # Configuración de la página
 st.set_page_config(
@@ -159,49 +165,120 @@ def cargar_datos_pauta():
         return pd.DataFrame()
 
 #############################################
-# NUEVAS FUNCIONES PARA GRÁFICAS (ARCHIVOS)
+# NUEVAS FUNCIONES PARA MOSTRAR GRÁFICA
 #############################################
 
-def _descargar_bytes(url, timeout=30):
-    r = requests.get(url, timeout=timeout)
-    r.raise_for_status()
-    return r.content, r.headers.get("Content-Type", "")
-
-def cargar_imagen_grafica1_bytes():
-    """Descarga la imagen PNG de /grafica1"""
+def mostrar_grafica_inversion_vs_seguidores():
+    """Muestra la gráfica de inversión vs seguidores desde el backend"""
     try:
-        content, _ = _descargar_bytes(GRAFICA1_URL, timeout=30)
-        return content
+        # Descargar la imagen desde el backend
+        response = requests.get(GRAFICA1_URL, timeout=20)
+        
+        if response.status_code == 200:
+            # Mostrar la imagen
+            st.image(BytesIO(response.content), caption="Inversión vs Seguidores", use_container_width=True)
+            
+            # Mostrar información adicional
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("📊 Gráfica Generada", "Inversión vs Seguidores")
+            with col2:
+                st.metric("📅 Tipo de Análisis", "Regresión y Punto Óptimo")
+            with col3:
+                st.metric("🎯 Objetivo", "Optimizar Costo por Seguidor")
+        else:
+            st.error(f"Error al cargar la gráfica: {response.status_code}")
+            
     except Exception as e:
-        st.error(f"Error al cargar imagen de gráfica 1: {str(e)}")
-        return b""
+        st.error(f"Error al cargar la gráfica: {str(e)}")
 
-
-def cargar_excel_metricas_bytes():
-    """Descarga el Excel XLSX de /grafica2"""
+def cargar_metricas_excel():
+    """Carga las métricas desde el Excel del backend"""
     try:
-        content, _ = _descargar_bytes(GRAFICA2_URL, timeout=60)
-        return content
+        # Descargar el archivo Excel
+        response = requests.get(GRAFICA2_URL, timeout=20)
+        
+        if response.status_code == 200:
+            # Leer el Excel en un DataFrame
+            excel_data = pd.read_excel(BytesIO(response.content))
+            
+            # Mostrar resumen
+            st.markdown("### 📊 Métricas Detalladas del Excel")
+            
+            # Mostrar estadísticas básicas
+            col1, col2, col3, col4 = st.columns(4)
+            
+            if 'Costo' in excel_data.columns:
+                with col1:
+                    st.metric("💰 Costo Total", f"${excel_data['Costo'].sum():,.0f}")
+            
+            if 'Seguidores' in excel_data.columns:
+                with col2:
+                    st.metric("👥 Seguidores Totales", f"{excel_data['Seguidores'].sum():,.0f}")
+            
+            if 'CPS' in excel_data.columns:
+                with col3:
+                    st.metric("📈 CPS Promedio", f"${excel_data['CPS'].mean():,.2f}")
+            
+            if 'Visualizaciones' in excel_data.columns:
+                with col4:
+                    st.metric("👁️ Visualizaciones", f"{excel_data['Visualizaciones'].sum():,.0f}")
+            
+            # Mostrar tabla con los datos
+            with st.expander("📋 Ver datos completos"):
+                st.dataframe(excel_data, use_container_width=True)
+            
+            return excel_data
+        else:
+            st.error(f"Error al cargar las métricas: {response.status_code}")
+            return None
+            
     except Exception as e:
-        st.error(f"Error al cargar Excel de métricas: {str(e)}")
-        return b""
+        st.error(f"Error al cargar las métricas: {str(e)}")
+        return None
 
-
-def leer_excel_primer_sheet(excel_bytes):
-    """Lee SOLO la primera hoja del Excel (la más relevante por defecto)."""
-    if not excel_bytes:
-        return pd.DataFrame()
+def analizar_con_ia(metricas, pregunta):
+    """Analiza las métricas usando OpenAI"""
     try:
-        xls = pd.ExcelFile(BytesIO(excel_bytes))
-        if not xls.sheet_names:
-            return pd.DataFrame()
-        return xls.parse(xls.sheet_names[0])
-    except Exception:
-        return pd.DataFrame()
-
-#############################################
-# FIN NUEVAS FUNCIONES CORREGIDAS
-#############################################
+        # Preparar el contexto con las métricas
+        contexto = f"""
+        DATOS DE MÉTRICAS DE SEGUIDORES VS INVERSIÓN:
+        
+        Estadísticas Resumidas:
+        - Costo Total: ${metricas['Costo'].sum():,.0f}
+        - Seguidores Totales: {metricas['Seguidores'].sum():,.0f}
+        - Visualizaciones Totales: {metricas['Visualizaciones'].sum():,.0f}
+        - CPS Promedio (Costo por Seguidor): ${metricas['CPS'].mean():,.2f}
+        - CPS Mínimo: ${metricas['CPS'].min():,.2f}
+        - CPS Máximo: ${metricas['CPS'].max():,.2f}
+        
+        Distribución por Día (primeras 5 filas):
+        {metricas.head().to_string()}
+        
+        Pregunta del usuario: {pregunta}
+        
+        Por favor, proporciona un análisis detallado basado en estos datos, incluyendo:
+        1. Eficiencia de la inversión en publicidad
+        2. Recomendaciones para optimizar el costo por seguidor
+        3. Análisis de tendencias y patrones
+        4. Sugerencias específicas para mejorar resultados
+        """
+        
+        # Llamar a la API de OpenAI
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Eres un experto analista de marketing digital y optimización de campañas publicitarias."},
+                {"role": "user", "content": contexto}
+            ],
+            temperature=0.7,
+            max_tokens=1000
+        )
+        
+        return response.choices[0].message.content
+        
+    except Exception as e:
+        return f"Error al conectar con OpenAI: {str(e)}"
 
 # Función para cargar datos con caché
 @st.cache_data(ttl=300)  # 5 minutos de caché
@@ -879,11 +956,49 @@ st.markdown("""
     font-weight: 500 !important;
 }
 
+/* Chat AI Container */
+.chat-container {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 16px;
+    padding: 25px;
+    margin: 20px 0;
+    border: 1px solid #334155;
+}
+
+.chat-message {
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 12px;
+    max-width: 80%;
+}
+
+.chat-message.user {
+    background: linear-gradient(135deg, #3B82F6 0%, #1e40af 100%);
+    color: white;
+    margin-left: auto;
+}
+
+.chat-message.assistant {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chat-input-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
 # Cargar datos
 df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
+
+# Inicializar estado de chat
+if 'chat_messages' not in st.session_state:
+    st.session_state.chat_messages = []
 
 # Sidebar
 with st.sidebar:
@@ -896,7 +1011,7 @@ with st.sidebar:
             📊
         </div>
         <h2 style="color: white; margin-bottom: 4px; font-size: 20px; font-family: 'Arial Black', sans-serif;">DASHBOARD PRO</h2>
-        <p style="color: #94a3b8; font-size: 12px; margin: 0; font-family: 'Arial', sans-serif;">Social Media Analytics v3.2</p>
+        <p style="color: #94a3b8; font-size: 12px; margin: 0; font-family: 'Arial', sans-serif;">Social Media Analytics v3.3</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -944,21 +1059,27 @@ with st.sidebar:
             st.session_state["show_grafica1"] = not st.session_state.get("show_grafica1", False)
             if "show_grafica2" in st.session_state:
                 st.session_state["show_grafica2"] = False
+            if "show_ai_chat" in st.session_state:
+                st.session_state["show_ai_chat"] = False
     
     with col_graf2:
-        if st.button("📊 Gráfica 2", key="grafica2_btn", use_container_width=True,
-                    help="Heatmap CPS - Análisis por día y semana"):
-            st.session_state["show_grafica2"] = not st.session_state.get("show_grafica2", False)
+        if st.button("🤖 AI Analytics", key="ai_chat_btn", use_container_width=True,
+                    help="Chat con IA para análisis de métricas"):
+            st.session_state["show_ai_chat"] = not st.session_state.get("show_ai_chat", False)
             if "show_grafica1" in st.session_state:
                 st.session_state["show_grafica1"] = False
+            if "show_grafica2" in st.session_state:
+                st.session_state["show_grafica2"] = False
     
     # Botón para ocultar gráficas
-    if st.session_state.get("show_grafica1", False) or st.session_state.get("show_grafica2", False):
+    if st.session_state.get("show_grafica1", False) or st.session_state.get("show_ai_chat", False):
         if st.button("⬅️ Volver a Dashboard", key="back_dashboard", use_container_width=True):
             if "show_grafica1" in st.session_state:
                 st.session_state["show_grafica1"] = False
             if "show_grafica2" in st.session_state:
                 st.session_state["show_grafica2"] = False
+            if "show_ai_chat" in st.session_state:
+                st.session_state["show_ai_chat"] = False
             st.rerun()
     
     st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
@@ -1021,6 +1142,164 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ================================================================
+# SECCIÓN: GRÁFICA 1 - INVERSIÓN VS SEGUIDORES
+# ================================================================
+if st.session_state.get("show_grafica1", False):
+    st.markdown("""
+    <div class="grafica-container">
+        <div class="grafica-title">📈 GRÁFICA: INVERSIÓN VS SEGUIDORES</div>
+        <div class="grafica-subtitle">
+            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Cargando gráfica desde el backend..."):
+        mostrar_grafica_inversion_vs_seguidores()
+    
+    # Información sobre la gráfica
+    st.markdown("---")
+    col_info1, col_info2, col_info3 = st.columns(3)
+    
+    with col_info1:
+        st.markdown("""
+        <div style="background: rgba(59, 130, 246, 0.1); padding: 15px; border-radius: 10px; border-left: 4px solid #3B82F6;">
+            <h4 style="margin: 0 0 10px 0; color: #3B82F6;">📊 Interpretación</h4>
+            <p style="margin: 0; color: #6b7280; font-size: 13px;">
+                Esta gráfica muestra la relación entre la inversión publicitaria y los seguidores obtenidos.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_info2:
+        st.markdown("""
+        <div style="background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 10px; border-left: 4px solid #10b981;">
+            <h4 style="margin: 0 0 10px 0; color: #10b981;">🎯 Punto Óptimo</h4>
+            <p style="margin: 0; color: #6b7280; font-size: 13px;">
+                El punto óptimo indica la inversión con mejor costo por seguidor (CPS).
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_info3:
+        st.markdown("""
+        <div style="background: rgba(139, 92, 246, 0.1); padding: 15px; border-radius: 10px; border-left: 4px solid #8b5cf6;">
+            <h4 style="margin: 0 0 10px 0; color: #8b5cf6;">💰 Recomendaciones</h4>
+            <p style="margin: 0; color: #6b7280; font-size: 13px;">
+                Basado en la curva, se recomienda invertir cerca del punto óptimo para maximizar ROI.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
+
+# ================================================================
+# SECCIÓN: CHAT CON IA PARA ANÁLISIS DE MÉTRICAS
+# ================================================================
+elif st.session_state.get("show_ai_chat", False):
+    st.markdown("""
+    <div class="grafica-container">
+        <div class="grafica-title">🤖 ASISTENTE DE IA - ANÁLISIS DE MÉTRICAS</div>
+        <div class="grafica-subtitle">
+            Analiza las métricas de seguidores vs inversión • Recomendaciones personalizadas • Insights inteligentes
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Cargar métricas del Excel
+    with st.spinner("Cargando métricas del backend..."):
+        metricas_excel = cargar_metricas_excel()
+    
+    if metricas_excel is not None:
+        # Mostrar historial de chat
+        st.markdown("### 💬 Historial de Conversación")
+        
+        chat_container = st.container()
+        
+        with chat_container:
+            for message in st.session_state.chat_messages:
+                role = message["role"]
+                content = message["content"]
+                
+                if role == "user":
+                    st.markdown(f"""
+                    <div class="chat-message user">
+                        <strong>👤 Tú:</strong><br>
+                        {content}
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div class="chat-message assistant">
+                        <strong>🤖 Asistente IA:</strong><br>
+                        {content}
+                    </div>
+                    """, unsafe_allow_html=True)
+        
+        # Input para nuevas preguntas
+        st.markdown("### 💭 Haz una pregunta sobre las métricas")
+        
+        col_input1, col_input2 = st.columns([4, 1])
+        
+        with col_input1:
+            user_question = st.text_area(
+                "Escribe tu pregunta:",
+                placeholder="Ej: ¿Cuál es el costo por seguidor óptimo? ¿Cómo puedo mejorar mi ROI?",
+                height=100,
+                key="user_question"
+            )
+        
+        with col_input2:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            analyze_button = st.button("📊 Analizar", use_container_width=True)
+        
+        if analyze_button and user_question:
+            # Agregar pregunta al historial
+            st.session_state.chat_messages.append({"role": "user", "content": user_question})
+            
+            # Mostrar indicador de procesamiento
+            with st.spinner("🤖 Analizando con IA..."):
+                # Obtener respuesta de la IA
+                respuesta_ia = analizar_con_ia(metricas_excel, user_question)
+                
+                # Agregar respuesta al historial
+                st.session_state.chat_messages.append({"role": "assistant", "content": respuesta_ia})
+                
+                # Actualizar la pantalla
+                st.rerun()
+        
+        # Preguntas sugeridas
+        st.markdown("### 💡 Preguntas sugeridas")
+        
+        col_q1, col_q2, col_q3 = st.columns(3)
+        
+        with col_q1:
+            if st.button("📈 ¿Cuál es el CPS óptimo?", use_container_width=True):
+                st.session_state.user_question = "¿Cuál es el costo por seguidor (CPS) óptimo según los datos?"
+                st.rerun()
+        
+        with col_q2:
+            if st.button("💰 ¿Cómo mejorar ROI?", use_container_width=True):
+                st.session_state.user_question = "¿Cómo puedo mejorar el retorno de inversión (ROI) de mis campañas?"
+                st.rerun()
+        
+        with col_q3:
+            if st.button("🎯 ¿Recomendaciones?", use_container_width=True):
+                st.session_state.user_question = "¿Qué recomendaciones específicas tienes para optimizar mi inversión en publicidad?"
+                st.rerun()
+        
+        # Botón para limpiar historial
+        if st.button("🗑️ Limpiar Historial", use_container_width=True):
+            st.session_state.chat_messages = []
+            st.rerun()
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
+
+# ================================================================
+# DASHBOARD NORMAL (si no se están mostrando gráficas avanzadas)
+# ================================================================
+
 # Determinar datos según plataforma seleccionada
 if selected_platform == "general":
     platform_name = "GENERAL"
@@ -1080,82 +1359,29 @@ if df.empty:
     st.info("Conectando al backend para cargar datos en tiempo real...")
     st.stop()
 
-# ================================================================
-# SECCIÓN: GRÁFICAS AVANZADAS (si están activadas)
-# ================================================================
+# Información de la plataforma
+col_header1, col_header2, col_header3 = st.columns([1, 3, 1])
 
-# Gráfica 1: Inversión vs Seguidores
-if st.session_state.get("show_grafica1", False):
-    st.markdown("""
-    <div class="grafica-container">
-        <div class="grafica-title">📈 GRÁFICA 1: INVERSIÓN VS SEGUIDORES</div>
-        <div class="grafica-subtitle">
-            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
-        </div>
-    """, unsafe_allow_html=True)
-    
-    with st.spinner("Cargando imagen y métricas..."):
-        img_bytes = cargar_imagen_grafica1_bytes()
-        if img_bytes:
-            st.image(img_bytes, caption="Inversion vs Seguidores", use_container_width=True)
-            st.markdown(f"[Abrir imagen en navegador]({GRAFICA1_URL})")
-        else:
-            st.warning("No se pudo cargar la imagen.")
+with col_header1:
+    st.markdown(f'<div style="font-size: 38px; text-align: center; color: {platform_color};">{platform_icon}</div>', unsafe_allow_html=True)
 
-        excel_bytes = cargar_excel_metricas_bytes()
-        if excel_bytes:
-            st.download_button(
-                label="⬇️ Descargar Excel: metricas_seguidores_vs_inversion.xlsx",
-                data=excel_bytes,
-                file_name="metricas_seguidores_vs_inversion.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-            st.markdown(f"[Abrir Excel en navegador]({GRAFICA2_URL})")
-        else:
-            st.warning("No se pudo cargar el Excel.")
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
+with col_header2:
+    st.markdown(f'<h2 style="margin: 0; color: {platform_color}; font-size: 26px; text-align: center; font-family: Arial Black, sans-serif;">{platform_name} ANALYTICS</h2>', unsafe_allow_html=True)
+    total_posts = len(df)
+    st.markdown(f'<p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px; text-align: center; font-family: Arial, sans-serif;">{total_posts} contenidos analizados • Última actualización: {datetime.now().strftime("%H:%M")}</p>', unsafe_allow_html=True)
+    if selected_platform != "general":
+        st.markdown(f'<p style="margin: 2px 0 0 0; color: #9ca3af; font-size: 11px; text-align: center; font-family: Arial, sans-serif;">Filtro: {st.session_state.get("tiempo_filtro", "Todo el período")}</p>', unsafe_allow_html=True)
 
-# Gráfica 2: Heatmap CPS
-elif st.session_state.get("show_grafica2", False):
-    st.markdown("""
-    <div class="grafica-container">
-        <div class="grafica-title">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</div>
-        <div class="grafica-subtitle">
-            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia • Etiquetas siempre visibles
-        </div>
-    """, unsafe_allow_html=True)
-    
-    with st.spinner("Cargando Excel de métricas..."):
-        excel_bytes = cargar_excel_metricas_bytes()
-        df_metricas = leer_excel_primer_sheet(excel_bytes)
-
-        if not df_metricas.empty:
-            st.dataframe(df_metricas, use_container_width=True)
-        else:
-            st.warning("No hay datos para mostrar.")
-
-        if excel_bytes:
-            st.download_button(
-                label="⬇️ Descargar Excel: metricas_seguidores_vs_inversion.xlsx",
-                data=excel_bytes,
-                file_name="metricas_seguidores_vs_inversion.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-            st.markdown(f"[Abrir Excel en navegador]({GRAFICA2_URL})")
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
-
-# ================================================================
-# DASHBOARD NORMAL (si no se están mostrando gráficas avanzadas)
-# ================================================================
+with col_header3:
+    st.markdown(f'''
+    <div style="background: {platform_color}15; color: {platform_color}; padding: 8px 18px; 
+                border-radius: 18px; font-size: 13px; font-weight: 600; text-align: center; 
+                border: 1px solid {platform_color}30; font-family: Arial Black, sans-serif;">
+        {total_posts} {platform_name} Posts
+    </div>
+    ''', unsafe_allow_html=True)
 
 # Calcular métricas clave
-total_posts = len(df)
 total_views = df['visualizaciones'].sum() if 'visualizaciones' in df.columns else 0
 total_likes = df['me_gusta'].sum() if 'me_gusta' in df.columns else 0
 total_comments = df['comentarios'].sum() if 'comentarios' in df.columns else 0
@@ -1175,29 +1401,6 @@ if total_views > 0:
     engagement_rate = ((total_likes + total_comments) / total_views * 100)
 else:
     engagement_rate = 0
-
-current_time_short = datetime.now().strftime('%H:%M')
-
-# Información de la plataforma
-col_header1, col_header2, col_header3 = st.columns([1, 3, 1])
-
-with col_header1:
-    st.markdown(f'<div style="font-size: 38px; text-align: center; color: {platform_color};">{platform_icon}</div>', unsafe_allow_html=True)
-
-with col_header2:
-    st.markdown(f'<h2 style="margin: 0; color: {platform_color}; font-size: 26px; text-align: center; font-family: Arial Black, sans-serif;">{platform_name} ANALYTICS</h2>', unsafe_allow_html=True)
-    st.markdown(f'<p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px; text-align: center; font-family: Arial, sans-serif;">{total_posts} contenidos analizados • Última actualización: {current_time_short}</p>', unsafe_allow_html=True)
-    if selected_platform != "general":
-        st.markdown(f'<p style="margin: 2px 0 0 0; color: #9ca3af; font-size: 11px; text-align: center; font-family: Arial, sans-serif;">Filtro: {st.session_state.get("tiempo_filtro", "Todo el período")}</p>', unsafe_allow_html=True)
-
-with col_header3:
-    st.markdown(f'''
-    <div style="background: {platform_color}15; color: {platform_color}; padding: 8px 18px; 
-                border-radius: 18px; font-size: 13px; font-weight: 600; text-align: center; 
-                border: 1px solid {platform_color}30; font-family: Arial Black, sans-serif;">
-        {total_posts} {platform_name} Posts
-    </div>
-    ''', unsafe_allow_html=True)
 
 # ============================================================================
 # SECCIÓN: MÉTRICAS DE PAUTA PUBLICITARIA (solo para GENERAL y TikTok)
@@ -2157,7 +2360,7 @@ st.markdown(f"""
 <div style="text-align: center; color: #6b7280; font-size: 12px; padding: 25px; 
             border-top: 1px solid #e5e7eb; margin-top: 30px;">
     <div style="display: flex; justify-content: center; gap: 25px; margin-bottom: 12px; flex-wrap: wrap; font-family: Arial, sans-serif;">
-        <span>Social Media Dashboard PRO v3.2</span>
+        <span>Social Media Dashboard PRO v3.3</span>
         <span>•</span>
         <span>Data from Backend API</span>
         <span>•</span>
@@ -2165,7 +2368,7 @@ st.markdown(f"""
         <span>•</span>
         <span>Updated in Real-time</span>
         <span>•</span>
-        <span>Gráficas Avanzadas: Inversión vs Seguidores • Heatmap CPS</span>
+        <span>Gráficas Avanzadas • Chat con IA</span>
     </div>
     <div style="font-size: 11px; color: #9ca3af; font-family: Arial, sans-serif;">
         © 2025 Social Media Analytics Platform • Connected to: <strong>{BACKEND_URL}</strong> • {current_time_full}
