@@ -27,6 +27,36 @@ PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
 GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
 GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
 
+def verificar_backend():
+    """Verifica el estado de todos los endpoints"""
+    endpoints = {
+        "Datos principales": BACKEND_URL,
+        "Seguidores": FOLLOWERS_URL,
+        "Pauta": PAUTA_URL,
+        "Gráfica 1": GRAFICA1_URL,
+        "Gráfica 2": GRAFICA2_URL
+    }
+    
+    status = {}
+    for nombre, url in endpoints.items():
+        try:
+            r = requests.get(url, timeout=10)
+            status[nombre] = {
+                "estado": "✅ Conectado" if r.status_code == 200 else f"❌ Error {r.status_code}",
+                "url": url,
+                "codigo": r.status_code,
+                "datos": r.json() if r.status_code == 200 else None
+            }
+        except Exception as e:
+            status[nombre] = {
+                "estado": f"❌ Error: {str(e)[:50]}...",
+                "url": url,
+                "codigo": "N/A",
+                "datos": None
+            }
+    
+    return status
+
 def cargar_datos_backend():
     try:
         r = requests.get(BACKEND_URL, timeout=20)
@@ -158,30 +188,227 @@ def cargar_datos_pauta():
         return pd.DataFrame()
 
 #############################################
-# NUEVAS FUNCIONES PARA GRÁFICAS AVANZADAS - COMPLETAMENTE REESCRITAS
+# FUNCIONES DE DATOS DE EJEMPLO PARA GRÁFICAS
+#############################################
+
+def generar_datos_ejemplo_grafica1():
+    """Genera datos de ejemplo para la gráfica 1"""
+    import numpy as np
+    
+    # Generar datos de días válidos
+    np.random.seed(42)  # Para reproducibilidad
+    dias_validos = []
+    for i in range(45):
+        costo = np.random.randint(10000, 250000)
+        seguidores = int(costo * np.random.uniform(0.003, 0.02))
+        dias_validos.append({
+            "Costo": float(costo),
+            "Seguidores_Impacto": float(seguidores),
+            "Neto_Diario_Real": float(seguidores)
+        })
+    
+    # Generar curva promedio
+    curva_15k = []
+    for inv in range(15000, 250001, 15000):
+        seg_prom = int(inv * np.random.uniform(0.008, 0.012))
+        cps = inv / seg_prom if seg_prom > 0 else 0
+        dias_para_meta = 1000 / (seg_prom / 30) if seg_prom > 0 else 0
+        curva_15k.append({
+            "Inversion_promedio": float(inv),
+            "Seguidores_promedio": float(seg_prom),
+            "CPS_curva": float(cps),
+            "Dias_para_meta": float(dias_para_meta),
+            "Dias": int(np.random.randint(3, 15))
+        })
+    
+    # Punto óptimo (aproximadamente en el 70% del rango)
+    opt_idx = int(len(curva_15k) * 0.7)
+    if opt_idx < len(curva_15k):
+        opt_point = curva_15k[opt_idx]
+    else:
+        opt_point = curva_15k[-1]
+    
+    # Calcular promedios
+    costos = [d["Costo"] for d in dias_validos]
+    seguidores = [d["Seguidores_Impacto"] for d in dias_validos]
+    
+    return {
+        "status": "success",
+        "tables": {
+            "df_merge_fecha": [],
+            "dias_validos": dias_validos,
+            "curva_15k": curva_15k
+        },
+        "parameters": {
+            "STEP": 15000,
+            "BREAK_X": 80000.0,
+            "K": 0.28,
+            "IMPACT_DAYS": 3,
+            "USE_IMPACT": True,
+            "OPT_CPS_TOL": 0.20
+        },
+        "results_summary": {
+            "total_dias_validos": len(dias_validos),
+            "cps_minimo": 85.5,
+            "cps_maximo": 215.3
+        },
+        "calc": {
+            "INV_mean": float(np.mean(costos)),
+            "SEG_mean": float(np.mean(seguidores)),
+            "opt": {
+                "Inversion_promedio": opt_point["Inversion_promedio"],
+                "Seguidores_promedio": opt_point["Seguidores_promedio"],
+                "CPS_curva": opt_point["CPS_curva"],
+                "Dias_para_meta": opt_point["Dias_para_meta"],
+                "Dias": opt_point["Dias"]
+            },
+            "cps_min_curva": 85.5,
+            "cps_max_tol": 102.6
+        }
+    }
+
+def generar_datos_ejemplo_grafica2():
+    """Genera datos de ejemplo para el heatmap"""
+    import numpy as np
+    
+    # Días de la semana y semanas
+    dias_order = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+    weeks = [f"2025-W{i:02d}" for i in range(1, 9)]
+    
+    # Generar datos más realistas
+    np.random.seed(42)
+    
+    # Patrón semanal: mejores días (Miércoles a Viernes), peores (Lunes y Domingo)
+    base_pattern = [1.5, 1.3, 1.0, 0.8, 0.9, 1.2, 1.6]  # Multiplicadores de CPS
+    
+    vals_cps_raw = np.zeros((7, 8))
+    vals_seg = np.zeros((7, 8))
+    
+    for i, dia in enumerate(dias_order):
+        for j in range(8):
+            # CPS base con patrón semanal + variación aleatoria
+            cps_base = 150 * base_pattern[i]
+            cps_var = np.random.uniform(0.8, 1.2)
+            cps = cps_base * cps_var
+            
+            # Seguidores: más en días buenos
+            seg_base = 1000 / base_pattern[i]  # Inversamente proporcional al CPS
+            seg_var = np.random.uniform(0.7, 1.3)
+            seg = int(seg_base * seg_var)
+            
+            # Añadir algunos NaN (20% de probabilidad)
+            if np.random.random() < 0.2:
+                vals_cps_raw[i, j] = np.nan
+                vals_seg[i, j] = np.nan
+            else:
+                vals_cps_raw[i, j] = cps
+                vals_seg[i, j] = seg
+    
+    # CPS clip para visualización
+    vals_cps_clip = np.copy(vals_cps_raw)
+    finite_mask = np.isfinite(vals_cps_raw)
+    if np.any(finite_mask):
+        p5 = np.nanpercentile(vals_cps_raw, 5)
+        p95 = np.nanpercentile(vals_cps_raw, 95)
+        vals_cps_clip = np.clip(vals_cps_clip, p5, p95)
+    
+    # Resumen por día
+    sum_day = []
+    for i, dia in enumerate(dias_order):
+        # Filtrar valores finitos
+        valid_mask = np.isfinite(vals_seg[i, :]) & np.isfinite(vals_cps_raw[i, :])
+        
+        if np.any(valid_mask):
+            costos_dia = np.nansum(vals_seg[i, valid_mask] * vals_cps_raw[i, valid_mask])
+            seguidores_dia = np.nansum(vals_seg[i, valid_mask])
+            cps_dia = costos_dia / seguidores_dia if seguidores_dia > 0 else np.nan
+        else:
+            costos_dia = 0
+            seguidores_dia = 0
+            cps_dia = np.nan
+        
+        sum_day.append({
+            "Dia_Semana": dia,
+            "Costo_sum": float(costos_dia),
+            "Seguidores_sum": float(seguidores_dia),
+            "CPS_total_dia": float(cps_dia) if not np.isnan(cps_dia) else np.nan
+        })
+    
+    return {
+        "status": "success",
+        "plot_data": {
+            "vals_cps_raw": vals_cps_raw.tolist(),
+            "vals_seg": vals_seg.tolist(),
+            "vals_cps_clip": vals_cps_clip.tolist(),
+            "dias_order": dias_order,
+            "weeks": weeks
+        },
+        "tables": {
+            "sum_day": sum_day
+        }
+    }
+
+#############################################
+# FUNCIONES PARA CARGAR GRÁFICAS AVANZADAS
 #############################################
 
 def cargar_datos_grafica1():
     """Carga datos para la gráfica 1: Inversión vs Seguidores"""
+    # Verificar si debemos usar datos de ejemplo
+    if st.session_state.get("use_test_data", False):
+        st.info("📊 Usando datos de ejemplo para Gráfica 1")
+        return generar_datos_ejemplo_grafica1()
+    
     try:
         r = requests.get(GRAFICA1_URL, timeout=20)
         r.raise_for_status()
         data = r.json()
+        
+        # Verificar estructura básica
+        if data.get("status") != "success":
+            st.warning("Backend no retornó status 'success'. Usando datos de ejemplo.")
+            return generar_datos_ejemplo_grafica1()
+        
+        # Verificar que tenga los datos mínimos
+        tables = data.get("tables", {})
+        if not tables or not tables.get("dias_validos") or not tables.get("curva_15k"):
+            st.warning("Datos incompletos del backend. Usando datos de ejemplo.")
+            return generar_datos_ejemplo_grafica1()
+            
         return data
+        
     except Exception as e:
-        st.error(f"Error al cargar datos de gráfica 1: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        st.warning(f"Error al cargar datos de gráfica 1: {str(e)[:100]}... Usando datos de ejemplo.")
+        return generar_datos_ejemplo_grafica1()
 
 def cargar_datos_grafica2():
     """Carga datos para la gráfica 2: Heatmap CPS"""
+    # Verificar si debemos usar datos de ejemplo
+    if st.session_state.get("use_test_data", False):
+        st.info("📊 Usando datos de ejemplo para Gráfica 2")
+        return generar_datos_ejemplo_grafica2()
+    
     try:
         r = requests.get(GRAFICA2_URL, timeout=20)
         r.raise_for_status()
         data = r.json()
+        
+        # Verificar estructura básica
+        if data.get("status") != "success":
+            st.warning("Backend no retornó status 'success'. Usando datos de ejemplo.")
+            return generar_datos_ejemplo_grafica2()
+        
+        # Verificar que tenga los datos mínimos
+        plot_data = data.get("plot_data", {})
+        if not plot_data or not plot_data.get("vals_cps_raw"):
+            st.warning("Datos incompletos del backend. Usando datos de ejemplo.")
+            return generar_datos_ejemplo_grafica2()
+            
         return data
+        
     except Exception as e:
-        st.error(f"Error al cargar datos de gráfica 2: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        st.warning(f"Error al cargar datos de gráfica 2: {str(e)[:100]}... Usando datos de ejemplo.")
+        return generar_datos_ejemplo_grafica2()
 
 def formato_numero_original(valor):
     """Formato de números igual al original (gráfica.txt)"""
@@ -203,8 +430,20 @@ def formato_k_original(valor):
 
 def crear_grafica1_interactiva(data_grafica1):
     """Crea la gráfica 1 interactiva - IDÉNTICA AL ORIGINAL"""
-    if data_grafica1.get("status") != "success":
-        st.error(f"No se pudo cargar la gráfica 1: {data_grafica1.get('message')}")
+    if not data_grafica1 or data_grafica1.get("status") != "success":
+        st.error("No se pudo cargar la gráfica 1: Datos inválidos o vacíos")
+        
+        # Mostrar botón para recargar
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            if st.button("🔄 Recargar datos", key="reload_graf1"):
+                st.cache_data.clear()
+                st.rerun()
+        
+        with col2:
+            if st.button("🧪 Usar datos de ejemplo", key="use_example_graf1"):
+                st.session_state["use_test_data"] = True
+                st.rerun()
         return
     
     # Extraer datos COMPLETOS del backend
@@ -224,6 +463,31 @@ def crear_grafica1_interactiva(data_grafica1):
     
     if cand.empty or curve.empty:
         st.warning("No hay datos suficientes para generar la gráfica 1")
+        
+        # Mostrar información de depuración
+        with st.expander("🔍 Información de depuración"):
+            st.write(f"Días válidos: {len(cand)} registros")
+            st.write(f"Curva 15k: {len(curve)} registros")
+            st.write(f"Parámetros: {parameters}")
+            
+            if not cand.empty:
+                st.write("Primeras filas de días válidos:")
+                st.dataframe(cand.head())
+            
+            if not curve.empty:
+                st.write("Primeras filas de curva:")
+                st.dataframe(curve.head())
+        
+        # Botones de acción
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 Intentar de nuevo", key="retry_graf1"):
+                st.rerun()
+        
+        with col2:
+            if st.button("🧪 Usar datos de ejemplo", key="force_example_graf1"):
+                st.session_state["use_test_data"] = True
+                st.rerun()
         return
     
     # PARÁMETROS DEL GRÁFICO ORIGINAL
@@ -233,6 +497,15 @@ def crear_grafica1_interactiva(data_grafica1):
     IMPACT_DAYS = parameters.get("IMPACT_DAYS", 3)
     USE_IMPACT = parameters.get("USE_IMPACT", True)
     RESULT_COL = "Seguidores_Impacto" if USE_IMPACT else "Neto_Diario_Real"
+    
+    # Asegurar que las columnas necesarias existan
+    if RESULT_COL not in cand.columns and "Seguidores_Impacto" in cand.columns:
+        RESULT_COL = "Seguidores_Impacto"
+    elif RESULT_COL not in cand.columns and "Neto_Diario_Real" in cand.columns:
+        RESULT_COL = "Neto_Diario_Real"
+    elif RESULT_COL not in cand.columns and len(cand.columns) > 1:
+        # Usar la segunda columna como fallback
+        RESULT_COL = cand.columns[1]
     
     # Función de compresión del eje X (IGUAL AL ORIGINAL)
     def x_warp(x):
@@ -584,11 +857,50 @@ def crear_grafica1_interactiva(data_grafica1):
         })
         
         st.dataframe(display_curve, use_container_width=True)
+        
+    # Botón para cambiar entre datos reales y de ejemplo
+    st.markdown("---")
+    col_switch1, col_switch2 = st.columns(2)
+    
+    with col_switch1:
+        if st.session_state.get("use_test_data", False):
+            if st.button("🔄 Cambiar a datos reales", key="switch_to_real"):
+                st.session_state["use_test_data"] = False
+                st.rerun()
+        else:
+            if st.button("🧪 Usar datos de ejemplo", key="switch_to_example"):
+                st.session_state["use_test_data"] = True
+                st.rerun()
+    
+    with col_switch2:
+        if st.button("📊 Ver datos crudos", key="show_raw_data"):
+            with st.expander("📁 Datos crudos de la gráfica"):
+                st.write("**Parámetros:**", parameters)
+                st.write("**Resumen:**", summary)
+                st.write("**Cálculos:**", calc_data)
+                
+                st.write("**Días válidos (primeras 10 filas):**")
+                st.dataframe(cand.head(10))
+                
+                st.write("**Curva completa:**")
+                st.dataframe(curve)
 
 def crear_grafica2_interactiva(data_grafica2):
     """Crea la gráfica 2 interactiva (Heatmap CPS) - IDÉNTICA AL ORIGINAL"""
-    if data_grafica2.get("status") != "success":
-        st.error(f"No se pudo cargar la gráfica 2: {data_grafica2.get('message')}")
+    if not data_grafica2 or data_grafica2.get("status") != "success":
+        st.error("No se pudo cargar la gráfica 2: Datos inválidos o vacíos")
+        
+        # Mostrar botón para recargar
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            if st.button("🔄 Recargar datos", key="reload_graf2"):
+                st.cache_data.clear()
+                st.rerun()
+        
+        with col2:
+            if st.button("🧪 Usar datos de ejemplo", key="use_example_graf2"):
+                st.session_state["use_test_data"] = True
+                st.rerun()
         return
     
     # Extraer datos COMPLETOS del backend
@@ -597,6 +909,17 @@ def crear_grafica2_interactiva(data_grafica2):
     
     if not heatmap_data:
         st.warning("No hay datos suficientes para generar el heatmap")
+        
+        # Botones de acción
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 Intentar de nuevo", key="retry_graf2"):
+                st.rerun()
+        
+        with col2:
+            if st.button("🧪 Usar datos de ejemplo", key="force_example_graf2"):
+                st.session_state["use_test_data"] = True
+                st.rerun()
         return
     
     # Extraer matrices del heatmap
@@ -606,8 +929,16 @@ def crear_grafica2_interactiva(data_grafica2):
     dias_order = heatmap_data.get("dias_order", [])
     weeks = heatmap_data.get("weeks", [])
     
-    if vals_cps_raw.size == 0:
+    if vals_cps_raw.size == 0 or len(dias_order) == 0 or len(weeks) == 0:
         st.warning("Datos del heatmap incompletos")
+        
+        # Mostrar información de depuración
+        with st.expander("🔍 Información de depuración"):
+            st.write(f"Tamaño vals_cps_raw: {vals_cps_raw.shape}")
+            st.write(f"Días order: {len(dias_order)}")
+            st.write(f"Semanas: {len(weeks)}")
+            st.write(f"Sum day: {len(summary_by_day)} registros")
+        
         return
     
     # Función para formatear números (IGUAL AL ORIGINAL)
@@ -867,8 +1198,37 @@ def crear_grafica2_interactiva(data_grafica2):
         st.info("Mostrando datos en formato de tabla como respaldo...")
         
         # Mostrar datos en tabla como respaldo
-        heatmap_df = pd.DataFrame(vals_cps_raw, index=dias_order, columns=weeks)
-        st.dataframe(heatmap_df.style.format("${:,.0f}"))
+        if len(vals_cps_raw) > 0 and len(weeks) > 0:
+            heatmap_df = pd.DataFrame(vals_cps_raw, index=dias_order, columns=weeks)
+            st.dataframe(heatmap_df.style.format("${:,.0f}"))
+    
+    # Botón para cambiar entre datos reales y de ejemplo
+    st.markdown("---")
+    col_switch1, col_switch2 = st.columns(2)
+    
+    with col_switch1:
+        if st.session_state.get("use_test_data", False):
+            if st.button("🔄 Cambiar a datos reales", key="switch_to_real_2"):
+                st.session_state["use_test_data"] = False
+                st.rerun()
+        else:
+            if st.button("🧪 Usar datos de ejemplo", key="switch_to_example_2"):
+                st.session_state["use_test_data"] = True
+                st.rerun()
+    
+    with col_switch2:
+        if st.button("📊 Ver datos crudos", key="show_raw_data_2"):
+            with st.expander("📁 Datos crudos del heatmap"):
+                st.write("**Días order:**", dias_order)
+                st.write("**Semanas:**", weeks)
+                
+                if len(vals_cps_raw) > 0:
+                    st.write(f"**Matriz CPS raw (forma: {vals_cps_raw.shape}):**")
+                    st.write(vals_cps_raw)
+                
+                if not summary_by_day.empty:
+                    st.write("**Resumen por día:**")
+                    st.dataframe(summary_by_day)
 
 #############################################
 # FIN FUNCIONES GRÁFICAS COMPLETAMENTE REESCRITAS
@@ -1550,11 +1910,50 @@ st.markdown("""
     font-weight: 500 !important;
 }
 
+/* Botones de control gráficas */
+.control-button {
+    margin: 5px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+    color: white;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: 'Arial', sans-serif;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.control-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+.control-button.secondary {
+    background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
+}
+
 </style>
 """, unsafe_allow_html=True)
 
 # Cargar datos
 df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
+
+# Inicializar estado de sesión para datos de ejemplo
+if "use_test_data" not in st.session_state:
+    st.session_state["use_test_data"] = False
+
+if "selected_platform" not in st.session_state:
+    st.session_state["selected_platform"] = "general"
+
+if "show_grafica1" not in st.session_state:
+    st.session_state["show_grafica1"] = False
+
+if "show_grafica2" not in st.session_state:
+    st.session_state["show_grafica2"] = False
 
 # Sidebar
 with st.sidebar:
@@ -1579,7 +1978,11 @@ with st.sidebar:
         else:
             st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Error: {backend_test.status_code}</div>', unsafe_allow_html=True)
     except Exception as e:
-        st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Offline</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Offline: {str(e)[:50]}</div>', unsafe_allow_html=True)
+    
+    # Estado de datos de ejemplo
+    if st.session_state.get("use_test_data", False):
+        st.markdown('<div class="backend-status backend-connected">🧪 Usando datos de ejemplo</div>', unsafe_allow_html=True)
     
     st.markdown('<p class="sidebar-title" style="font-family: Arial Black, sans-serif;">🔗 Panel Professional</p>', unsafe_allow_html=True)
     
@@ -1612,24 +2015,44 @@ with st.sidebar:
     with col_graf1:
         if st.button("📈 Gráfica 1", key="grafica1_btn", use_container_width=True, 
                     help="Inversión vs Seguidores - Análisis de eficiencia"):
-            st.session_state["show_grafica1"] = not st.session_state.get("show_grafica1", False)
-            if "show_grafica2" in st.session_state:
-                st.session_state["show_grafica2"] = False
+            st.session_state["show_grafica1"] = True
+            st.session_state["show_grafica2"] = False
+            st.rerun()
     
     with col_graf2:
         if st.button("📊 Gráfica 2", key="grafica2_btn", use_container_width=True,
                     help="Heatmap CPS - Análisis por día y semana"):
-            st.session_state["show_grafica2"] = not st.session_state.get("show_grafica2", False)
-            if "show_grafica1" in st.session_state:
-                st.session_state["show_grafica1"] = False
+            st.session_state["show_grafica2"] = True
+            st.session_state["show_grafica1"] = False
+            st.rerun()
+    
+    # Botón para verificar backend
+    if st.button("🔍 Verificar Backend", key="check_backend", use_container_width=True):
+        with st.spinner("Verificando endpoints..."):
+            status = verificar_backend()
+            with st.expander("Resultados de verificación", expanded=True):
+                for nombre, info in status.items():
+                    st.write(f"**{nombre}:** {info['estado']}")
+                    st.write(f"URL: `{info['url']}`")
+                    if info['datos']:
+                        st.write(f"Datos: {str(info['datos'])[:100]}...")
+                    st.divider()
+    
+    # Botón para datos de ejemplo
+    if st.session_state.get("use_test_data", False):
+        if st.button("🔄 Cambiar a datos reales", key="switch_to_real_sidebar", use_container_width=True):
+            st.session_state["use_test_data"] = False
+            st.rerun()
+    else:
+        if st.button("🧪 Usar datos de ejemplo", key="use_example_sidebar", use_container_width=True):
+            st.session_state["use_test_data"] = True
+            st.rerun()
     
     # Botón para ocultar gráficas
     if st.session_state.get("show_grafica1", False) or st.session_state.get("show_grafica2", False):
         if st.button("⬅️ Volver a Dashboard", key="back_dashboard", use_container_width=True):
-            if "show_grafica1" in st.session_state:
-                st.session_state["show_grafica1"] = False
-            if "show_grafica2" in st.session_state:
-                st.session_state["show_grafica2"] = False
+            st.session_state["show_grafica1"] = False
+            st.session_state["show_grafica2"] = False
             st.rerun()
     
     st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
@@ -1680,6 +2103,55 @@ with st.sidebar:
 
 # Contenido principal
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
+
+# ================================================================
+# SECCIÓN: GRÁFICAS AVANZADAS (si están activadas)
+# ================================================================
+
+# Gráfica 1: Inversión vs Seguidores
+if st.session_state.get("show_grafica1", False):
+    st.markdown(f"""
+    <div class="dashboard-header">
+        <h1 style="font-family: 'Arial Black', sans-serif;">📈 GRÁFICA 1: INVERSIÓN VS SEGUIDORES</h1>
+        <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 15px; font-weight: 400; font-family: 'Arial', sans-serif;">
+            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
+        </p>
+        <div style="position: absolute; bottom: 15px; right: 25px; font-size: 13px; opacity: 0.8; font-family: 'Arial', sans-serif;">
+            Actualizado: {current_time}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Cargando datos de la gráfica 1..."):
+        data_grafica1 = cargar_datos_grafica1()
+        crear_grafica1_interactiva(data_grafica1)
+    
+    st.stop()
+
+# Gráfica 2: Heatmap CPS
+elif st.session_state.get("show_grafica2", False):
+    st.markdown(f"""
+    <div class="dashboard-header">
+        <h1 style="font-family: 'Arial Black', sans-serif;">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</h1>
+        <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 15px; font-weight: 400; font-family: 'Arial', sans-serif;">
+            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia
+        </p>
+        <div style="position: absolute; bottom: 15px; right: 25px; font-size: 13px; opacity: 0.8; font-family: 'Arial', sans-serif;">
+            Actualizado: {current_time}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Cargando datos de la gráfica 2..."):
+        data_grafica2 = cargar_datos_grafica2()
+        crear_grafica2_interactiva(data_grafica2)
+    
+    st.stop()
+
+# ================================================================
+# DASHBOARD NORMAL (si no se están mostrando gráficas avanzadas)
+# ================================================================
+
 st.markdown(f"""
 <div class="dashboard-header">
     <h1 style="font-family: 'Arial Black', sans-serif;">📊 SOCIAL MEDIA DASHBOARD PRO</h1>
@@ -1749,49 +2221,20 @@ if df.empty:
             st.write(f"**Total registros TikTok:** {len(tiktok_df)}")
     
     st.info("Conectando al backend para cargar datos en tiempo real...")
+    
+    # Botones de acción
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔄 Recargar datos", key="reload_main"):
+            st.cache_data.clear()
+            st.rerun()
+    
+    with col2:
+        if st.button("🧪 Usar datos de ejemplo", key="use_example_main"):
+            st.session_state["use_test_data"] = True
+            st.rerun()
+    
     st.stop()
-
-# ================================================================
-# SECCIÓN: GRÁFICAS AVANZADAS (si están activadas)
-# ================================================================
-
-# Gráfica 1: Inversión vs Seguidores
-if st.session_state.get("show_grafica1", False):
-    st.markdown("""
-    <div class="grafica-container">
-        <div class="grafica-title">📈 GRÁFICA 1: INVERSIÓN VS SEGUIDORES</div>
-        <div class="grafica-subtitle">
-            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
-        </div>
-    """, unsafe_allow_html=True)
-    
-    with st.spinner("Cargando datos de la gráfica 1..."):
-        data_grafica1 = cargar_datos_grafica1()
-        crear_grafica1_interactiva(data_grafica1)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
-
-# Gráfica 2: Heatmap CPS
-elif st.session_state.get("show_grafica2", False):
-    st.markdown("""
-    <div class="grafica-container">
-        <div class="grafica-title">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</div>
-        <div class="grafica-subtitle">
-            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia
-        </div>
-    """, unsafe_allow_html=True)
-    
-    with st.spinner("Cargando datos de la gráfica 2..."):
-        data_grafica2 = cargar_datos_grafica2()
-        crear_grafica2_interactiva(data_grafica2)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
-
-# ================================================================
-# DASHBOARD NORMAL (si no se están mostrando gráficas avanzadas)
-# ================================================================
 
 # Calcular métricas clave
 total_posts = len(df)
