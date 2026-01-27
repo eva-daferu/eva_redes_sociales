@@ -165,7 +165,7 @@ def cargar_datos_pauta():
         return pd.DataFrame()
 
 #############################################
-# NUEVAS FUNCIONES PARA MOSTRAR GRÁFICA
+# NUEVAS FUNCIONES PARA MOSTRAR GRÁFICA Y CHAT IA
 #############################################
 
 def mostrar_grafica_inversion_vs_seguidores():
@@ -224,6 +224,11 @@ def cargar_metricas_excel():
                 with col4:
                     st.metric("👁️ Visualizaciones", f"{excel_data['Visualizaciones'].sum():,.0f}")
             
+            # Si no se encuentran las columnas esperadas, mostrar las columnas disponibles
+            if not any(col in excel_data.columns for col in ['Costo', 'Seguidores', 'CPS', 'Visualizaciones']):
+                st.warning("No se encontraron las columnas esperadas. Columnas disponibles:")
+                st.write(excel_data.columns.tolist())
+            
             # Mostrar tabla con los datos
             with st.expander("📋 Ver datos completos"):
                 st.dataframe(excel_data, use_container_width=True)
@@ -240,45 +245,132 @@ def cargar_metricas_excel():
 def analizar_con_ia(metricas, pregunta):
     """Analiza las métricas usando OpenAI"""
     try:
-        # Preparar el contexto con las métricas
+        # Verificar si las métricas están vacías
+        if metricas is None or metricas.empty:
+            return "No hay datos disponibles para analizar. Por favor, verifica que el archivo Excel exista en el backend."
+        
+        # Normalizar nombres de columnas (minúsculas, sin espacios)
+        metricas.columns = metricas.columns.str.strip().str.lower()
+        
+        # Buscar nombres alternativos de columnas
+        cost_col = None
+        seg_col = None
+        vis_col = None
+        cps_col = None
+        
+        # Mapear posibles nombres de columnas
+        cost_options = ['costo', 'cost', 'inversión', 'inversion', 'gasto', 'coste', 'costo_total']
+        seg_options = ['seguidores', 'followers', 'seguidores_totales', 'seguidores_nuevos', 'nuevos_seguidores']
+        vis_options = ['visualizaciones', 'views', 'vistas', 'visualizaciones_totales']
+        cps_options = ['cps', 'costo_por_seguidor', 'cost_per_follower', 'costo_seguidor']
+        
+        # Encontrar columnas existentes
+        for col in metricas.columns:
+            if col in cost_options:
+                cost_col = col
+            if col in seg_options:
+                seg_col = col
+            if col in vis_options:
+                vis_col = col
+            if col in cps_options:
+                cps_col = col
+        
+        # Si no encontramos columnas clave, usar las primeras columnas disponibles
+        if cost_col is None:
+            cost_col = metricas.columns[0] if len(metricas.columns) > 0 else 'col1'
+        
+        if seg_col is None:
+            seg_col = metricas.columns[1] if len(metricas.columns) > 1 else 'col2'
+        
+        # Preparar estadísticas
+        stats_text = []
+        
+        # Costo
+        try:
+            if cost_col in metricas.columns:
+                cost_total = metricas[cost_col].sum()
+                stats_text.append(f"- {cost_col.capitalize()} Total: ${cost_total:,.0f}")
+                stats_text.append(f"- {cost_col.capitalize()} Promedio: ${metricas[cost_col].mean():,.0f}")
+        except:
+            stats_text.append(f"- {cost_col.capitalize()}: Datos no disponibles")
+        
+        # Seguidores
+        try:
+            if seg_col in metricas.columns:
+                seg_total = metricas[seg_col].sum()
+                stats_text.append(f"- {seg_col.capitalize()} Totales: {seg_total:,.0f}")
+                stats_text.append(f"- {seg_col.capitalize()} Promedio: {metricas[seg_col].mean():,.0f}")
+        except:
+            stats_text.append(f"- {seg_col.capitalize()}: Datos no disponibles")
+        
+        # Visualizaciones
+        try:
+            if vis_col and vis_col in metricas.columns:
+                vis_total = metricas[vis_col].sum()
+                stats_text.append(f"- {vis_col.capitalize()} Totales: {vis_total:,.0f}")
+        except:
+            pass
+        
+        # CPS
+        try:
+            if cps_col and cps_col in metricas.columns:
+                stats_text.append(f"- {cps_col.upper()} Promedio: ${metricas[cps_col].mean():,.2f}")
+                stats_text.append(f"- {cps_col.upper()} Mínimo: ${metricas[cps_col].min():,.2f}")
+                stats_text.append(f"- {cps_col.upper()} Máximo: ${metricas[cps_col].max():,.2f}")
+        except:
+            pass
+        
+        # Si no hay suficientes estadísticas, mostrar información básica
+        if len(stats_text) < 3:
+            stats_text = [f"Columnas disponibles: {', '.join(metricas.columns.tolist())}"]
+            stats_text.append(f"Total de registros: {len(metricas)}")
+            stats_text.append(f"Período analizado: {len(metricas)} días/registros")
+        
+        # Preparar el contexto para OpenAI
         contexto = f"""
         DATOS DE MÉTRICAS DE SEGUIDORES VS INVERSIÓN:
         
-        Estadísticas Resumidas:
-        - Costo Total: ${metricas['Costo'].sum():,.0f}
-        - Seguidores Totales: {metricas['Seguidores'].sum():,.0f}
-        - Visualizaciones Totales: {metricas['Visualizaciones'].sum():,.0f}
-        - CPS Promedio (Costo por Seguidor): ${metricas['CPS'].mean():,.2f}
-        - CPS Mínimo: ${metricas['CPS'].min():,.2f}
-        - CPS Máximo: ${metricas['CPS'].max():,.2f}
+        Resumen de columnas en el dataset:
+        {', '.join(metricas.columns.tolist())}
         
-        Distribución por Día (primeras 5 filas):
+        Estadísticas Resumidas:
+        {chr(10).join(stats_text)}
+        
+        Muestra de datos (primeras 5 filas):
         {metricas.head().to_string()}
         
         Pregunta del usuario: {pregunta}
         
-        Por favor, proporciona un análisis detallado basado en estos datos, incluyendo:
-        1. Eficiencia de la inversión en publicidad
-        2. Recomendaciones para optimizar el costo por seguidor
-        3. Análisis de tendencias y patrones
-        4. Sugerencias específicas para mejorar resultados
+        Como experto en marketing digital y análisis de datos, por favor analiza estos datos y proporciona:
+        1. Análisis de la eficiencia de inversión
+        2. Recomendaciones para optimizar el presupuesto
+        3. Insights sobre patrones y tendencias
+        4. Sugerencias específicas de acción
+        
+        Si los datos son limitados, sugiere qué información adicional sería útil.
         """
         
         # Llamar a la API de OpenAI
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Eres un experto analista de marketing digital y optimización de campañas publicitarias."},
+                {"role": "system", "content": "Eres un experto analista de marketing digital, especializado en optimización de campañas publicitarias y análisis de ROI."},
                 {"role": "user", "content": contexto}
             ],
             temperature=0.7,
-            max_tokens=1000
+            max_tokens=1200
         )
         
         return response.choices[0].message.content
         
+    except openai.error.AuthenticationError:
+        return "Error de autenticación con OpenAI. Verifica que la API key sea válida."
+    except openai.error.RateLimitError:
+        return "Límite de tasa excedido. Por favor, intenta de nuevo más tarde."
+    except openai.error.OpenAIError as e:
+        return f"Error de OpenAI: {str(e)}"
     except Exception as e:
-        return f"Error al conectar con OpenAI: {str(e)}"
+        return f"Error inesperado: {str(e)}"
 
 # Función para cargar datos con caché
 @st.cache_data(ttl=300)  # 5 minutos de caché
@@ -1057,8 +1149,6 @@ with st.sidebar:
         if st.button("📈 Gráfica 1", key="grafica1_btn", use_container_width=True, 
                     help="Inversión vs Seguidores - Análisis de eficiencia"):
             st.session_state["show_grafica1"] = not st.session_state.get("show_grafica1", False)
-            if "show_grafica2" in st.session_state:
-                st.session_state["show_grafica2"] = False
             if "show_ai_chat" in st.session_state:
                 st.session_state["show_ai_chat"] = False
     
@@ -1068,8 +1158,6 @@ with st.sidebar:
             st.session_state["show_ai_chat"] = not st.session_state.get("show_ai_chat", False)
             if "show_grafica1" in st.session_state:
                 st.session_state["show_grafica1"] = False
-            if "show_grafica2" in st.session_state:
-                st.session_state["show_grafica2"] = False
     
     # Botón para ocultar gráficas
     if st.session_state.get("show_grafica1", False) or st.session_state.get("show_ai_chat", False):
