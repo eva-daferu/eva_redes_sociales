@@ -25,12 +25,11 @@ st.set_page_config(
 BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
 FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
 PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
-
-# Gráficas (PNG) y métricas (XLSX)
 GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
-DATOS1_URL = "https://pahubisas.pythonanywhere.com/datos1"
 GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
+DATOS1_URL = "https://pahubisas.pythonanywhere.com/datos1"
 DATOS2_URL = "https://pahubisas.pythonanywhere.com/datos2"
+
 
 def cargar_datos_backend():
     try:
@@ -51,7 +50,7 @@ def cargar_datos_backend():
 
         # Convertir números
         num_cols = ["vistas", "comentarios", "me_gusta_numero", "visualizaciones",
-                   "me_gusta", "comentarios_num", "Seguidores_Totales"]
+                    "me_gusta", "comentarios_num", "Seguidores_Totales"]
         for col in num_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -91,6 +90,7 @@ def cargar_datos_backend():
         st.error(f"Error al conectar con el backend de datos: {str(e)}")
         return pd.DataFrame()
 
+
 def cargar_datos_seguidores():
     """Carga datos de seguidores desde el endpoint específico"""
     try:
@@ -118,6 +118,7 @@ def cargar_datos_seguidores():
     except Exception as e:
         st.error(f"Error al conectar con el backend de seguidores: {str(e)}")
         return pd.DataFrame()
+
 
 def cargar_datos_pauta():
     """Carga datos de pauta publicitaria"""
@@ -162,53 +163,50 @@ def cargar_datos_pauta():
     except Exception as e:
         return pd.DataFrame()
 
+
 #############################################
-# NUEVAS FUNCIONES PARA GRÁFICAS (ARCHIVOS)
+# NUEVAS FUNCIONES PARA GRÁFICAS AVANZADAS - CORREGIDAS
 #############################################
 
-def _descargar_bytes(url, timeout=30):
+def _download_bytes(url, timeout=60):
     r = requests.get(url, timeout=timeout)
     r.raise_for_status()
-    return r.content, r.headers.get("Content-Type", "")
+    return r.content
+
 
 def cargar_imagen_grafica1_bytes():
-    """Descarga la imagen PNG de /grafica1"""
     try:
-        content, _ = _descargar_bytes(GRAFICA1_URL, timeout=30)
-        return content
+        return _download_bytes(GRAFICA1_URL, timeout=30)
     except Exception as e:
         st.error(f"Error al cargar imagen de gráfica 1: {str(e)}")
         return b""
 
+
 def cargar_imagen_grafica2_bytes():
-    """Descarga la imagen PNG de /grafica2"""
     try:
-        content, _ = _descargar_bytes(GRAFICA2_URL, timeout=30)
-        return content
+        return _download_bytes(GRAFICA2_URL, timeout=30)
     except Exception as e:
         st.error(f"Error al cargar imagen de gráfica 2: {str(e)}")
         return b""
 
+
 def cargar_excel_metricas_grafica1_bytes():
-    """Descarga el Excel XLSX de métricas para Gráfica 1 (/datos1)"""
     try:
-        content, _ = _descargar_bytes(DATOS1_URL, timeout=60)
-        return content
+        return _download_bytes(DATOS1_URL, timeout=60)
     except Exception as e:
         st.error(f"Error al cargar Excel de métricas (gráfica 1): {str(e)}")
         return b""
 
+
 def cargar_excel_metricas_grafica2_bytes():
-    """Descarga el Excel XLSX de métricas para Gráfica 2 (/datos2)"""
     try:
-        content, _ = _descargar_bytes(DATOS2_URL, timeout=60)
-        return content
+        return _download_bytes(DATOS2_URL, timeout=60)
     except Exception as e:
         st.error(f"Error al cargar Excel de métricas (gráfica 2): {str(e)}")
         return b""
 
+
 def leer_excel_primer_sheet(excel_bytes):
-    """Lee SOLO la primera hoja del Excel (la más relevante por defecto)."""
     if not excel_bytes:
         return pd.DataFrame()
     try:
@@ -219,9 +217,6 @@ def leer_excel_primer_sheet(excel_bytes):
     except Exception:
         return pd.DataFrame()
 
-#############################################
-# FIN NUEVAS FUNCIONES CORREGIDAS
-#############################################
 
 # Función para cargar datos con caché
 @st.cache_data(ttl=300)  # 5 minutos de caché
@@ -297,6 +292,7 @@ def cargar_datos():
             df_data['rendimiento_por_dia'] = df_data['visualizaciones'] / df_data['dias_desde_publicacion']
 
     return df, youtobe_data, tiktok_data, df_followers, df_pauta
+
 
 # Estilos CSS mejorados con reducción de espacio
 st.markdown("""
@@ -673,14 +669,14 @@ with st.sidebar:
 
     with col_graf1:
         if st.button("📈 Gráfica 1", key="grafica1_btn", use_container_width=True,
-                    help="Inversión vs Seguidores - Análisis de eficiencia"):
+                     help="Inversión vs Seguidores - Análisis de eficiencia"):
             st.session_state["show_grafica1"] = not st.session_state.get("show_grafica1", False)
             if "show_grafica2" in st.session_state:
                 st.session_state["show_grafica2"] = False
 
     with col_graf2:
         if st.button("📊 Gráfica 2", key="grafica2_btn", use_container_width=True,
-                    help="Heatmap CPS - Análisis por día y semana"):
+                     help="Gráfica 2 + métricas Excel"):
             st.session_state["show_grafica2"] = not st.session_state.get("show_grafica2", False)
             if "show_grafica1" in st.session_state:
                 st.session_state["show_grafica1"] = False
@@ -823,11 +819,11 @@ if st.session_state.get("show_grafica1", False):
     <div class="grafica-container">
         <div class="grafica-title">📈 GRÁFICA 1: INVERSIÓN VS SEGUIDORES</div>
         <div class="grafica-subtitle">
-            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
+            Imagen + Excel de métricas (1 hoja) • Descarga directa desde el backend
         </div>
     """, unsafe_allow_html=True)
 
-    with st.spinner("Cargando imagen y métricas..."):
+    with st.spinner("Cargando imagen y métricas (gráfica 1)..."):
         img_bytes = cargar_imagen_grafica1_bytes()
         if img_bytes:
             st.image(img_bytes, caption="Inversion vs Seguidores", use_container_width=True)
@@ -835,18 +831,25 @@ if st.session_state.get("show_grafica1", False):
         else:
             st.warning("No se pudo cargar la imagen.")
 
-        excel_bytes = cargar_excel_metricas_grafica1_bytes()
-        if excel_bytes:
+        xlsx_bytes = cargar_excel_metricas_grafica1_bytes()
+        df_metricas = leer_excel_primer_sheet(xlsx_bytes)
+        if not df_metricas.empty:
+            st.dataframe(df_metricas, use_container_width=True)
+        else:
+            if xlsx_bytes:
+                st.info("Excel descargado, pero no se pudo leer la hoja.")
+            else:
+                st.warning("No se pudo cargar el Excel.")
+
+        if xlsx_bytes:
             st.download_button(
-                label="⬇️ Descargar Excel: metricas_grafica1.xlsx",
-                data=excel_bytes,
-                file_name="metricas_grafica1.xlsx",
+                label="⬇️ Descargar Excel: metricas_seguidores_vs_inversion.xlsx",
+                data=xlsx_bytes,
+                file_name="metricas_seguidores_vs_inversion.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
             st.markdown(f"[Abrir Excel en navegador]({DATOS1_URL})")
-        else:
-            st.warning("No se pudo cargar el Excel.")
 
     st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
@@ -855,32 +858,34 @@ if st.session_state.get("show_grafica1", False):
 elif st.session_state.get("show_grafica2", False):
     st.markdown("""
     <div class="grafica-container">
-        <div class="grafica-title">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</div>
+        <div class="grafica-title">📊 GRÁFICA 2</div>
         <div class="grafica-subtitle">
-            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia • Etiquetas siempre visibles
+            Imagen + Excel de métricas (1 hoja) • Descarga directa desde el backend
         </div>
     """, unsafe_allow_html=True)
 
-    with st.spinner("Cargando imagen y métricas..."):
-        img2_bytes = cargar_imagen_grafica2_bytes()
-        if img2_bytes:
-            st.image(img2_bytes, caption="Grafica 2", use_container_width=True)
+    with st.spinner("Cargando imagen y métricas (gráfica 2)..."):
+        img_bytes = cargar_imagen_grafica2_bytes()
+        if img_bytes:
+            st.image(img_bytes, caption="Grafica 2", use_container_width=True)
             st.markdown(f"[Abrir imagen en navegador]({GRAFICA2_URL})")
         else:
             st.warning("No se pudo cargar la imagen.")
 
-        excel_bytes = cargar_excel_metricas_grafica2_bytes()
-        df_metricas = leer_excel_primer_sheet(excel_bytes)
-
+        xlsx_bytes = cargar_excel_metricas_grafica2_bytes()
+        df_metricas = leer_excel_primer_sheet(xlsx_bytes)
         if not df_metricas.empty:
             st.dataframe(df_metricas, use_container_width=True)
         else:
-            st.warning("No hay datos para mostrar.")
+            if xlsx_bytes:
+                st.info("Excel descargado, pero no se pudo leer la hoja.")
+            else:
+                st.warning("No se pudo cargar el Excel.")
 
-        if excel_bytes:
+        if xlsx_bytes:
             st.download_button(
                 label="⬇️ Descargar Excel: metricas_grafica2.xlsx",
-                data=excel_bytes,
+                data=xlsx_bytes,
                 file_name="metricas_grafica2.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
