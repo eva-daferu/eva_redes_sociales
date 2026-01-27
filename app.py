@@ -9,12 +9,9 @@ from openai import OpenAI
 
 warnings.filterwarnings('ignore')
 
-# Configuración de OpenAI (usar Secrets/ENV, no hardcode)
-import os
-import textwrap
-
-OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", ""))
-client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+# Configuración de OpenAI
+OPENAI_API_KEY = "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"
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Configuración de la página
 st.set_page_config(
@@ -39,7 +36,7 @@ def cargar_datos_backend():
         r.raise_for_status()
         data = r.json()
         df = pd.DataFrame(data.get("data", []))
-
+        
         if "fecha_publicacion" in df.columns:
             df["fecha_publicacion"] = pd.to_datetime(
                 df["fecha_publicacion"],
@@ -47,18 +44,18 @@ def cargar_datos_backend():
                 errors="coerce"
             )
 
-        num_cols = ["vistas", "comentarios", "me_gusta_numero", "visualizaciones",
-                    "me_gusta", "comentarios_num", "Seguidores_Totales"]
+        num_cols = ["vistas", "comentarios", "me_gusta_numero", "visualizaciones", 
+                   "me_gusta", "comentarios_num", "Seguidores_Totales"]
         for col in num_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
         if "visualizaciones" not in df.columns and "vistas" in df.columns:
             df["visualizaciones"] = df["vistas"]
-
+        
         if "me_gusta" not in df.columns and "me_gusta_numero" in df.columns:
             df["me_gusta"] = df["me_gusta_numero"]
-
+        
         if "comentarios" not in df.columns and "comentarios_num" in df.columns:
             df["comentarios"] = df["comentarios_num"]
 
@@ -78,17 +75,17 @@ def cargar_datos_seguidores():
         r.raise_for_status()
         data = r.json()
         df_followers = pd.DataFrame(data.get("data", []))
-
+        
         if "Fecha" in df_followers.columns:
             df_followers["Fecha"] = pd.to_datetime(
                 df_followers["Fecha"],
                 dayfirst=True,
                 errors="coerce"
             )
-
+        
         if "Seguidores_Totales" in df_followers.columns:
             df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors="coerce")
-
+        
         return df_followers
     except Exception as e:
         st.error(f"Error al conectar con el backend de seguidores: {str(e)}")
@@ -100,7 +97,7 @@ def cargar_datos_pauta():
         r.raise_for_status()
         data = r.json()
         df_pauta = pd.DataFrame(data.get("data", []))
-
+        
         if not df_pauta.empty:
             if 'Costo' in df_pauta.columns:
                 df_pauta['coste_anuncio'] = df_pauta['Costo']
@@ -108,19 +105,19 @@ def cargar_datos_pauta():
                 df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
             if 'Seguidores' in df_pauta.columns:
                 df_pauta['nuevos_seguidores'] = df_pauta['Seguidores']
-
+            
             if "coste_anuncio" in df_pauta.columns:
                 df_pauta["coste_anuncio"] = pd.to_numeric(df_pauta["coste_anuncio"], errors="coerce").fillna(0).astype(int)
-
+            
             for col in ["visualizaciones_videos", "nuevos_seguidores"]:
                 if col in df_pauta.columns:
                     df_pauta[col] = pd.to_numeric(df_pauta[col], errors="coerce").fillna(0).astype(int)
-
+            
             if "fecha" in df_pauta.columns:
                 df_pauta["fecha"] = pd.to_datetime(df_pauta["fecha"], errors='coerce', dayfirst=True)
-
+        
         return df_pauta
-    except Exception:
+    except Exception as e:
         return pd.DataFrame()
 
 def _descargar_bytes(url, timeout=30):
@@ -150,10 +147,10 @@ def cargar_datos():
     df = cargar_datos_backend()
     df_followers = cargar_datos_seguidores()
     df_pauta = cargar_datos_pauta()
-
+    
     if df.empty:
         st.warning("Usando datos de respaldo.")
-
+        
         youtobe_data = pd.DataFrame({
             'titulo': ['Amazonía al borde', 'El costo oculto de botar comida'],
             'fecha_publicacion': ['01/10/2025', '23/09/2025'],
@@ -163,7 +160,7 @@ def cargar_datos():
             'Seguidores_Totales': [0, 0],
             'red': ['youtobe', 'youtobe']
         })
-
+        
         tiktok_data = pd.DataFrame({
             'titulo': ['Especie única en Colombia', 'Una peli que te volará la mente'],
             'fecha_publicacion': ['03/12/2025', '28/11/2025'],
@@ -173,32 +170,32 @@ def cargar_datos():
             'Seguidores_Totales': [450, 450],
             'red': ['tiktok', 'tiktok']
         })
-
+        
         youtobe_data['fecha_publicacion'] = pd.to_datetime(youtobe_data['fecha_publicacion'], dayfirst=True)
         tiktok_data['fecha_publicacion'] = pd.to_datetime(tiktok_data['fecha_publicacion'], dayfirst=True)
-
+        
         df_followers = pd.DataFrame({
             'Fecha': pd.date_range(start='2024-01-01', periods=30, freq='D'),
             'Seguidores_Totales': range(400, 430)
         })
-
+        
         df_pauta = pd.DataFrame({
             'coste_anuncio': [641140],
             'visualizaciones_videos': [180500],
             'nuevos_seguidores': [4170],
             'fecha': ['2025-10-19']
         })
-
+        
     else:
         if 'red' in df.columns:
             df['red'] = df['red'].astype(str).str.lower().str.strip()
-
+        
         youtobe_data = df[df['red'] == 'youtobe'].copy()
         if youtobe_data.empty:
             youtobe_data = df[df['red'] == 'youtube'].copy()
-
+        
         tiktok_data = df[df['red'] == 'tiktok'].copy()
-
+    
     return df, youtobe_data, tiktok_data, df_followers, df_pauta
 
 # Estilos CSS
@@ -309,6 +306,80 @@ st.markdown("""
     border-color: #3B82F6;
     box-shadow: 0 12px 30px rgba(59, 130, 246, 0.5);
 }
+
+/* Estilos para las métricas */
+.metric-container {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: 14px;
+    padding: 20px 16px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid #bae6fd;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.metric-shimmer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s infinite linear;
+    border-radius: 14px 14px 0 0;
+}
+
+.metric-icon {
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: #0ea5e9;
+}
+
+.metric-value {
+    font-size: 26px;
+    font-weight: 900;
+    color: #0369a1;
+    margin: 5px 0;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+.metric-label {
+    font-size: 12px;
+    color: #475569;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    line-height: 1.4;
+}
+
+.metric-container-light {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e5e7eb;
+}
+
+.metric-shimmer-light {
+    background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
+}
+
+.metric-icon-light {
+    color: #1f2937;
+}
+
+.metric-value-light {
+    color: #1f2937;
+}
+
+.metric-label-light {
+    color: #6b7280;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -337,7 +408,7 @@ with st.sidebar:
         <p style="color: #94a3b8; font-size: 10px; margin: 0;">Social Media Analytics Platform</p>
     </div>
     """, unsafe_allow_html=True)
-
+    
     # Estado del backend
     try:
         backend_test = requests.get(BACKEND_URL, timeout=5)
@@ -347,33 +418,33 @@ with st.sidebar:
             st.markdown(f'<div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 10px;">⚠️ <strong>Backend Error</strong></div>', unsafe_allow_html=True)
     except:
         st.markdown('<div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 10px;">⚠️ <strong>Backend Offline</strong></div>', unsafe_allow_html=True)
-
+    
     # Botones de plataformas
     st.markdown('<p style="color: #cbd5e1; font-size: 11px; font-weight: 600; margin-bottom: 8px; margin-top: 15px; letter-spacing: 0.8px; text-transform: uppercase;">🔗 PANEL PROFESIONAL</p>', unsafe_allow_html=True)
-
+    
     platforms = {
         "general": "🌐 GENERAL",
         "youtube": "▶️ YouTube",
         "tiktok": "🎵 TikTok"
     }
-
+    
     selected_platform = st.session_state.get("selected_platform", "general")
-
+    
     for platform_key, platform_name in platforms.items():
         if st.button(platform_name, key=f"{platform_key}_btn", use_container_width=True):
             selected_platform = platform_key
             st.session_state["selected_platform"] = platform_key
             st.rerun()
-
+    
     st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
-
+    
     # Asistente de Chat
     st.markdown('<p style="color: #cbd5e1; font-size: 11px; font-weight: 600; margin-bottom: 8px; margin-top: 15px; letter-spacing: 0.8px; text-transform: uppercase;">🤖 ASISTENTE DE DATOS</p>', unsafe_allow_html=True)
-
+    
     # Inicializar historial de chat
     if "messages" not in st.session_state:
         st.session_state.messages = []
-
+    
     # Contenedor del chat
     with st.container(height=220):
         for message in st.session_state.messages:
@@ -381,31 +452,32 @@ with st.sidebar:
                 st.markdown(f'<div style="background: #3B82F6; color: white; padding: 8px 10px; border-radius: 9px; margin-bottom: 6px; font-size: 11px; max-width: 90%; margin-left: auto;">{message["content"]}</div>', unsafe_allow_html=True)
             else:
                 st.markdown(f'<div style="background: #f1f5f9; color: #1f2937; padding: 8px 10px; border-radius: 9px; margin-bottom: 6px; font-size: 11px; max-width: 90%; border: 1px solid #e5e7eb;">{message["content"]}</div>', unsafe_allow_html=True)
-
+    
     # Input de chat
     user_input = st.chat_input("Pregunta sobre los datos...", key="chat_input")
-
+    
     if user_input:
         # Agregar mensaje del usuario
         st.session_state.messages.append({"role": "user", "content": user_input})
-
+        
         # Preparar contexto con datos actuales
         total_posts = len(df_all)
         total_views = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
-
+        
         # Obtener correctamente los seguidores
         total_followers = 0
         if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
+            # Obtener el último valor no nulo
             if not df_followers['Seguidores_Totales'].dropna().empty:
                 total_followers = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
-
+        
         coste_anuncio = df_pauta['coste_anuncio'].sum() if not df_pauta.empty and 'coste_anuncio' in df_pauta.columns else 0
         visualizaciones_videos = df_pauta['visualizaciones_videos'].sum() if not df_pauta.empty and 'visualizaciones_videos' in df_pauta.columns else 0
         nuevos_seguidores = df_pauta['nuevos_seguidores'].sum() if not df_pauta.empty and 'nuevos_seguidores' in df_pauta.columns else 0
-
+        
         contexto = f"""
         Eres un asistente especializado en análisis de datos de redes sociales. 
-
+        
         Datos actuales del dashboard:
         - Total de publicaciones: {total_posts}
         - Visualizaciones totales: {total_views:,}
@@ -413,35 +485,32 @@ with st.sidebar:
         - Inversión en publicidad: ${coste_anuncio:,}
         - Visualizaciones de videos pagados: {visualizaciones_videos:,}
         - Nuevos seguidores de publicidad: {nuevos_seguidores:,}
-
+        
         Puedes responder preguntas sobre estas métricas, tendencias, eficiencia de publicidad, y análisis de datos.
         """
-
+        
         # Llamar a OpenAI
-        if client is None:
-            st.error("Falta OPENAI_API_KEY en Secrets/ENV para usar el asistente.")
-        else:
-            try:
-                response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": contexto},
-                        *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
-                    ],
-                    temperature=0.7,
-                    max_tokens=300
-                )
-
-                assistant_response = response.choices[0].message.content
-
-                # Agregar respuesta del asistente
-                st.session_state.messages.append({"role": "assistant", "content": assistant_response})
-
-                # Rerun para mostrar la respuesta
-                st.rerun()
-
-            except Exception as e:
-                st.error(f"Error al conectar con OpenAI: {str(e)}")
+        try:
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": contexto},
+                    *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
+                ],
+                temperature=0.7,
+                max_tokens=300
+            )
+            
+            assistant_response = response.choices[0].message.content
+            
+            # Agregar respuesta del asistente
+            st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+            
+            # Rerun para mostrar la respuesta
+            st.rerun()
+            
+        except Exception as e:
+            st.error(f"Error al conectar con OpenAI: {str(e)}")
 
 # Contenido principal - HEADER
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
@@ -461,17 +530,39 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Helpers HTML (evita que Streamlit lo renderice como bloque de código por indentación)
-def md_html(html: str):
-    st.markdown(textwrap.dedent(html).strip(), unsafe_allow_html=True)
-
-def fmt_int(n):
+# MÉTRICAS - VERSIÓN SIMPLIFICADA USANDO FUNCIONES HELPER
+def format_number(num):
     try:
-        return f"{int(round(float(n))):,}".replace(",", ".")
-    except Exception:
+        num = float(num)
+        if num >= 1000000:
+            return f"{num/1000000:.1f}M"
+        elif num >= 1000:
+            return f"{num/1000:.1f}K"
+        else:
+            return f"{int(num):,}"
+    except:
         return "0"
 
-# MÉTRICAS - ENFOQUE SIMPLIFICADO CON STREAMLIT NATIVO
+def create_metric_card(icon, value, label, is_light=False):
+    """Crea una tarjeta de métrica con HTML"""
+    if is_light:
+        return f"""
+        <div class="metric-container metric-container-light">
+            <div class="metric-shimmer metric-shimmer-light"></div>
+            <div class="metric-icon metric-icon-light">{icon}</div>
+            <div class="metric-value metric-value-light">{value}</div>
+            <div class="metric-label metric-label-light">{label}</div>
+        </div>
+        """
+    else:
+        return f"""
+        <div class="metric-container">
+            <div class="metric-shimmer"></div>
+            <div class="metric-icon">{icon}</div>
+            <div class="metric-value">{value}</div>
+            <div class="metric-label">{label}</div>
+        </div>
+        """
 
 # Calcular métricas
 if not df_pauta.empty:
@@ -495,336 +586,65 @@ total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in 
 # Crear columnas para las métricas
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-# Aplicar a cada columna
+# Métrica 1: Coste Anuncio
 with col1:
-    md_html(f"""
-<div style="
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    border-radius: 14px;
-    padding: 20px 16px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    border: 1px solid #bae6fd;
-    text-align: center;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-    min-height: 130px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-">
-    <div style="
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
-        background-size: 200% 100%;
-        animation: shimmer 3s infinite linear;
-        border-radius: 14px 14px 0 0;
-    "></div>
+    html = create_metric_card(
+        icon="💰", 
+        value=f"${format_number(coste_anuncio_sum)}", 
+        label="COSTE ANUNCIO",
+        is_light=False
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
-    <div style="
-        font-size: 24px;
-        margin-bottom: 10px;
-        color: #0ea5e9;
-    ">💰</div>
-
-    <div style="
-        font-size: 26px;
-        font-weight: 900;
-        color: #0369a1;
-        margin: 5px 0;
-        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-    ">${fmt_int(coste_anuncio_sum)}</div>
-
-    <div style="
-        font-size: 12px;
-        color: #475569;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        line-height: 1.4;
-    ">COSTE ANUNCIO</div>
-</div>
-    """)
-
+# Métrica 2: Visualizaciones Videos
 with col2:
-    md_html(f"""
-<div style="
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    border-radius: 14px;
-    padding: 20px 16px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    border: 1px solid #bae6fd;
-    text-align: center;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-    min-height: 130px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-">
-    <div style="
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
-        background-size: 200% 100%;
-        animation: shimmer 3s infinite linear;
-        border-radius: 14px 14px 0 0;
-    "></div>
+    html = create_metric_card(
+        icon="👁️", 
+        value=format_number(visualizaciones_videos_sum), 
+        label="VISUALIZACIONES VIDEOS",
+        is_light=False
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
-    <div style="
-        font-size: 24px;
-        margin-bottom: 10px;
-        color: #0ea5e9;
-    ">👁️</div>
-
-    <div style="
-        font-size: 26px;
-        font-weight: 900;
-        color: #0369a1;
-        margin: 5px 0;
-        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-    ">{fmt_int(visualizaciones_videos_sum)}</div>
-
-    <div style="
-        font-size: 12px;
-        color: #475569;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        line-height: 1.4;
-    ">VISUALIZACIONES VIDEOS</div>
-</div>
-    """)
-
+# Métrica 3: Nuevos Seguidores
 with col3:
-    md_html(f"""
-<div style="
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    border-radius: 14px;
-    padding: 20px 16px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    border: 1px solid #bae6fd;
-    text-align: center;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-    min-height: 130px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-">
-    <div style="
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
-        background-size: 200% 100%;
-        animation: shimmer 3s infinite linear;
-        border-radius: 14px 14px 0 0;
-    "></div>
+    html = create_metric_card(
+        icon="📈", 
+        value=format_number(nuevos_seguidores_sum), 
+        label="NUEVOS SEGUIDORES",
+        is_light=False
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
-    <div style="
-        font-size: 24px;
-        margin-bottom: 10px;
-        color: #0ea5e9;
-    ">📈</div>
-
-    <div style="
-        font-size: 26px;
-        font-weight: 900;
-        color: #0369a1;
-        margin: 5px 0;
-        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-    ">{fmt_int(nuevos_seguidores_sum)}</div>
-
-    <div style="
-        font-size: 12px;
-        color: #475569;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        line-height: 1.4;
-    ">NUEVOS SEGUIDORES</div>
-</div>
-    """)
-
+# Métrica 4: Total Seguidores
 with col4:
-    md_html(f"""
-<div style="
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-    border-radius: 14px;
-    padding: 20px 16px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
-    text-align: center;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-    min-height: 130px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-">
-    <div style="
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
-        background-size: 200% 100%;
-        animation: shimmer 3s infinite linear;
-        border-radius: 14px 14px 0 0;
-    "></div>
+    html = create_metric_card(
+        icon="👥", 
+        value=format_number(total_seguidores), 
+        label="TOTAL SEGUIDORES",
+        is_light=True
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
-    <div style="
-        font-size: 24px;
-        margin-bottom: 10px;
-        color: #1f2937;
-    ">👥</div>
-
-    <div style="
-        font-size: 26px;
-        font-weight: 900;
-        color: #1f2937;
-        margin: 5px 0;
-        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-    ">{fmt_int(total_seguidores)}</div>
-
-    <div style="
-        font-size: 12px;
-        color: #6b7280;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        line-height: 1.4;
-    ">TOTAL SEGUIDORES</div>
-</div>
-    """)
-
+# Métrica 5: Total Contenidos
 with col5:
-    md_html(f"""
-<div style="
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-    border-radius: 14px;
-    padding: 20px 16px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
-    text-align: center;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-    min-height: 130px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-">
-    <div style="
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
-        background-size: 200% 100%;
-        animation: shimmer 3s infinite linear;
-        border-radius: 14px 14px 0 0;
-    "></div>
+    html = create_metric_card(
+        icon="📊", 
+        value=format_number(total_contenidos), 
+        label="TOTAL CONTENIDOS",
+        is_light=True
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
-    <div style="
-        font-size: 24px;
-        margin-bottom: 10px;
-        color: #1f2937;
-    ">📊</div>
-
-    <div style="
-        font-size: 26px;
-        font-weight: 900;
-        color: #1f2937;
-        margin: 5px 0;
-        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-    ">{fmt_int(total_contenidos)}</div>
-
-    <div style="
-        font-size: 12px;
-        color: #6b7280;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        line-height: 1.4;
-    ">TOTAL CONTENIDOS</div>
-</div>
-    """)
-
+# Métrica 6: Visualizaciones Totales
 with col6:
-    md_html(f"""
-<div style="
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-    border-radius: 14px;
-    padding: 20px 16px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
-    text-align: center;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-    min-height: 130px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-">
-    <div style="
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
-        background-size: 200% 100%;
-        animation: shimmer 3s infinite linear;
-        border-radius: 14px 14px 0 0;
-    "></div>
-
-    <div style="
-        font-size: 24px;
-        margin-bottom: 10px;
-        color: #1f2937;
-    ">👁️</div>
-
-    <div style="
-        font-size: 26px;
-        font-weight: 900;
-        color: #1f2937;
-        margin: 5px 0;
-        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-    ">{fmt_int(total_visualizaciones)}</div>
-
-    <div style="
-        font-size: 12px;
-        color: #6b7280;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        line-height: 1.4;
-    ">VISUALIZACIONES TOTALES</div>
-</div>
-    """)
+    html = create_metric_card(
+        icon="👁️", 
+        value=format_number(total_visualizaciones), 
+        label="VISUALIZACIONES TOTALES",
+        is_light=True
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 # Agregar espacio
 st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
@@ -845,7 +665,7 @@ col1, col2, col3 = st.columns(3)
 
 with col1:
     btn1_active = st.session_state.grafica_seleccionada == "evolucion"
-    if st.button("**📈** **Evolución**",
+    if st.button("**📈** **Evolución**", 
                  key="btn_evolucion",
                  use_container_width=True,
                  type="primary" if btn1_active else "secondary"):
@@ -854,7 +674,7 @@ with col1:
 
 with col2:
     btn2_active = st.session_state.grafica_seleccionada == "grafica1"
-    if st.button("**💰** **Inversión vs Seguidores**",
+    if st.button("**💰** **Inversión vs Seguidores**", 
                  key="btn_grafica1",
                  use_container_width=True,
                  type="primary" if btn2_active else "secondary"):
@@ -863,7 +683,7 @@ with col2:
 
 with col3:
     btn3_active = st.session_state.grafica_seleccionada == "grafica2"
-    if st.button("**📊** **Heatmap CPS**",
+    if st.button("**📊** **Heatmap CPS**", 
                  key="btn_grafica2",
                  use_container_width=True,
                  type="primary" if btn3_active else "secondary"):
@@ -896,7 +716,7 @@ elif st.session_state.grafica_seleccionada == "grafica2":
 else:  # Gráfica de evolución
     st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
     st.markdown("##### 📈 EVOLUCIÓN DE SEGUIDORES TIKTOK Y MÉTRICAS DE PAUTA")
-
+    
     if not df_followers.empty and 'Fecha' in df_followers.columns and 'Seguidores_Totales' in df_followers.columns:
         try:
             # Preparar datos de pauta si existen (MÉTODO ORIGINAL)
@@ -907,29 +727,29 @@ else:  # Gráfica de evolución
                     df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
                 if 'Seguidores' in df_pauta.columns:
                     df_pauta['nuevos_seguidores_pauta'] = df_pauta['Seguidores']
-
+                
                 df_pauta['fecha'] = pd.to_datetime(df_pauta['fecha'], errors='coerce')
-
+                
                 df_pauta_agg = df_pauta.groupby('fecha').agg({
                     'coste_anuncio': 'sum',
                     'visualizaciones_videos': 'sum',
                     'nuevos_seguidores_pauta': 'sum'
                 }).reset_index()
-
+                
                 # Fusionar por fecha - USAR OUTER JOIN
                 df_merged = pd.merge(df_followers, df_pauta_agg, left_on='Fecha', right_on='fecha', how='outer')
                 df_merged = df_merged.sort_values('Fecha')
-
+                
                 # Rellenar valores faltantes
                 if 'Seguidores_Totales' in df_merged.columns:
                     df_merged['Seguidores_Totales'] = df_merged['Seguidores_Totales'].fillna(method='ffill').fillna(0)
-
+                
                 if 'coste_anuncio' in df_merged.columns:
                     df_merged['coste_anuncio'] = df_merged['coste_anuncio'].fillna(0)
-
+                
                 if 'visualizaciones_videos' in df_merged.columns:
                     df_merged['visualizaciones_videos'] = df_merged['visualizaciones_videos'].fillna(0)
-
+                
                 if 'nuevos_seguidores_pauta' in df_merged.columns:
                     df_merged['nuevos_seguidores_pauta'] = df_merged['nuevos_seguidores_pauta'].fillna(0)
             else:
@@ -937,10 +757,10 @@ else:  # Gráfica de evolución
                 df_merged['coste_anuncio'] = 0
                 df_merged['visualizaciones_videos'] = 0
                 df_merged['nuevos_seguidores_pauta'] = 0
-
+            
             # Crear gráfica de 4 líneas (MÉTODO ORIGINAL)
             fig_followers = go.Figure()
-
+            
             # 1. Seguidores Totales (línea principal)
             fig_followers.add_trace(go.Scatter(
                 x=df_merged['Fecha'],
@@ -956,7 +776,7 @@ else:  # Gráfica de evolución
                 line=dict(color='#000000', width=2),
                 hovertemplate='<b>%{x|%d/%m/%Y}</b><br>Seguidores Totales: %{y:,}<extra></extra>'
             ))
-
+            
             # 2. Seguidores Pauta (si existe)
             if 'nuevos_seguidores_pauta' in df_merged.columns:
                 fig_followers.add_trace(go.Scatter(
@@ -973,7 +793,7 @@ else:  # Gráfica de evolución
                     hovertemplate='Seguidores Pauta: %{y:,}<extra></extra>',
                     yaxis='y1'
                 ))
-
+            
             # 3. Costo de Pauta (barras, eje secundario)
             if 'coste_anuncio' in df_merged.columns:
                 fig_followers.add_trace(go.Bar(
@@ -987,7 +807,7 @@ else:  # Gráfica de evolución
                     hovertemplate='Costo Pauta: $%{y:,}<extra></extra>',
                     yaxis='y2'
                 ))
-
+            
             # 4. Visualizaciones de Pauta (eje secundario)
             if 'visualizaciones_videos' in df_merged.columns:
                 fig_followers.add_trace(go.Scatter(
@@ -1004,7 +824,7 @@ else:  # Gráfica de evolución
                     hovertemplate='Visualizaciones Pauta: %{y:,}<extra></extra>',
                     yaxis='y2'
                 ))
-
+            
             # Configurar layout con eje secundario (MÉTODO ORIGINAL)
             fig_followers.update_layout(
                 height=350,
@@ -1041,14 +861,14 @@ else:  # Gráfica de evolución
                     title_font=dict(color='#ef4444')
                 )
             )
-
+            
             st.plotly_chart(fig_followers, use_container_width=True)
-
+                        
         except Exception as e:
             st.warning(f"Error al generar gráfica combinada: {str(e)}")
     else:
         st.warning("No hay datos de seguidores disponibles")
-
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
 # Tabla de contenido
@@ -1063,35 +883,35 @@ if not df_all.empty:
         display_df = youtobe_df.copy()
     else:
         display_df = df_all.copy()
-
+    
     # Seleccionar columnas relevantes
     column_order = []
     if 'titulo' in display_df.columns:
         column_order.append('titulo')
         display_df['titulo'] = display_df['titulo'].fillna('Sin título').str.slice(0, 35) + '...'
-
+    
     if 'fecha_publicacion' in display_df.columns:
         column_order.append('fecha_publicacion')
         display_df['fecha_publicacion'] = display_df['fecha_publicacion'].dt.strftime('%d/%m')
-
+    
     if 'red' in display_df.columns:
         column_order.append('red')
-
+    
     if 'visualizaciones' in display_df.columns:
         column_order.append('visualizaciones')
-
+    
     if 'me_gusta' in display_df.columns:
         column_order.append('me_gusta')
-
+    
     if 'comentarios' in display_df.columns:
         column_order.append('comentarios')
-
+    
     if 'Seguidores_Totales' in display_df.columns:
         column_order.append('Seguidores_Totales')
-
+    
     column_order = [col for col in column_order if col in display_df.columns]
     display_df = display_df[column_order]
-
+    
     # Renombrar columnas
     rename_dict = {
         'titulo': 'Título',
@@ -1102,9 +922,9 @@ if not df_all.empty:
         'comentarios': 'Comentarios',
         'Seguidores_Totales': 'Seguidores'
     }
-
+    
     display_df = display_df.rename(columns={k: v for k, v in rename_dict.items() if k in display_df.columns})
-
+    
     # Mostrar tabla compacta
     st.dataframe(
         display_df,
@@ -1112,7 +932,7 @@ if not df_all.empty:
         hide_index=True,
         height=250
     )
-
+    
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Footer
