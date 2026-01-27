@@ -6,7 +6,6 @@ import warnings
 import requests
 from io import BytesIO
 from openai import OpenAI
-from streamlit.components.v1 import html
 
 warnings.filterwarnings('ignore')
 
@@ -199,315 +198,26 @@ def cargar_datos():
     
     return df, youtobe_data, tiktok_data, df_followers, df_pauta
 
-# Estilos CSS mejorados con fondo profesional
+# Estilos CSS
 st.markdown("""
 <style>
-/* Fondo profesional con gradiente suave */
-.stApp {
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
-    min-height: 100vh;
-}
-
-/* Eliminar espacio superior */
-.main { 
-    padding: 0 !important;
-    padding-top: 0 !important;
-}
-.block-container {
-    padding-top: 0.5rem !important;
-    padding-bottom: 0 !important;
-    background: transparent !important;
-}
-
-/* Sidebar styling - AZUL PROFESIONAL CON FONDO DE GRANDE */
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-    border-right: 1px solid #334155;
-    position: relative;
-    overflow: hidden;
-}
-
-[data-testid="stSidebar"]::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-image: 
-        radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
-    z-index: 0;
-}
-
-[data-testid="stSidebar"] > div:first-child {
-    padding-top: 0.8rem;
-    position: relative;
-    z-index: 1;
-}
-
-/* Botones de plataformas con diseño mejorado */
-.stButton > button {
-    display: flex;
-    align-items: center;
-    padding: 10px 16px;
-    margin: 4px 0;
-    border-radius: 10px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: #e2e8f0;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    width: 100%;
-    text-align: left;
-    justify-content: flex-start;
-    backdrop-filter: blur(10px);
-    position: relative;
-    overflow: hidden;
-}
-
-.stButton > button::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-    transition: 0.5s;
-}
-
-.stButton > button:hover {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
-    border-color: rgba(255, 255, 255, 0.25);
-    transform: translateX(4px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-}
-
-.stButton > button:hover::before {
-    left: 100%;
-}
-
-.stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0.15) 100%);
-    border-color: #3B82F6;
-    color: #3B82F6;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
-}
-
-/* Tarjetas de métricas con fondo de vidrio y efectos premium */
-.metric-horizontal-item {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
-    border-radius: 14px;
-    padding: 18px 14px;
-    box-shadow: 
-        0 8px 20px rgba(0, 0, 0, 0.08),
-        0 4px 6px rgba(0, 0, 0, 0.04),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.9);
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    position: relative;
-    overflow: hidden;
-    text-align: center;
-    backdrop-filter: blur(20px);
-    min-height: 130px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.metric-horizontal-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
-    background-size: 200% 100%;
-    animation: shimmer 3s infinite linear;
-    border-radius: 14px 14px 0 0;
-}
-
-.metric-horizontal-item::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.metric-horizontal-item:hover {
-    transform: translateY(-8px) scale(1.03);
-    box-shadow: 
-        0 15px 35px rgba(59, 130, 246, 0.25),
-        0 5px 15px rgba(0, 0, 0, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    border-color: rgba(59, 130, 246, 0.3);
-}
-
-.metric-horizontal-item:hover::after {
-    opacity: 1;
-}
-
+/* Animación shimmer */
 @keyframes shimmer {
     0% { background-position: -200% 0; }
     100% { background-position: 200% 0; }
 }
 
-.metric-horizontal-value {
-    font-size: 24px;
-    font-weight: 900;
-    color: #1f2937;
-    margin: 8px 0 5px 0;
-    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    letter-spacing: -0.5px;
-    position: relative;
-    z-index: 2;
-}
-
-.metric-horizontal-label {
-    font-size: 11px;
-    color: #6b7280;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    line-height: 1.4;
-    position: relative;
-    z-index: 2;
-}
-
-.metric-horizontal-icon {
-    font-size: 22px;
-    margin-bottom: 10px;
-    filter: drop-shadow(0 3px 5px rgba(0,0,0,0.1));
-    position: relative;
-    z-index: 2;
-}
-
-/* Tarjetas de pauta publicitaria con fondo premium */
-.pauta-horizontal-item {
-    background: linear-gradient(135deg, rgba(240, 249, 255, 0.95) 0%, rgba(224, 242, 254, 0.9) 100%);
-    border-radius: 14px;
-    padding: 18px 14px;
-    box-shadow: 
-        0 8px 20px rgba(14, 165, 233, 0.15),
-        0 4px 6px rgba(14, 165, 233, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(186, 230, 253, 0.8);
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    position: relative;
-    overflow: hidden;
-    text-align: center;
-    backdrop-filter: blur(20px);
-    min-height: 130px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.pauta-horizontal-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
-    background-size: 200% 100%;
-    animation: shimmer 3s infinite linear;
-    border-radius: 14px 14px 0 0;
-}
-
-.pauta-horizontal-item::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.pauta-horizontal-item:hover {
-    transform: translateY(-8px) scale(1.03);
-    box-shadow: 
-        0 15px 35px rgba(14, 165, 233, 0.3),
-        0 5px 15px rgba(0, 0, 0, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    border-color: rgba(14, 165, 233, 0.4);
-}
-
-.pauta-horizontal-item:hover::after {
-    opacity: 1;
-}
-
-.pauta-horizontal-value {
-    font-size: 24px;
-    font-weight: 900;
-    color: #0369a1;
-    margin: 8px 0 5px 0;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    letter-spacing: -0.5px;
-    position: relative;
-    z-index: 2;
-}
-
-.pauta-horizontal-label {
-    font-size: 11px;
-    color: #475569;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    line-height: 1.4;
-    position: relative;
-    z-index: 2;
-}
-
-.pauta-horizontal-icon {
-    font-size: 22px;
-    margin-bottom: 10px;
-    color: #0ea5e9;
-    filter: drop-shadow(0 3px 5px rgba(14, 165, 233, 0.3));
-    position: relative;
-    z-index: 2;
-}
-
-/* Header principal con diseño premium */
+/* Header principal */
 .dashboard-header {
     background: linear-gradient(135deg, #1e40af 0%, #3B82F6 100%);
     border-radius: 16px;
     padding: 22px 26px;
     color: white;
-    margin-bottom: 15px;
-    box-shadow: 
-        0 10px 25px rgba(59, 130, 246, 0.35),
-        0 5px 10px rgba(59, 130, 246, 0.2);
+    margin-bottom: 20px;
+    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.35);
     position: relative;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.dashboard-header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: 
-        radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.15) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
 }
 
 .dashboard-header h1 {
@@ -515,57 +225,38 @@ st.markdown("""
     font-size: 26px;
     font-weight: 800;
     line-height: 1.2;
-    font-family: 'Inter', 'Arial Black', sans-serif;
+    font-family: 'Arial Black', sans-serif;
     letter-spacing: 0.5px;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    position: relative;
-    z-index: 2;
 }
 
-.dashboard-header::after {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px);
-    background-size: 25px 25px;
-    opacity: 0.15;
-    animation: float 20s linear infinite;
+/* Contenedores */
+.performance-chart {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin: 15px 0;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+    border: 1px solid #e5e7eb;
 }
 
-@keyframes float {
-    0% { transform: translate(0, 0) rotate(0deg); }
-    100% { transform: translate(-50px, -50px) rotate(360deg); }
+.data-table-container {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin: 15px 0;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+    border: 1px solid #e5e7eb;
 }
 
-/* Selector de gráficas - DISEÑO PREMIUM */
+/* Selector de gráficas */
 .grafica-selector-container {
-    background: linear-gradient(135deg, rgba(248, 250, 252, 0.9) 0%, rgba(241, 245, 249, 0.9) 100%);
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border-radius: 16px;
     padding: 15px;
     margin: 15px 0 18px 0;
-    border: 1px solid rgba(229, 231, 235, 0.8);
-    box-shadow: 
-        0 10px 25px rgba(0, 0, 0, 0.12),
-        0 5px 10px rgba(0, 0, 0, 0.06);
-    backdrop-filter: blur(10px);
-    position: relative;
-    overflow: hidden;
-}
-
-.grafica-selector-container::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: 
-        radial-gradient(circle at 10% 90%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
-        radial-gradient(circle at 90% 10%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
-    z-index: 1;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
 }
 
 .grafica-selector-title {
@@ -574,319 +265,46 @@ st.markdown("""
     color: #1f2937;
     margin-bottom: 12px;
     text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    position: relative;
-    z-index: 2;
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .grafica-selector-buttons {
     display: flex;
     gap: 10px;
     justify-content: center;
-    position: relative;
-    z-index: 2;
 }
 
-/* Botones de selección de gráficas - DISEÑO PREMIUM */
 .grafica-selector-btn {
     flex: 1;
     max-width: 240px;
     padding: 18px 16px;
     border-radius: 14px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%);
-    border: 2px solid rgba(229, 231, 235, 0.9);
+    background: white;
+    border: 2px solid #e5e7eb;
     color: #64748b;
     font-weight: 800;
     cursor: pointer;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: all 0.3s ease;
     text-align: center;
     font-size: 14px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    box-shadow: 
-        0 8px 20px rgba(0,0,0,0.1),
-        0 4px 6px rgba(0,0,0,0.05);
-    position: relative;
-    overflow: hidden;
-    backdrop-filter: blur(10px);
-}
-
-.grafica-selector-btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-    transition: 0.5s;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
 }
 
 .grafica-selector-btn:hover {
-    transform: translateY(-6px) scale(1.04);
-    box-shadow: 
-        0 15px 30px rgba(0,0,0,0.18),
-        0 8px 15px rgba(0,0,0,0.1);
-    border-color: rgba(203, 213, 225, 0.9);
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 245, 249, 0.98) 100%);
-}
-
-.grafica-selector-btn:hover::before {
-    left: 100%;
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.15);
 }
 
 .grafica-selector-btn.active {
     background: linear-gradient(135deg, #3B82F6 0%, #2563eb 100%);
     color: white;
     border-color: #3B82F6;
-    box-shadow: 
-        0 12px 30px rgba(59, 130, 246, 0.5),
-        0 6px 15px rgba(59, 130, 246, 0.3);
-    transform: translateY(-4px);
-}
-
-.grafica-selector-btn.active:hover {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-    transform: translateY(-6px) scale(1.04);
-    box-shadow: 
-        0 18px 35px rgba(59, 130, 246, 0.6),
-        0 8px 20px rgba(59, 130, 246, 0.4);
-}
-
-.grafica-btn-icon {
-    font-size: 26px;
-    filter: drop-shadow(0 3px 5px rgba(0,0,0,0.15));
-    position: relative;
-    z-index: 2;
-}
-
-.grafica-selector-btn.active .grafica-btn-icon {
-    filter: drop-shadow(0 3px 5px rgba(255,255,255,0.4));
-}
-
-.grafica-btn-text {
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    position: relative;
-    z-index: 2;
-}
-
-/* Contenedores premium con fondo de vidrio */
-.performance-chart {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.92) 100%);
-    border-radius: 16px;
-    padding: 20px;
-    margin: 15px 0;
-    box-shadow: 
-        0 10px 25px rgba(0, 0, 0, 0.12),
-        0 5px 10px rgba(0, 0, 0, 0.06);
-    border: 1px solid rgba(229, 231, 235, 0.8);
-    backdrop-filter: blur(10px);
-    position: relative;
-    overflow: hidden;
-}
-
-.performance-chart::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: 
-        radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
-        radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.03) 0%, transparent 50%);
-    pointer-events: none;
-}
-
-.data-table-container {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.92) 100%);
-    border-radius: 16px;
-    padding: 20px;
-    margin: 15px 0;
-    box-shadow: 
-        0 10px 25px rgba(0, 0, 0, 0.12),
-        0 5px 10px rgba(0, 0, 0, 0.06);
-    border: 1px solid rgba(229, 231, 235, 0.8);
-    backdrop-filter: blur(10px);
-    position: relative;
-    overflow: hidden;
-}
-
-.data-table-container::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: 
-        radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
-        radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.03) 0%, transparent 50%);
-    pointer-events: none;
-}
-
-/* Sidebar titles */
-.sidebar-title {
-    color: #cbd5e1 !important;
-    font-size: 11px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    margin-top: 15px;
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-    position: relative;
-    padding-left: 10px;
-}
-
-.sidebar-title::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 3px;
-    height: 12px;
-    background: linear-gradient(180deg, #3B82F6 0%, #8B5CF6 100%);
-    border-radius: 2px;
-}
-
-/* Status containers */
-.status-container {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
-    padding: 8px 10px;
-    border-radius: 8px;
-    margin-bottom: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: all 0.3s;
-    font-size: 10px;
-    backdrop-filter: blur(5px);
-}
-
-/* Chat container */
-.chat-container {
-    max-height: 220px;
-    overflow-y: auto;
-    margin-top: 10px;
-    padding-right: 5px;
-}
-
-.chat-container::-webkit-scrollbar {
-    width: 4px;
-}
-
-.chat-container::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 2px;
-}
-
-.chat-container::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 2px;
-}
-
-.chat-message {
-    padding: 8px 10px;
-    border-radius: 9px;
-    margin-bottom: 6px;
-    font-size: 11px;
-    max-width: 90%;
-    backdrop-filter: blur(5px);
-    transition: all 0.3s ease;
-}
-
-.user-message {
-    background: linear-gradient(135deg, #3B82F6 0%, #2563eb 100%);
-    color: white;
-    margin-left: auto;
-    box-shadow: 0 3px 8px rgba(59, 130, 246, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.user-message:hover {
-    transform: translateX(-2px);
-    box-shadow: 0 5px 12px rgba(59, 130, 246, 0.4);
-}
-
-.assistant-message {
-    background: linear-gradient(135deg, rgba(241, 245, 249, 0.95) 0%, rgba(226, 232, 240, 0.95) 100%);
-    color: #1f2937;
-    border: 1px solid rgba(229, 231, 235, 0.8);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
-}
-
-.assistant-message:hover {
-    transform: translateX(2px);
-    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.08);
-}
-
-/* Tabla compacta */
-.dataframe {
-    font-size: 11px !important;
-    background: transparent !important;
-}
-
-.dataframe th {
-    padding: 10px 12px !important;
-    font-size: 11px !important;
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
-    font-weight: 700 !important;
-    border-bottom: 2px solid #e5e7eb !important;
-}
-
-.dataframe td {
-    padding: 8px 12px !important;
-    font-size: 11px !important;
-    border-bottom: 1px solid #f1f5f9 !important;
-}
-
-.dataframe tr:hover {
-    background: rgba(59, 130, 246, 0.05) !important;
-}
-
-/* Footer mejorado */
-.footer-container {
-    text-align: center;
-    color: #6b7280;
-    font-size: 10px;
-    padding: 12px 0;
-    margin-top: 15px;
-    border-top: 1px solid rgba(229, 231, 235, 0.8);
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%);
-    border-radius: 10px;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .metric-horizontal-value, .pauta-horizontal-value { font-size: 20px; }
-    .metric-horizontal-label, .pauta-horizontal-label { font-size: 10px; letter-spacing: 0.6px; }
-    .dashboard-header { padding: 18px; }
-    .dashboard-header h1 { font-size: 22px; }
-    .metric-horizontal-item, .pauta-horizontal-item {
-        min-width: 135px;
-        padding: 15px 10px;
-    }
-    .grafica-selector-buttons {
-        flex-wrap: wrap;
-    }
-    .grafica-selector-btn {
-        min-width: calc(50% - 5px);
-        padding: 16px 12px;
-        margin-bottom: 8px;
-    }
-    .grafica-btn-icon { font-size: 22px; }
-    .grafica-selector-title { font-size: 13px; }
+    box-shadow: 0 12px 30px rgba(59, 130, 246, 0.5);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -894,10 +312,10 @@ st.markdown("""
 # Cargar datos
 df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
 
-# Sidebar con diseño mejorado
+# Sidebar
 with st.sidebar:
     st.markdown("""
-    <div style="text-align: center; margin-bottom: 20px; padding: 0 10px; position: relative; z-index: 2;">
+    <div style="text-align: center; margin-bottom: 20px; padding: 0 10px;">
         <div style="
             background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
             width: 48px; 
@@ -909,25 +327,11 @@ with st.sidebar:
             margin: 0 auto 10px auto; 
             font-size: 22px;
             box-shadow: 0 6px 15px rgba(59, 130, 246, 0.4);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            animation: pulse 2s infinite;
         ">
             📊
         </div>
-        <h3 style="
-            color: white; 
-            margin-bottom: 4px; 
-            font-size: 14px; 
-            font-weight: 800;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-        ">DASHBOARD PRO</h3>
-        <p style="
-            color: #94a3b8; 
-            font-size: 10px; 
-            margin: 0;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-        ">Social Media Analytics Platform</p>
+        <h3 style="color: white; margin-bottom: 4px; font-size: 14px; font-weight: 800;">DASHBOARD PRO</h3>
+        <p style="color: #94a3b8; font-size: 10px; margin: 0;">Social Media Analytics Platform</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -935,14 +339,14 @@ with st.sidebar:
     try:
         backend_test = requests.get(BACKEND_URL, timeout=5)
         if backend_test.status_code == 200:
-            st.markdown('<div class="status-container" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.08) 100%); color: #10b981; border-color: rgba(16, 185, 129, 0.25);">✅ <strong>Backend Conectado</strong></div>', unsafe_allow_html=True)
+            st.markdown('<div style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; border: 1px solid rgba(16, 185, 129, 0.2); font-size: 10px;">✅ <strong>Backend Conectado</strong></div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="status-container" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.08) 100%); color: #ef4444; border-color: rgba(239, 68, 68, 0.25);">⚠️ <strong>Backend Error</strong></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 10px;">⚠️ <strong>Backend Error</strong></div>', unsafe_allow_html=True)
     except:
-        st.markdown('<div class="status-container" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.08) 100%); color: #ef4444; border-color: rgba(239, 68, 68, 0.25);">⚠️ <strong>Backend Offline</strong></div>', unsafe_allow_html=True)
+        st.markdown('<div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 10px;">⚠️ <strong>Backend Offline</strong></div>', unsafe_allow_html=True)
     
     # Botones de plataformas
-    st.markdown('<p class="sidebar-title">🔗 PANEL PROFESIONAL</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #cbd5e1; font-size: 11px; font-weight: 600; margin-bottom: 8px; margin-top: 15px; letter-spacing: 0.8px; text-transform: uppercase;">🔗 PANEL PROFESIONAL</p>', unsafe_allow_html=True)
     
     platforms = {
         "general": "🌐 GENERAL",
@@ -961,19 +365,19 @@ with st.sidebar:
     st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
     
     # Asistente de Chat
-    st.markdown('<p class="sidebar-title">🤖 ASISTENTE DE DATOS</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #cbd5e1; font-size: 11px; font-weight: 600; margin-bottom: 8px; margin-top: 15px; letter-spacing: 0.8px; text-transform: uppercase;">🤖 ASISTENTE DE DATOS</p>', unsafe_allow_html=True)
     
     # Inicializar historial de chat
     if "messages" not in st.session_state:
         st.session_state.messages = []
     
-    # Contenedor del chat con diseño mejorado
+    # Contenedor del chat
     with st.container(height=220):
         for message in st.session_state.messages:
             if message["role"] == "user":
-                st.markdown(f'<div class="chat-message user-message">{message["content"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background: #3B82F6; color: white; padding: 8px 10px; border-radius: 9px; margin-bottom: 6px; font-size: 11px; max-width: 90%; margin-left: auto;">{message["content"]}</div>', unsafe_allow_html=True)
             else:
-                st.markdown(f'<div class="chat-message assistant-message">{message["content"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background: #f1f5f9; color: #1f2937; padding: 8px 10px; border-radius: 9px; margin-bottom: 6px; font-size: 11px; max-width: 90%; border: 1px solid #e5e7eb;">{message["content"]}</div>', unsafe_allow_html=True)
     
     # Input de chat
     user_input = st.chat_input("Pregunta sobre los datos...", key="chat_input")
@@ -1034,52 +438,25 @@ with st.sidebar:
         except Exception as e:
             st.error(f"Error al conectar con OpenAI: {str(e)}")
 
-# Contenido principal - HEADER PREMIUM
+# Contenido principal - HEADER
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
 st.markdown(f"""
 <div class="dashboard-header">
-    <div style="display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 2;">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
         <div>
-            <h1 style="
-                font-family: 'Inter', 'Arial Black', sans-serif; 
-                margin-bottom: 6px; 
-                letter-spacing: 0.8px;
-                font-size: 28px;
-                background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
-            ">📊 SOCIAL MEDIA DASHBOARD PRO</h1>
-            <p style="
-                margin: 0; 
-                opacity: 0.9; 
-                font-size: 13px; 
-                font-weight: 500;
-                color: rgba(255, 255, 255, 0.9);
-                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-            ">
+            <h1>📊 SOCIAL MEDIA DASHBOARD PRO</h1>
+            <p style="margin: 0; opacity: 0.9; font-size: 13px; font-weight: 500;">
                 Analytics en Tiempo Real • Monitoreo de Performance • Insights Inteligentes
             </p>
         </div>
-        <div style="
-            font-size: 12px; 
-            opacity: 0.9; 
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
-            padding: 6px 14px; 
-            border-radius: 20px; 
-            font-weight: 600;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        ">
+        <div style="font-size: 12px; opacity: 0.9; background: rgba(255,255,255,0.1); padding: 6px 14px; border-radius: 20px; font-weight: 600;">
             ⏱️ {current_time}
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Métricas en UNA SOLA FRANJA HORIZONTAL - DISEÑO PREMIUM
+# MÉTRICAS - ENFOQUE SIMPLIFICADO CON STREAMLIT NATIVO
 def format_number(num):
     try:
         if num >= 1000000:
@@ -1092,7 +469,6 @@ def format_number(num):
         return "0"
 
 # Calcular métricas
-# Métricas de pauta publicitaria
 if not df_pauta.empty:
     coste_anuncio_sum = df_pauta['coste_anuncio'].sum() if 'coste_anuncio' in df_pauta.columns else 0
     visualizaciones_videos_sum = df_pauta['visualizaciones_videos'].sum() if 'visualizaciones_videos' in df_pauta.columns else 0
@@ -1111,64 +487,344 @@ if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
 total_contenidos = len(df_all)
 total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
 
-# Usar st.columns para crear una fila horizontal
+# Crear columnas para las métricas
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
+# Aplicar a cada columna
 with col1:
-    html(f"""
-    <div class="pauta-horizontal-item">
-        <div class="pauta-horizontal-icon">💰</div>
-        <div class="pauta-horizontal-label">COSTE ANUNCIO</div>
-        <div class="pauta-horizontal-value">${format_number(coste_anuncio_sum)}</div>
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border-radius: 14px;
+        padding: 20px 16px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid #bae6fd;
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        min-height: 130px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    ">
+        <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite linear;
+            border-radius: 14px 14px 0 0;
+        "></div>
+        
+        <div style="
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #0ea5e9;
+        ">💰</div>
+        
+        <div style="
+            font-size: 26px;
+            font-weight: 900;
+            color: #0369a1;
+            margin: 5px 0;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        ">${format_number(coste_anuncio_sum)}</div>
+        
+        <div style="
+            font-size: 12px;
+            color: #475569;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            line-height: 1.4;
+        ">COSTE ANUNCIO</div>
     </div>
-    """, height=135)
+    """, unsafe_allow_html=True)
 
 with col2:
-    html(f"""
-    <div class="pauta-horizontal-item">
-        <div class="pauta-horizontal-icon">👁️</div>
-        <div class="pauta-horizontal-label">VISUALIZACIONES VIDEOS</div>
-        <div class="pauta-horizontal-value">{format_number(visualizaciones_videos_sum)}</div>
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border-radius: 14px;
+        padding: 20px 16px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid #bae6fd;
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        min-height: 130px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    ">
+        <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite linear;
+            border-radius: 14px 14px 0 0;
+        "></div>
+        
+        <div style="
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #0ea5e9;
+        ">👁️</div>
+        
+        <div style="
+            font-size: 26px;
+            font-weight: 900;
+            color: #0369a1;
+            margin: 5px 0;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        ">{format_number(visualizaciones_videos_sum)}</div>
+        
+        <div style="
+            font-size: 12px;
+            color: #475569;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            line-height: 1.4;
+        ">VISUALIZACIONES VIDEOS</div>
     </div>
-    """, height=135)
+    """, unsafe_allow_html=True)
 
 with col3:
-    html(f"""
-    <div class="pauta-horizontal-item">
-        <div class="pauta-horizontal-icon">📈</div>
-        <div class="pauta-horizontal-label">NUEVOS SEGUIDORES</div>
-        <div class="pauta-horizontal-value">{format_number(nuevos_seguidores_sum)}</div>
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border-radius: 14px;
+        padding: 20px 16px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid #bae6fd;
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        min-height: 130px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    ">
+        <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite linear;
+            border-radius: 14px 14px 0 0;
+        "></div>
+        
+        <div style="
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #0ea5e9;
+        ">📈</div>
+        
+        <div style="
+            font-size: 26px;
+            font-weight: 900;
+            color: #0369a1;
+            margin: 5px 0;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        ">{format_number(nuevos_seguidores_sum)}</div>
+        
+        <div style="
+            font-size: 12px;
+            color: #475569;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            line-height: 1.4;
+        ">NUEVOS SEGUIDORES</div>
     </div>
-    """, height=135)
+    """, unsafe_allow_html=True)
 
 with col4:
-    html(f"""
-    <div class="metric-horizontal-item">
-        <div class="metric-horizontal-icon">👥</div>
-        <div class="metric-horizontal-label">TOTAL SEGUIDORES</div>
-        <div class="metric-horizontal-value">{format_number(total_seguidores)}</div>
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 14px;
+        padding: 20px 16px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e5e7eb;
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        min-height: 130px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    ">
+        <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite linear;
+            border-radius: 14px 14px 0 0;
+        "></div>
+        
+        <div style="
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #1f2937;
+        ">👥</div>
+        
+        <div style="
+            font-size: 26px;
+            font-weight: 900;
+            color: #1f2937;
+            margin: 5px 0;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        ">{format_number(total_seguidores)}</div>
+        
+        <div style="
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            line-height: 1.4;
+        ">TOTAL SEGUIDORES</div>
     </div>
-    """, height=135)
+    """, unsafe_allow_html=True)
 
 with col5:
-    html(f"""
-    <div class="metric-horizontal-item">
-        <div class="metric-horizontal-icon">📊</div>
-        <div class="metric-horizontal-label">TOTAL CONTENIDOS</div>
-        <div class="metric-horizontal-value">{format_number(total_contenidos)}</div>
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 14px;
+        padding: 20px 16px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e5e7eb;
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        min-height: 130px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    ">
+        <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite linear;
+            border-radius: 14px 14px 0 0;
+        "></div>
+        
+        <div style="
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #1f2937;
+        ">📊</div>
+        
+        <div style="
+            font-size: 26px;
+            font-weight: 900;
+            color: #1f2937;
+            margin: 5px 0;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        ">{format_number(total_contenidos)}</div>
+        
+        <div style="
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            line-height: 1.4;
+        ">TOTAL CONTENIDOS</div>
     </div>
-    """, height=135)
+    """, unsafe_allow_html=True)
 
 with col6:
-    html(f"""
-    <div class="metric-horizontal-item">
-        <div class="metric-horizontal-icon">👁️</div>
-        <div class="metric-horizontal-label">VISUALIZACIONES TOTALES</div>
-        <div class="metric-horizontal-value">{format_number(total_visualizaciones)}</div>
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 14px;
+        padding: 20px 16px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e5e7eb;
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        min-height: 130px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    ">
+        <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite linear;
+            border-radius: 14px 14px 0 0;
+        "></div>
+        
+        <div style="
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #1f2937;
+        ">👁️</div>
+        
+        <div style="
+            font-size: 26px;
+            font-weight: 900;
+            color: #1f2937;
+            margin: 5px 0;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        ">{format_number(total_visualizaciones)}</div>
+        
+        <div style="
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            line-height: 1.4;
+        ">VISUALIZACIONES TOTALES</div>
     </div>
-    """, height=135)
+    """, unsafe_allow_html=True)
 
-# Selector de gráficas - DISEÑO PREMIUM
+# Agregar espacio
+st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+
+# Selector de gráficas
 st.markdown('<div class="grafica-selector-container">', unsafe_allow_html=True)
 st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁFICA</div>', unsafe_allow_html=True)
 
@@ -1176,10 +832,10 @@ st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁ
 if "grafica_seleccionada" not in st.session_state:
     st.session_state.grafica_seleccionada = "evolucion"
 
-# Selector visual mejorado con HTML/CSS personalizado
+# Selector visual
 st.markdown('<div class="grafica-selector-buttons">', unsafe_allow_html=True)
 
-# Crear botones con diseño premium
+# Crear botones
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -1390,7 +1046,7 @@ else:  # Gráfica de evolución
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Tabla de contenido - COMPACTA CON DISEÑO PREMIUM
+# Tabla de contenido
 st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
 st.markdown("##### 📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA")
 
@@ -1454,28 +1110,10 @@ if not df_all.empty:
     
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Footer premium
+# Footer
 current_time_full = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 st.markdown(f"""
-<div class="footer-container">
-    <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 4px;">
-        <span style="display: flex; align-items: center; gap: 4px;">
-            <span style="color: #3B82F6; font-size: 12px;">⚡</span>
-            <span style="font-weight: 700;">Social Media Dashboard PRO v3.3</span>
-        </span>
-        <span style="width: 4px; height: 4px; background: #cbd5e1; border-radius: 50%;"></span>
-        <span style="display: flex; align-items: center; gap: 4px;">
-            <span style="color: #10b981; font-size: 12px;">🔄</span>
-            <span>Analytics en Tiempo Real</span>
-        </span>
-        <span style="width: 4px; height: 4px; background: #cbd5e1; border-radius: 50%;"></span>
-        <span style="display: flex; align-items: center; gap: 4px;">
-            <span style="color: #8B5CF6; font-size: 12px;">📊</span>
-            <span>{current_time_full}</span>
-        </span>
-    </div>
-    <div style="font-size: 9px; color: #94a3b8; font-weight: 500;">
-        Powered by Streamlit • Data Visualization • Professional Analytics Platform
-    </div>
+<div style="text-align: center; color: #6b7280; font-size: 10px; padding: 12px 0; margin-top: 15px; border-top: 1px solid #e5e7eb;">
+    Social Media Dashboard PRO v3.3 • Analytics en Tiempo Real • {current_time_full}
 </div>
 """, unsafe_allow_html=True)
