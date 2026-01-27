@@ -15,7 +15,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Social Media Dashboard",
+    page_title="Social Media Dashboard PRO",
     layout="wide",
     page_icon="📊",
     initial_sidebar_state="expanded"
@@ -198,45 +198,88 @@ def cargar_datos():
     
     return df, youtobe_data, tiktok_data, df_followers, df_pauta
 
-# Estilos CSS simplificados
+# Estilos CSS mejorados
 st.markdown("""
 <style>
+/* Eliminar espacio superior */
 .main { 
-    padding: 0;
-    padding-top: 0.5rem !important;
+    padding: 0 !important;
+    padding-top: 0 !important;
+}
+.block-container {
+    padding-top: 1rem !important;
 }
 
-/* Sidebar styling */
+/* Sidebar styling - AZUL PROFESIONAL */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     border-right: 1px solid #334155;
 }
 
-.sidebar-title {
-    color: #cbd5e1 !important;
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 10px;
-    margin-top: 20px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+[data-testid="stSidebar"] > div:first-child {
+    padding-top: 1rem;
 }
 
+/* Botones de plataformas */
+.stButton > button {
+    display: flex;
+    align-items: center;
+    padding: 8px 15px;
+    margin: 4px 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    text-align: left;
+    justify-content: flex-start;
+}
+
+.stButton > button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateX(3px);
+}
+
+.stButton > button[kind="primary"] {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: #3B82F6;
+    color: #3B82F6;
+}
+
+/* Metrics cards - COMPACTAS */
 .metric-card {
-    background: white;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     border-radius: 12px;
-    padding: 18px 15px;
+    padding: 15px 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     border: 1px solid #e5e7eb;
+    transition: all 0.3s;
     height: 100%;
     position: relative;
+    overflow: hidden;
+}
+
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 100%);
 }
 
 .metric-value {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 800;
     color: #1f2937;
-    margin: 8px 0 3px 0;
+    margin: 8px 0 2px 0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
 .metric-label {
@@ -247,73 +290,194 @@ st.markdown("""
     letter-spacing: 0.6px;
 }
 
-/* Selector de gráficas */
-.grafica-selector {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 15px;
+/* Tarjetas de pauta publicitaria */
+.pauta-card {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 10px;
+    padding: 15px 12px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s;
+    height: 100%;
+    position: relative;
 }
 
-.selector-btn {
-    padding: 8px 16px;
-    border-radius: 6px;
-    background: #f8fafc;
+.pauta-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #10b981 0%, #3B82F6 100%);
+}
+
+.pauta-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: #1f2937;
+    margin: 6px 0 2px 0;
+}
+
+.pauta-label {
+    font-size: 11px;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+/* Header principal */
+.dashboard-header {
+    background: linear-gradient(135deg, #1e40af 0%, #3B82F6 100%);
+    border-radius: 14px;
+    padding: 20px 25px;
+    color: white;
+    margin-bottom: 15px;
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.dashboard-header h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.dashboard-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+    background-size: 25px 25px;
+    opacity: 0.1;
+}
+
+/* Botones de gráficas mejorados */
+.grafica-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border: 2px solid #e5e7eb;
     color: #64748b;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s;
     font-size: 13px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
-.selector-btn.active {
-    background: #3B82F6;
+.grafica-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.grafica-btn.active {
+    background: linear-gradient(135deg, #3B82F6 0%, #2D4F8B 100%);
     color: white;
     border-color: #3B82F6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
-.selector-btn:hover {
-    background: #f1f5f9;
+/* Contenedores */
+.performance-chart {
+    background: white;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    margin: 12px 0;
+    border: 1px solid #e5e7eb;
 }
 
-/* Chat styles */
-.chat-message {
-    padding: 10px 12px;
-    border-radius: 8px;
+.data-table-container {
+    background: white;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    margin: 12px 0;
+    border: 1px solid #e5e7eb;
+}
+
+/* Sidebar titles */
+.sidebar-title {
+    color: #cbd5e1 !important;
+    font-size: 12px;
+    font-weight: 600;
     margin-bottom: 8px;
-    font-size: 13px;
+    margin-top: 15px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* Status containers */
+.status-container {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.3s;
+    font-size: 11px;
+}
+
+/* Chat container */
+.chat-container {
+    max-height: 280px;
+    overflow-y: auto;
+    margin-top: 10px;
+}
+
+.chat-message {
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    max-width: 90%;
 }
 
 .user-message {
     background: #3B82F6;
     color: white;
-    margin-left: 20px;
+    margin-left: auto;
 }
 
 .assistant-message {
     background: #f1f5f9;
     color: #1f2937;
-    margin-right: 20px;
 }
 
-.chat-container {
-    max-height: 300px;
-    overflow-y: auto;
-    margin-top: 10px;
-}
-
-/* Table styling */
+/* Tabla compacta */
 .dataframe {
-    font-size: 12px;
+    font-size: 11px !important;
 }
 
 .dataframe th {
-    font-size: 11px;
-    padding: 8px 10px;
+    padding: 8px 10px !important;
+    font-size: 11px !important;
 }
 
 .dataframe td {
-    padding: 6px 10px;
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+}
+
+/* Ajustar espacios entre elementos */
+.stMetric {
+    margin-bottom: 8px !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .metric-value { font-size: 20px; }
+    .pauta-value { font-size: 18px; }
+    .dashboard-header { padding: 15px; }
+    .dashboard-header h1 { font-size: 22px; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -324,15 +488,15 @@ df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
 # Sidebar
 with st.sidebar:
     st.markdown("""
-    <div style="text-align: center; margin-bottom: 20px; padding: 0 10px;">
+    <div style="text-align: center; margin-bottom: 20px; padding: 0 8px;">
         <div style="background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%); 
                     width: 45px; height: 45px; border-radius: 10px; 
                     display: flex; align-items: center; justify-content: center; 
-                    margin: 0 auto 10px auto; font-size: 22px;">
+                    margin: 0 auto 8px auto; font-size: 22px;">
             📊
         </div>
-        <h3 style="color: white; margin-bottom: 3px; font-size: 16px;">Social Media</h3>
-        <p style="color: #94a3b8; font-size: 11px; margin: 0;">Dashboard Analytics</p>
+        <h3 style="color: white; margin-bottom: 3px; font-size: 14px; font-weight: 700;">DASHBOARD PRO</h3>
+        <p style="color: #94a3b8; font-size: 10px; margin: 0;">Social Media Analytics</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -340,14 +504,14 @@ with st.sidebar:
     try:
         backend_test = requests.get(BACKEND_URL, timeout=5)
         if backend_test.status_code == 200:
-            st.markdown('<div style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 6px 10px; border-radius: 6px; font-size: 11px; margin-bottom: 15px;">✅ Backend Conectado</div>', unsafe_allow_html=True)
+            st.markdown('<div class="status-container" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2);">✅ Backend Conectado</div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 6px 10px; border-radius: 6px; font-size: 11px; margin-bottom: 15px;">⚠️ Backend Error</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="status-container" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2);">⚠️ Backend Error</div>', unsafe_allow_html=True)
     except:
-        st.markdown('<div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 6px 10px; border-radius: 6px; font-size: 11px; margin-bottom: 15px;">⚠️ Backend Offline</div>', unsafe_allow_html=True)
+        st.markdown('<div class="status-container" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2);">⚠️ Backend Offline</div>', unsafe_allow_html=True)
     
     # Botones de plataformas
-    st.markdown('<p class="sidebar-title">🔗 Plataformas</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-title">🔗 PANEL PROFESIONAL</p>', unsafe_allow_html=True)
     
     platforms = {
         "general": "🌐 GENERAL",
@@ -363,19 +527,17 @@ with st.sidebar:
             st.session_state["selected_platform"] = platform_key
             st.rerun()
     
-    st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
     
     # Asistente de Chat
-    st.markdown('<p class="sidebar-title">🤖 Asistente de Datos</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-title">🤖 ASISTENTE DE DATOS</p>', unsafe_allow_html=True)
     
     # Inicializar historial de chat
     if "messages" not in st.session_state:
         st.session_state.messages = []
     
     # Contenedor del chat
-    chat_container = st.container(height=300)
-    
-    with chat_container:
+    with st.container(height=220):
         for message in st.session_state.messages:
             if message["role"] == "user":
                 st.markdown(f'<div class="chat-message user-message">{message["content"]}</div>', unsafe_allow_html=True)
@@ -383,7 +545,7 @@ with st.sidebar:
                 st.markdown(f'<div class="chat-message assistant-message">{message["content"]}</div>', unsafe_allow_html=True)
     
     # Input de chat
-    user_input = st.chat_input("Pregunta sobre los datos...")
+    user_input = st.chat_input("Pregunta sobre los datos...", key="chat_input")
     
     if user_input:
         # Agregar mensaje del usuario
@@ -407,7 +569,6 @@ with st.sidebar:
         - Inversión en publicidad: ${coste_anuncio:,}
         - Visualizaciones de videos pagados: {visualizaciones_videos:,}
         - Nuevos seguidores de publicidad: {nuevos_seguidores:,}
-        - Datos disponibles desde: {df_followers['Fecha'].min().strftime('%Y-%m-%d') if not df_followers.empty and 'Fecha' in df_followers.columns else 'N/D'}
         
         Puedes responder preguntas sobre estas métricas, tendencias, eficiencia de publicidad, y análisis de datos.
         """
@@ -435,14 +596,21 @@ with st.sidebar:
         except Exception as e:
             st.error(f"Error al conectar con OpenAI: {str(e)}")
 
-# Contenido principal
+# Contenido principal - HEADER MEJORADO
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
 st.markdown(f"""
-<div style="padding: 15px 0;">
-    <h1 style="margin: 0; font-size: 24px; color: #1f2937; font-weight: 700;">📊 SOCIAL MEDIA DASHBOARD</h1>
-    <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 13px;">
-        Analytics en Tiempo Real • Monitoreo de Performance • {current_time}
-    </p>
+<div class="dashboard-header">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+            <h1 style="font-family: 'Arial Black', sans-serif; margin-bottom: 5px;">📊 SOCIAL MEDIA DASHBOARD PRO</h1>
+            <p style="margin: 0; opacity: 0.9; font-size: 13px; font-weight: 400;">
+                Analytics en Tiempo Real • Monitoreo de Performance • Insights Inteligentes
+            </p>
+        </div>
+        <div style="font-size: 12px; opacity: 0.8; background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px;">
+            {current_time}
+        </div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -458,33 +626,34 @@ if not df_pauta.empty:
         except:
             return "0"
     
-    st.markdown("### 📊 MÉTRICAS DE PAUTA")
+    st.markdown('<h3 style="font-size: 16px; margin: 5px 0 10px 0; color: #1f2937;">📊 MÉTRICAS DE PAUTA PUBLICITARIA</h3>', unsafe_allow_html=True)
+    
     col_pauta1, col_pauta2, col_pauta3 = st.columns(3)
     
     with col_pauta1:
         st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">COSTE ANUNCIO</div>
-            <div class="metric-value">${format_number(coste_anuncio_sum)}</div>
-            <div style="font-size: 10px; color: #9ca3af; margin-top: 5px;">Total invertido</div>
+        <div class="pauta-card">
+            <div class="pauta-label">COSTE ANUNCIO</div>
+            <div class="pauta-value">${format_number(coste_anuncio_sum)}</div>
+            <div style="font-size: 10px; color: #9ca3af; margin-top: 3px;">Total invertido</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col_pauta2:
         st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">VISUALIZACIONES VIDEOS</div>
-            <div class="metric-value">{format_number(visualizaciones_videos_sum)}</div>
-            <div style="font-size: 10px; color: #9ca3af; margin-top: 5px;">Reproducciones totales</div>
+        <div class="pauta-card">
+            <div class="pauta-label">VISUALIZACIONES VIDEOS</div>
+            <div class="pauta-value">{format_number(visualizaciones_videos_sum)}</div>
+            <div style="font-size: 10px; color: #9ca3af; margin-top: 3px;">Reproducciones totales</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col_pauta3:
         st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">NUEVOS SEGUIDORES</div>
-            <div class="metric-value">{format_number(nuevos_seguidores_sum)}</div>
-            <div style="font-size: 10px; color: #9ca3af; margin-top: 5px;">Audiencia ganada</div>
+        <div class="pauta-card">
+            <div class="pauta-label">NUEVOS SEGUIDORES</div>
+            <div class="pauta-value">{format_number(nuevos_seguidores_sum)}</div>
+            <div style="font-size: 10px; color: #9ca3af; margin-top: 3px;">Audiencia ganada</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -496,7 +665,8 @@ if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
 total_contenidos = len(df_all)
 total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
 
-st.markdown("### 📈 MÉTRICAS GENERALES")
+st.markdown('<h3 style="font-size: 16px; margin: 15px 0 10px 0; color: #1f2937;">📈 MÉTRICAS GENERALES</h3>', unsafe_allow_html=True)
+
 col_gen1, col_gen2, col_gen3 = st.columns(3)
 
 with col_gen1:
@@ -504,7 +674,7 @@ with col_gen1:
     <div class="metric-card">
         <div class="metric-label">TOTAL SEGUIDORES</div>
         <div class="metric-value">{total_seguidores:,}</div>
-        <div style="font-size: 10px; color: #9ca3af; margin-top: 5px;">Seguidores TikTok</div>
+        <div style="font-size: 10px; color: #9ca3af; margin-top: 3px;">Seguidores TikTok</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -513,7 +683,7 @@ with col_gen2:
     <div class="metric-card">
         <div class="metric-label">TOTAL CONTENIDOS</div>
         <div class="metric-value">{total_contenidos:,}</div>
-        <div style="font-size: 10px; color: #9ca3af; margin-top: 5px;">Publicaciones totales</div>
+        <div style="font-size: 10px; color: #9ca3af; margin-top: 3px;">Publicaciones totales</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -522,44 +692,50 @@ with col_gen3:
     <div class="metric-card">
         <div class="metric-label">VISUALIZACIONES TOTALES</div>
         <div class="metric-value">{total_visualizaciones:,}</div>
-        <div style="font-size: 10px; color: #9ca3af; margin-top: 5px;">Alcance total</div>
+        <div style="font-size: 10px; color: #9ca3af; margin-top: 3px;">Alcance total</div>
     </div>
     """, unsafe_allow_html=True)
 
-# Selector de gráficas
-st.markdown("### 📈 GRÁFICAS DE ANÁLISIS")
+# Selector de gráficas - BOTONES MEJORADOS
+st.markdown('<h3 style="font-size: 16px; margin: 15px 0 10px 0; color: #1f2937;">📈 SELECTOR DE GRÁFICAS</h3>', unsafe_allow_html=True)
 
 # Inicializar estado para gráfica seleccionada
 if "grafica_seleccionada" not in st.session_state:
     st.session_state.grafica_seleccionada = "evolucion"
 
-# Selector visual
+# Selector visual mejorado
 col1, col2, col3 = st.columns(3)
+
 with col1:
+    btn1_active = st.session_state.grafica_seleccionada == "evolucion"
     if st.button("📈 Evolución", 
                  key="btn_evolucion",
                  use_container_width=True,
-                 type="primary" if st.session_state.grafica_seleccionada == "evolucion" else "secondary"):
+                 type="primary" if btn1_active else "secondary"):
         st.session_state.grafica_seleccionada = "evolucion"
         st.rerun()
 
 with col2:
+    btn2_active = st.session_state.grafica_seleccionada == "grafica1"
     if st.button("💰 Inversión vs Seguidores", 
                  key="btn_grafica1",
                  use_container_width=True,
-                 type="primary" if st.session_state.grafica_seleccionada == "grafica1" else "secondary"):
+                 type="primary" if btn2_active else "secondary"):
         st.session_state.grafica_seleccionada = "grafica1"
         st.rerun()
 
 with col3:
+    btn3_active = st.session_state.grafica_seleccionada == "grafica2"
     if st.button("📊 Heatmap CPS", 
                  key="btn_grafica2",
                  use_container_width=True,
-                 type="primary" if st.session_state.grafica_seleccionada == "grafica2" else "secondary"):
+                 type="primary" if btn3_active else "secondary"):
         st.session_state.grafica_seleccionada = "grafica2"
         st.rerun()
 
 # Mostrar gráfica seleccionada
+st.markdown('<div style="margin-top: 10px;"></div>', unsafe_allow_html=True)
+
 if st.session_state.grafica_seleccionada == "grafica1":
     st.markdown("#### 📈 Gráfica 1: Inversión vs Seguidores")
     img_bytes = cargar_imagen_grafica1_bytes()
@@ -576,63 +752,125 @@ elif st.session_state.grafica_seleccionada == "grafica2":
     else:
         st.warning("No se pudo cargar la Gráfica 2")
 
-else:  # Gráfica de evolución
+else:  # Gráfica de evolución (MANTENIENDO DETALLES ORIGINALES)
     st.markdown("#### 📈 EVOLUCIÓN DE SEGUIDORES TIKTOK Y MÉTRICAS DE PAUTA")
     
     if not df_followers.empty and 'Fecha' in df_followers.columns and 'Seguidores_Totales' in df_followers.columns:
         try:
-            # Preparar datos combinados
+            # Preparar datos de pauta si existen (MÉTODO ORIGINAL)
             if not df_pauta.empty:
+                if 'Costo' in df_pauta.columns:
+                    df_pauta['coste_anuncio'] = df_pauta['Costo']
+                if 'Visualizaciones' in df_pauta.columns:
+                    df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
+                if 'Seguidores' in df_pauta.columns:
+                    df_pauta['nuevos_seguidores_pauta'] = df_pauta['Seguidores']
+                
                 df_pauta['fecha'] = pd.to_datetime(df_pauta['fecha'], errors='coerce')
+                
                 df_pauta_agg = df_pauta.groupby('fecha').agg({
                     'coste_anuncio': 'sum',
                     'visualizaciones_videos': 'sum',
-                    'nuevos_seguidores': 'sum'
+                    'nuevos_seguidores_pauta': 'sum'
                 }).reset_index()
                 
+                # Fusionar por fecha - USAR OUTER JOIN
                 df_merged = pd.merge(df_followers, df_pauta_agg, left_on='Fecha', right_on='fecha', how='outer')
                 df_merged = df_merged.sort_values('Fecha')
                 
-                for col in ['Seguidores_Totales', 'coste_anuncio', 'visualizaciones_videos', 'nuevos_seguidores']:
-                    if col in df_merged.columns:
-                        df_merged[col] = df_merged[col].fillna(method='ffill').fillna(0)
+                # Rellenar valores faltantes
+                if 'Seguidores_Totales' in df_merged.columns:
+                    df_merged['Seguidores_Totales'] = df_merged['Seguidores_Totales'].fillna(method='ffill').fillna(0)
+                
+                if 'coste_anuncio' in df_merged.columns:
+                    df_merged['coste_anuncio'] = df_merged['coste_anuncio'].fillna(0)
+                
+                if 'visualizaciones_videos' in df_merged.columns:
+                    df_merged['visualizaciones_videos'] = df_merged['visualizaciones_videos'].fillna(0)
+                
+                if 'nuevos_seguidores_pauta' in df_merged.columns:
+                    df_merged['nuevos_seguidores_pauta'] = df_merged['nuevos_seguidores_pauta'].fillna(0)
             else:
                 df_merged = df_followers.copy()
                 df_merged['coste_anuncio'] = 0
                 df_merged['visualizaciones_videos'] = 0
-                df_merged['nuevos_seguidores'] = 0
+                df_merged['nuevos_seguidores_pauta'] = 0
             
-            # Crear gráfica
-            fig = go.Figure()
+            # Crear gráfica de 4 líneas (MÉTODO ORIGINAL)
+            fig_followers = go.Figure()
             
-            # Seguidores Totales
-            fig.add_trace(go.Scatter(
+            # 1. Seguidores Totales (línea principal)
+            fig_followers.add_trace(go.Scatter(
                 x=df_merged['Fecha'],
                 y=df_merged['Seguidores_Totales'],
                 mode='lines+markers',
                 name='👥 Seguidores Totales',
-                marker=dict(size=6, color='#000000'),
+                marker=dict(
+                    size=6,
+                    color='#000000',
+                    symbol='circle',
+                    line=dict(width=1, color='white')
+                ),
                 line=dict(color='#000000', width=2),
-                hovertemplate='<b>%{x|%d/%m/%Y}</b><br>Seguidores: %{y:,}<extra></extra>'
+                hovertemplate='<b>%{x|%d/%m/%Y}</b><br>Seguidores Totales: %{y:,}<extra></extra>'
             ))
             
-            # Costo de Pauta (barras)
-            if 'coste_anuncio' in df_merged.columns and df_merged['coste_anuncio'].sum() > 0:
-                fig.add_trace(go.Bar(
+            # 2. Seguidores Pauta (si existe)
+            if 'nuevos_seguidores_pauta' in df_merged.columns:
+                fig_followers.add_trace(go.Scatter(
+                    x=df_merged['Fecha'],
+                    y=df_merged['nuevos_seguidores_pauta'],
+                    mode='lines+markers',
+                    name='👥 Seguidores Pauta',
+                    marker=dict(
+                        size=5,
+                        color='#10b981',
+                        symbol='diamond'
+                    ),
+                    line=dict(color='#10b981', width=1.5, dash='dot'),
+                    hovertemplate='Seguidores Pauta: %{y:,}<extra></extra>',
+                    yaxis='y1'
+                ))
+            
+            # 3. Costo de Pauta (barras, eje secundario)
+            if 'coste_anuncio' in df_merged.columns:
+                fig_followers.add_trace(go.Bar(
                     x=df_merged['Fecha'],
                     y=df_merged['coste_anuncio'],
                     name='💰 Costo Pauta',
-                    marker=dict(color='#ef4444', opacity=0.6),
+                    marker=dict(
+                        color='#ef4444',
+                        opacity=0.6
+                    ),
                     hovertemplate='Costo Pauta: $%{y:,}<extra></extra>',
                     yaxis='y2'
                 ))
             
-            # Configurar layout
-            fig.update_layout(
+            # 4. Visualizaciones de Pauta (eje secundario)
+            if 'visualizaciones_videos' in df_merged.columns:
+                fig_followers.add_trace(go.Scatter(
+                    x=df_merged['Fecha'],
+                    y=df_merged['visualizaciones_videos'],
+                    mode='lines+markers',
+                    name='👁️ Visualizaciones Pauta',
+                    marker=dict(
+                        size=5,
+                        color='#3B82F6',
+                        symbol='triangle-up'
+                    ),
+                    line=dict(color='#3B82F6', width=1.5, dash='dash'),
+                    hovertemplate='Visualizaciones Pauta: %{y:,}<extra></extra>',
+                    yaxis='y2'
+                ))
+            
+            # Configurar layout con eje secundario (MÉTODO ORIGINAL)
+            fig_followers.update_layout(
                 height=350,
                 template='plotly_white',
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                margin=dict(l=40, r=40, t=20, b=40),
                 hovermode='x unified',
-                showlegend=True,
                 legend=dict(
                     orientation="h",
                     yanchor="bottom",
@@ -643,55 +881,63 @@ else:  # Gráfica de evolución
                 xaxis=dict(
                     title="Fecha",
                     gridcolor='#f1f5f9',
-                    tickformat='%d/%m/%Y',
-                    title_font=dict(size=12)
+                    showgrid=True,
+                    tickformat='%d/%m/%Y'
                 ),
                 yaxis=dict(
                     title="Seguidores",
                     gridcolor='#f1f5f9',
-                    title_font=dict(size=12)
+                    showgrid=True,
+                    title_font=dict(color='#000000')
                 ),
                 yaxis2=dict(
-                    title="Costo ($)",
+                    title="Costo ($) / Visualizaciones",
                     overlaying='y',
                     side='right',
+                    gridcolor='rgba(241, 245, 249, 0.5)',
                     showgrid=False,
-                    title_font=dict(size=12, color='#ef4444')
-                ) if 'coste_anuncio' in df_merged.columns and df_merged['coste_anuncio'].sum() > 0 else None,
-                margin=dict(l=40, r=40, t=20, b=40)
+                    title_font=dict(color='#ef4444')
+                )
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig_followers, use_container_width=True)
             
-            # Estadísticas resumidas
+            # Estadísticas de seguidores y pauta (MÉTODO ORIGINAL)
             if len(df_merged) > 0:
-                col_stat1, col_stat2, col_stat3 = st.columns(3)
+                col_f1, col_f2, col_f3, col_f4 = st.columns(4)
                 
-                with col_stat1:
-                    latest_followers = df_merged['Seguidores_Totales'].iloc[-1]
-                    st.metric("👥 Seguidores actuales", f"{latest_followers:,}")
+                with col_f1:
+                    latest_followers = df_merged['Seguidores_Totales'].iloc[-1] if len(df_merged) > 0 else 0
+                    st.metric("👥 Últimos seguidores", f"{latest_followers:,}")
                 
-                with col_stat2:
+                with col_f2:
+                    if 'nuevos_seguidores_pauta' in df_merged.columns:
+                        total_nuevos_seguidores = df_merged['nuevos_seguidores_pauta'].sum()
+                        st.metric("👥 Seguidores Pauta", f"{total_nuevos_seguidores:,}")
+                    else:
+                        st.metric("👥 Seguidores Pauta", "N/D")
+                
+                with col_f3:
                     if 'coste_anuncio' in df_merged.columns:
                         total_costo = df_merged['coste_anuncio'].sum()
-                        st.metric("💰 Inversión total", f"${total_costo:,}")
+                        st.metric("💰 Costo total pauta", f"${total_costo:,}")
                     else:
-                        st.metric("💰 Inversión total", "N/D")
+                        st.metric("💰 Costo pauta", "N/D")
                 
-                with col_stat3:
-                    if 'nuevos_seguidores' in df_merged.columns:
-                        total_nuevos = df_merged['nuevos_seguidores'].sum()
-                        st.metric("📈 Seguidores nuevos", f"{total_nuevos:,}")
+                with col_f4:
+                    if 'visualizaciones_videos' in df_merged.columns:
+                        total_visualizaciones = df_merged['visualizaciones_videos'].sum()
+                        st.metric("👁️ Visualizaciones pauta", f"{total_visualizaciones:,}")
                     else:
-                        st.metric("📈 Seguidores nuevos", "N/D")
-                        
+                        st.metric("👁️ Visualizaciones", "N/D")
+    
         except Exception as e:
-            st.warning(f"Error al generar gráfica: {str(e)}")
+            st.warning(f"Error al generar gráfica combinada: {str(e)}")
     else:
         st.warning("No hay datos de seguidores disponibles")
 
-# Tabla de contenido
-st.markdown("### 📊 TABLA DE CONTENIDOS")
+# Tabla de contenido - COMPACTA
+st.markdown("#### 📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA")
 
 if not df_all.empty:
     # Filtrar por plataforma seleccionada
@@ -706,7 +952,7 @@ if not df_all.empty:
     column_order = []
     if 'titulo' in display_df.columns:
         column_order.append('titulo')
-        display_df['titulo'] = display_df['titulo'].fillna('Sin título').str.slice(0, 50) + '...'
+        display_df['titulo'] = display_df['titulo'].fillna('Sin título').str.slice(0, 40) + '...'
     
     if 'fecha_publicacion' in display_df.columns:
         column_order.append('fecha_publicacion')
@@ -743,20 +989,33 @@ if not df_all.empty:
     
     display_df = display_df.rename(columns={k: v for k, v in rename_dict.items() if k in display_df.columns})
     
-    # Mostrar tabla con estilo minimalista
+    # Mostrar tabla compacta
     st.dataframe(
         display_df,
         use_container_width=True,
         hide_index=True,
-        height=300
+        height=250
     )
     
-    # Contador de registros
-    st.caption(f"Mostrando {len(display_df)} registros • Plataforma: {selected_platform.title()}")
+    # Estadísticas de la tabla
+    col_tab1, col_tab2, col_tab3 = st.columns(3)
+    
+    with col_tab1:
+        avg_views = display_df['Views'].mean() if 'Views' in display_df.columns else 0
+        st.metric("📊 Views promedio", f"{avg_views:,.0f}")
+    
+    with col_tab2:
+        avg_likes = display_df['Likes'].mean() if 'Likes' in display_df.columns else 0
+        st.metric("📊 Likes promedio", f"{avg_likes:,.0f}")
+    
+    with col_tab3:
+        avg_comments = display_df['Comentarios'].mean() if 'Comentarios' in display_df.columns else 0
+        st.metric("📊 Comments promedio", f"{avg_comments:,.0f}")
 
 # Footer minimalista
-st.markdown("""
-<div style="text-align: center; color: #6b7280; font-size: 11px; padding: 15px 0; margin-top: 20px; border-top: 1px solid #e5e7eb;">
-    Social Media Dashboard v1.0 • Data from Backend API • Actualizado en tiempo real
+current_time_full = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+st.markdown(f"""
+<div style="text-align: center; color: #6b7280; font-size: 10px; padding: 10px 0; margin-top: 15px; border-top: 1px solid #e5e7eb;">
+    Social Media Dashboard PRO v3.2 • Analytics en Tiempo Real • {current_time_full}
 </div>
 """, unsafe_allow_html=True)
