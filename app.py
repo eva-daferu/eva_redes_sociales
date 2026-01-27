@@ -84,7 +84,8 @@ def cargar_datos_seguidores():
             )
         
         if "Seguidores_Totales" in df_followers.columns:
-            df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors="coerce")
+            # Convertir a numérico y manejar valores no numéricos
+            df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors='coerce')
         
         return df_followers
     except Exception as e:
@@ -107,7 +108,10 @@ def cargar_datos_pauta():
                 df_pauta['nuevos_seguidores'] = df_pauta['Seguidores']
             
             if "coste_anuncio" in df_pauta.columns:
-                df_pauta["coste_anuncio"] = pd.to_numeric(df_pauta["coste_anuncio"], errors="coerce").fillna(0).astype(int)
+                # Convertir a numérico y limpiar
+                df_pauta["coste_anuncio"] = pd.to_numeric(df_pauta["coste_anuncio"], errors="coerce")
+                # Reemplazar NaN por 0
+                df_pauta["coste_anuncio"] = df_pauta["coste_anuncio"].fillna(0)
             
             for col in ["visualizaciones_videos", "nuevos_seguidores"]:
                 if col in df_pauta.columns:
@@ -344,11 +348,13 @@ st.markdown("""
 }
 
 .metric-value {
-    font-size: 26px;
+    font-size: 20px; /* Reducido para acomodar números largos */
     font-weight: 900;
     color: #0369a1;
     margin: 5px 0;
     font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    word-wrap: break-word;
+    max-width: 100%;
 }
 
 .metric-label {
@@ -467,11 +473,16 @@ with st.sidebar:
         # Obtener correctamente los seguidores
         total_followers = 0
         if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
-            # Obtener el último valor no nulo
+            # Obtener el último valor no nulo, ordenado por fecha
             if not df_followers['Seguidores_Totales'].dropna().empty:
-                total_followers = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
+                # Ordenar por fecha para obtener el más reciente
+                df_followers_sorted = df_followers.sort_values('Fecha')
+                total_followers = int(df_followers_sorted['Seguidores_Totales'].dropna().iloc[-1])
         
-        coste_anuncio = df_pauta['coste_anuncio'].sum() if not df_pauta.empty and 'coste_anuncio' in df_pauta.columns else 0
+        # Calcular coste con IVA
+        coste_base = df_pauta['coste_anuncio'].sum() if not df_pauta.empty and 'coste_anuncio' in df_pauta.columns else 0
+        coste_anuncio = coste_base * 1.19  # Añadir 19% IVA
+        
         visualizaciones_videos = df_pauta['visualizaciones_videos'].sum() if not df_pauta.empty and 'visualizaciones_videos' in df_pauta.columns else 0
         nuevos_seguidores = df_pauta['nuevos_seguidores'].sum() if not df_pauta.empty and 'nuevos_seguidores' in df_pauta.columns else 0
         
@@ -482,7 +493,7 @@ with st.sidebar:
         - Total de publicaciones: {total_posts}
         - Visualizaciones totales: {total_views:,}
         - Total de seguidores TikTok: {total_followers:,}
-        - Inversión en publicidad: ${coste_anuncio:,}
+        - Inversión en publicidad (con IVA 19%): ${coste_anuncio:,.0f}
         - Visualizaciones de videos pagados: {visualizaciones_videos:,}
         - Nuevos seguidores de publicidad: {nuevos_seguidores:,}
         
@@ -531,10 +542,13 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # MÉTRICAS - VERSIÓN SIMPLIFICADA USANDO FUNCIONES HELPER
-def format_number(num):
+def format_number(num, full_format=False):
     try:
         num = float(num)
-        if num >= 1000000:
+        if full_format:
+            # Formato completo con separadores de miles
+            return f"{num:,.0f}".replace(",", ".")
+        elif num >= 1000000:
             return f"{num/1000000:.1f}M"
         elif num >= 1000:
             return f"{num/1000:.1f}K"
@@ -543,7 +557,7 @@ def format_number(num):
     except:
         return "0"
 
-def create_metric_card(icon, value, label, is_light=False):
+def create_metric_card(icon, value, label, is_light=False, full_format=False):
     """Crea una tarjeta de métrica con HTML"""
     if is_light:
         return f"""
@@ -564,21 +578,37 @@ def create_metric_card(icon, value, label, is_light=False):
         </div>
         """
 
-# Calcular métricas
-if not df_pauta.empty:
-    coste_anuncio_sum = df_pauta['coste_anuncio'].sum() if 'coste_anuncio' in df_pauta.columns else 0
-    visualizaciones_videos_sum = df_pauta['visualizaciones_videos'].sum() if 'visualizaciones_videos' in df_pauta.columns else 0
-    nuevos_seguidores_sum = df_pauta['nuevos_seguidores'].sum() if 'nuevos_seguidores' in df_pauta.columns else 0
+# Calcular métricas REALES
+# 1. Coste de anuncio CON IVA (19%)
+if not df_pauta.empty and 'coste_anuncio' in df_pauta.columns:
+    coste_base = df_pauta['coste_anuncio'].sum()
+    coste_anuncio_sum = coste_base * 1.19  # Agregar 19% IVA
 else:
     coste_anuncio_sum = 0
-    visualizaciones_videos_sum = 0
-    nuevos_seguidores_sum = 0
 
-# Métricas generales
+visualizaciones_videos_sum = df_pauta['visualizaciones_videos'].sum() if not df_pauta.empty and 'visualizaciones_videos' in df_pauta.columns else 0
+nuevos_seguidores_sum = df_pauta['nuevos_seguidores'].sum() if not df_pauta.empty and 'nuevos_seguidores' in df_pauta.columns else 0
+
+# 2. Total seguidores - CORRECCIÓN IMPORTANTE
 total_seguidores = 0
 if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
+    # Asegurarse de que la columna sea numérica
+    df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors='coerce')
+    
+    # Filtrar valores no nulos
     if not df_followers['Seguidores_Totales'].dropna().empty:
-        total_seguidores = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
+        # Ordenar por fecha para obtener el valor más reciente
+        if 'Fecha' in df_followers.columns:
+            df_followers_sorted = df_followers.sort_values('Fecha')
+            last_value = df_followers_sorted['Seguidores_Totales'].dropna().iloc[-1]
+        else:
+            last_value = df_followers['Seguidores_Totales'].dropna().iloc[-1]
+        
+        total_seguidores = int(last_value)
+        
+        # Depuración: Mostrar en consola (Streamlit)
+        import sys
+        print(f"DEBUG: Total seguidores encontrado: {total_seguidores}", file=sys.stderr)
 
 total_contenidos = len(df_all)
 total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
@@ -586,12 +616,12 @@ total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in 
 # Crear columnas para las métricas
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-# Métrica 1: Coste Anuncio
+# Métrica 1: Coste Anuncio CON IVA (formato completo)
 with col1:
     html = create_metric_card(
         icon="💰", 
-        value=f"${format_number(coste_anuncio_sum)}", 
-        label="COSTE ANUNCIO",
+        value=f"${format_number(coste_anuncio_sum, full_format=True)}", 
+        label="COSTE ANUNCIO (+IVA 19%)",
         is_light=False
     )
     st.markdown(html, unsafe_allow_html=True)
@@ -616,15 +646,19 @@ with col3:
     )
     st.markdown(html, unsafe_allow_html=True)
 
-# Métrica 4: Total Seguidores
+# Métrica 4: Total Seguidores (REALES)
 with col4:
     html = create_metric_card(
         icon="👥", 
         value=format_number(total_seguidores), 
-        label="TOTAL SEGUIDORES",
+        label="TOTAL SEGUIDORES TIKTOK",
         is_light=True
     )
     st.markdown(html, unsafe_allow_html=True)
+    
+    # Mostrar advertencia si el valor es cero pero hay datos
+    if total_seguidores == 0 and not df_followers.empty:
+        st.caption("⚠️ Verificar datos de seguidores")
 
 # Métrica 5: Total Contenidos
 with col5:
@@ -719,10 +753,14 @@ else:  # Gráfica de evolución
     
     if not df_followers.empty and 'Fecha' in df_followers.columns and 'Seguidores_Totales' in df_followers.columns:
         try:
-            # Preparar datos de pauta si existen (MÉTODO ORIGINAL)
+            # Asegurar que los datos de seguidores sean numéricos
+            df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors='coerce')
+            
+            # Preparar datos de pauta si existen
             if not df_pauta.empty:
+                # Calcular coste con IVA para la gráfica
                 if 'Costo' in df_pauta.columns:
-                    df_pauta['coste_anuncio'] = df_pauta['Costo']
+                    df_pauta['coste_anuncio'] = df_pauta['Costo'] * 1.19  # Con IVA
                 if 'Visualizaciones' in df_pauta.columns:
                     df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
                 if 'Seguidores' in df_pauta.columns:
@@ -758,7 +796,7 @@ else:  # Gráfica de evolución
                 df_merged['visualizaciones_videos'] = 0
                 df_merged['nuevos_seguidores_pauta'] = 0
             
-            # Crear gráfica de 4 líneas (MÉTODO ORIGINAL)
+            # Crear gráfica de 4 líneas
             fig_followers = go.Figure()
             
             # 1. Seguidores Totales (línea principal)
@@ -794,17 +832,17 @@ else:  # Gráfica de evolución
                     yaxis='y1'
                 ))
             
-            # 3. Costo de Pauta (barras, eje secundario)
+            # 3. Costo de Pauta CON IVA (barras, eje secundario)
             if 'coste_anuncio' in df_merged.columns:
                 fig_followers.add_trace(go.Bar(
                     x=df_merged['Fecha'],
                     y=df_merged['coste_anuncio'],
-                    name='💰 Costo Pauta',
+                    name='💰 Costo Pauta (+IVA)',
                     marker=dict(
                         color='#ef4444',
                         opacity=0.6
                     ),
-                    hovertemplate='Costo Pauta: $%{y:,}<extra></extra>',
+                    hovertemplate='Costo Pauta (con IVA): $%{y:,.0f}<extra></extra>',
                     yaxis='y2'
                 ))
             
@@ -825,7 +863,7 @@ else:  # Gráfica de evolución
                     yaxis='y2'
                 ))
             
-            # Configurar layout con eje secundario (MÉTODO ORIGINAL)
+            # Configurar layout con eje secundario
             fig_followers.update_layout(
                 height=350,
                 template='plotly_white',
