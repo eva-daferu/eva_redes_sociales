@@ -306,6 +306,80 @@ st.markdown("""
     border-color: #3B82F6;
     box-shadow: 0 12px 30px rgba(59, 130, 246, 0.5);
 }
+
+/* Estilos para las métricas */
+.metric-container {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: 14px;
+    padding: 20px 16px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid #bae6fd;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.metric-shimmer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s infinite linear;
+    border-radius: 14px 14px 0 0;
+}
+
+.metric-icon {
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: #0ea5e9;
+}
+
+.metric-value {
+    font-size: 26px;
+    font-weight: 900;
+    color: #0369a1;
+    margin: 5px 0;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+.metric-label {
+    font-size: 12px;
+    color: #475569;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    line-height: 1.4;
+}
+
+.metric-container-light {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e5e7eb;
+}
+
+.metric-shimmer-light {
+    background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
+}
+
+.metric-icon-light {
+    color: #1f2937;
+}
+
+.metric-value-light {
+    color: #1f2937;
+}
+
+.metric-label-light {
+    color: #6b7280;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -456,9 +530,10 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# MÉTRICAS - CORREGIDO: Usando st.metric para valores dinámicos y HTML para estilo
+# MÉTRICAS - VERSIÓN SIMPLIFICADA USANDO FUNCIONES HELPER
 def format_number(num):
     try:
+        num = float(num)
         if num >= 1000000:
             return f"{num/1000000:.1f}M"
         elif num >= 1000:
@@ -467,6 +542,27 @@ def format_number(num):
             return f"{int(num):,}"
     except:
         return "0"
+
+def create_metric_card(icon, value, label, is_light=False):
+    """Crea una tarjeta de métrica con HTML"""
+    if is_light:
+        return f"""
+        <div class="metric-container metric-container-light">
+            <div class="metric-shimmer metric-shimmer-light"></div>
+            <div class="metric-icon metric-icon-light">{icon}</div>
+            <div class="metric-value metric-value-light">{value}</div>
+            <div class="metric-label metric-label-light">{label}</div>
+        </div>
+        """
+    else:
+        return f"""
+        <div class="metric-container">
+            <div class="metric-shimmer"></div>
+            <div class="metric-icon">{icon}</div>
+            <div class="metric-value">{value}</div>
+            <div class="metric-label">{label}</div>
+        </div>
+        """
 
 # Calcular métricas
 if not df_pauta.empty:
@@ -492,339 +588,63 @@ col1, col2, col3, col4, col5, col6 = st.columns(6)
 
 # Métrica 1: Coste Anuncio
 with col1:
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-        border-radius: 14px;
-        padding: 20px 16px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-        border: 1px solid #bae6fd;
-        text-align: center;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-        min-height: 130px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    ">
-        <div style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
-            background-size: 200% 100%;
-            animation: shimmer 3s infinite linear;
-            border-radius: 14px 14px 0 0;
-        "></div>
-        
-        <div style="
-            font-size: 24px;
-            margin-bottom: 10px;
-            color: #0ea5e9;
-        ">💰</div>
-        
-        <div style="
-            font-size: 26px;
-            font-weight: 900;
-            color: #0369a1;
-            margin: 5px 0;
-            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-        ">${format_number(coste_anuncio_sum)}</div>
-        
-        <div style="
-            font-size: 12px;
-            color: #475569;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            line-height: 1.4;
-        ">COSTE ANUNCIO</div>
-    </div>
-    """, unsafe_allow_html=True)
+    html = create_metric_card(
+        icon="💰", 
+        value=f"${format_number(coste_anuncio_sum)}", 
+        label="COSTE ANUNCIO",
+        is_light=False
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 # Métrica 2: Visualizaciones Videos
 with col2:
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-        border-radius: 14px;
-        padding: 20px 16px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-        border: 1px solid #bae6fd;
-        text-align: center;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-        min-height: 130px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    ">
-        <div style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
-            background-size: 200% 100%;
-            animation: shimmer 3s infinite linear;
-            border-radius: 14px 14px 0 0;
-        "></div>
-        
-        <div style="
-            font-size: 24px;
-            margin-bottom: 10px;
-            color: #0ea5e9;
-        ">👁️</div>
-        
-        <div style="
-            font-size: 26px;
-            font-weight: 900;
-            color: #0369a1;
-            margin: 5px 0;
-            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-        ">{format_number(visualizaciones_videos_sum)}</div>
-        
-        <div style="
-            font-size: 12px;
-            color: #475569;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            line-height: 1.4;
-        ">VISUALIZACIONES VIDEOS</div>
-    </div>
-    """, unsafe_allow_html=True)
+    html = create_metric_card(
+        icon="👁️", 
+        value=format_number(visualizaciones_videos_sum), 
+        label="VISUALIZACIONES VIDEOS",
+        is_light=False
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 # Métrica 3: Nuevos Seguidores
 with col3:
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-        border-radius: 14px;
-        padding: 20px 16px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-        border: 1px solid #bae6fd;
-        text-align: center;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-        min-height: 130px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    ">
-        <div style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
-            background-size: 200% 100%;
-            animation: shimmer 3s infinite linear;
-            border-radius: 14px 14px 0 0;
-        "></div>
-        
-        <div style="
-            font-size: 24px;
-            margin-bottom: 10px;
-            color: #0ea5e9;
-        ">📈</div>
-        
-        <div style="
-            font-size: 26px;
-            font-weight: 900;
-            color: #0369a1;
-            margin: 5px 0;
-            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-        ">{format_number(nuevos_seguidores_sum)}</div>
-        
-        <div style="
-            font-size: 12px;
-            color: #475569;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            line-height: 1.4;
-        ">NUEVOS SEGUIDORES</div>
-    </div>
-    """, unsafe_allow_html=True)
+    html = create_metric_card(
+        icon="📈", 
+        value=format_number(nuevos_seguidores_sum), 
+        label="NUEVOS SEGUIDORES",
+        is_light=False
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 # Métrica 4: Total Seguidores
 with col4:
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        border-radius: 14px;
-        padding: 20px 16px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-        border: 1px solid #e5e7eb;
-        text-align: center;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-        min-height: 130px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    ">
-        <div style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
-            background-size: 200% 100%;
-            animation: shimmer 3s infinite linear;
-            border-radius: 14px 14px 0 0;
-        "></div>
-        
-        <div style="
-            font-size: 24px;
-            margin-bottom: 10px;
-            color: #1f2937;
-        ">👥</div>
-        
-        <div style="
-            font-size: 26px;
-            font-weight: 900;
-            color: #1f2937;
-            margin: 5px 0;
-            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-        ">{format_number(total_seguidores)}</div>
-        
-        <div style="
-            font-size: 12px;
-            color: #6b7280;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            line-height: 1.4;
-        ">TOTAL SEGUIDORES</div>
-    </div>
-    """, unsafe_allow_html=True)
+    html = create_metric_card(
+        icon="👥", 
+        value=format_number(total_seguidores), 
+        label="TOTAL SEGUIDORES",
+        is_light=True
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 # Métrica 5: Total Contenidos
 with col5:
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        border-radius: 14px;
-        padding: 20px 16px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-        border: 1px solid #e5e7eb;
-        text-align: center;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-        min-height: 130px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    ">
-        <div style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
-            background-size: 200% 100%;
-            animation: shimmer 3s infinite linear;
-            border-radius: 14px 14px 0 0;
-        "></div>
-        
-        <div style="
-            font-size: 24px;
-            margin-bottom: 10px;
-            color: #1f2937;
-        ">📊</div>
-        
-        <div style="
-            font-size: 26px;
-            font-weight: 900;
-            color: #1f2937;
-            margin: 5px 0;
-            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-        ">{format_number(total_contenidos)}</div>
-        
-        <div style="
-            font-size: 12px;
-            color: #6b7280;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            line-height: 1.4;
-        ">TOTAL CONTENIDOS</div>
-    </div>
-    """, unsafe_allow_html=True)
+    html = create_metric_card(
+        icon="📊", 
+        value=format_number(total_contenidos), 
+        label="TOTAL CONTENIDOS",
+        is_light=True
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 # Métrica 6: Visualizaciones Totales
 with col6:
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        border-radius: 14px;
-        padding: 20px 16px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-        border: 1px solid #e5e7eb;
-        text-align: center;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-        min-height: 130px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    ">
-        <div style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
-            background-size: 200% 100%;
-            animation: shimmer 3s infinite linear;
-            border-radius: 14px 14px 0 0;
-        "></div>
-        
-        <div style="
-            font-size: 24px;
-            margin-bottom: 10px;
-            color: #1f2937;
-        ">👁️</div>
-        
-        <div style="
-            font-size: 26px;
-            font-weight: 900;
-            color: #1f2937;
-            margin: 5px 0;
-            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-        ">{format_number(total_visualizaciones)}</div>
-        
-        <div style="
-            font-size: 12px;
-            color: #6b7280;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            line-height: 1.4;
-        ">VISUALIZACIONES TOTALES</div>
-    </div>
-    """, unsafe_allow_html=True)
+    html = create_metric_card(
+        icon="👁️", 
+        value=format_number(total_visualizaciones), 
+        label="VISUALIZACIONES TOTALES",
+        is_light=True
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 # Agregar espacio
 st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
