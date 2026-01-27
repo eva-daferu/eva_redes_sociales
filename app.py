@@ -252,19 +252,22 @@ st.markdown("""
     color: #3B82F6;
 }
 
-/* Metrics cards - UNA SOLA FRANJA */
-.metrics-row {
+/* Métricas en una sola franja horizontal */
+.metrics-horizontal {
     display: flex;
     gap: 8px;
     margin-bottom: 15px;
     width: 100%;
+    overflow-x: auto;
+    padding-bottom: 5px;
 }
 
-.metric-item {
+.metric-horizontal-item {
     flex: 1;
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    min-width: 160px;
+    background: white;
     border-radius: 10px;
-    padding: 12px 10px;
+    padding: 15px 12px;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
     border: 1px solid #e5e7eb;
     transition: all 0.3s;
@@ -273,7 +276,7 @@ st.markdown("""
     text-align: center;
 }
 
-.metric-item::before {
+.metric-horizontal-item::before {
     content: '';
     position: absolute;
     top: 0;
@@ -283,39 +286,40 @@ st.markdown("""
     background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 100%);
 }
 
-.metric-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+.metric-horizontal-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
 }
 
-.metric-value {
-    font-size: 18px;
+.metric-horizontal-value {
+    font-size: 20px;
     font-weight: 800;
     color: #1f2937;
-    margin: 5px 0 2px 0;
+    margin: 6px 0 3px 0;
     font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
-.metric-label {
-    font-size: 10px;
+.metric-horizontal-label {
+    font-size: 11px;
     color: #6b7280;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    line-height: 1.2;
+    letter-spacing: 0.6px;
+    line-height: 1.3;
 }
 
-.metric-icon {
-    font-size: 14px;
-    margin-bottom: 3px;
+.metric-horizontal-icon {
+    font-size: 16px;
+    margin-bottom: 5px;
 }
 
-/* Tarjetas de pauta publicitaria */
-.pauta-item {
+/* Tarjetas de pauta publicitaria en horizontal */
+.pauta-horizontal-item {
     flex: 1;
+    min-width: 160px;
     background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
     border-radius: 10px;
-    padding: 12px 10px;
+    padding: 15px 12px;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
     border: 1px solid #bae6fd;
     transition: all 0.3s;
@@ -324,7 +328,7 @@ st.markdown("""
     text-align: center;
 }
 
-.pauta-item::before {
+.pauta-horizontal-item::before {
     content: '';
     position: absolute;
     top: 0;
@@ -334,25 +338,25 @@ st.markdown("""
     background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 100%);
 }
 
-.pauta-value {
-    font-size: 18px;
+.pauta-horizontal-value {
+    font-size: 20px;
     font-weight: 800;
     color: #0369a1;
-    margin: 5px 0 2px 0;
+    margin: 6px 0 3px 0;
 }
 
-.pauta-label {
-    font-size: 10px;
+.pauta-horizontal-label {
+    font-size: 11px;
     color: #475569;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    line-height: 1.2;
+    letter-spacing: 0.6px;
+    line-height: 1.3;
 }
 
-.pauta-icon {
-    font-size: 14px;
-    margin-bottom: 3px;
+.pauta-horizontal-icon {
+    font-size: 16px;
+    margin-bottom: 5px;
     color: #0ea5e9;
 }
 
@@ -389,46 +393,81 @@ st.markdown("""
     opacity: 0.1;
 }
 
-/* Selector de gráficas - MUY MEJORADO */
-.grafica-selector {
-    display: flex;
-    background: #f8fafc;
-    border-radius: 10px;
-    padding: 4px;
-    margin: 10px 0 15px 0;
+/* Selector de gráficas - DISEÑO MEJORADO CON FONDO Y EFECTOS */
+.grafica-selector-container {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 12px;
+    padding: 10px;
+    margin: 12px 0 15px 0;
     border: 1px solid #e5e7eb;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
 }
 
-.grafica-tab {
+.grafica-selector-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 10px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.grafica-selector-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.grafica-selector-btn {
     flex: 1;
-    padding: 10px 15px;
-    border-radius: 8px;
-    background: transparent;
+    max-width: 200px;
+    padding: 12px 15px;
+    border-radius: 10px;
+    background: white;
+    border: 2px solid #e5e7eb;
     color: #64748b;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
     text-align: center;
     font-size: 13px;
-    border: none;
-    margin: 0 2px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.05);
 }
 
-.grafica-tab:hover {
-    background: rgba(255, 255, 255, 0.8);
-    transform: translateY(-1px);
+.grafica-selector-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+    border-color: #cbd5e1;
+    background: #f8fafc;
 }
 
-.grafica-tab.active {
-    background: linear-gradient(135deg, #3B82F6 0%, #2D4F8B 100%);
+.grafica-selector-btn.active {
+    background: linear-gradient(135deg, #3B82F6 0%, #2563eb 100%);
     color: white;
-    box-shadow: 0 3px 10px rgba(59, 130, 246, 0.3);
+    border-color: #3B82F6;
+    box-shadow: 0 6px 18px rgba(59, 130, 246, 0.3);
 }
 
-.grafica-tab .tab-icon {
-    font-size: 16px;
-    margin-right: 6px;
+.grafica-selector-btn.active:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+
+.grafica-btn-icon {
+    font-size: 20px;
+}
+
+.grafica-btn-text {
+    font-size: 12px;
+    font-weight: 600;
 }
 
 /* Contenedores */
@@ -517,16 +556,21 @@ st.markdown("""
 
 /* Responsive */
 @media (max-width: 768px) {
-    .metric-value { font-size: 16px; }
-    .pauta-value { font-size: 16px; }
+    .metric-horizontal-value, .pauta-horizontal-value { font-size: 16px; }
     .dashboard-header { padding: 15px; }
     .dashboard-header h1 { font-size: 20px; }
-    .metrics-row {
+    .metrics-horizontal {
         flex-wrap: wrap;
     }
-    .metric-item, .pauta-item {
+    .metric-horizontal-item, .pauta-horizontal-item {
         min-width: calc(50% - 4px);
         margin-bottom: 8px;
+    }
+    .grafica-selector-buttons {
+        flex-wrap: wrap;
+    }
+    .grafica-selector-btn {
+        min-width: calc(50% - 4px);
     }
 }
 </style>
@@ -605,11 +649,12 @@ with st.sidebar:
         total_posts = len(df_all)
         total_views = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
         
-        # CORRECCIÓN: Obtener correctamente los seguidores
+        # Obtener correctamente los seguidores
         total_followers = 0
         if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
             # Obtener el último valor no nulo
-            total_followers = df_followers['Seguidores_Totales'].dropna().iloc[-1] if not df_followers['Seguidores_Totales'].dropna().empty else 0
+            if not df_followers['Seguidores_Totales'].dropna().empty:
+                total_followers = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
         
         coste_anuncio = df_pauta['coste_anuncio'].sum() if not df_pauta.empty and 'coste_anuncio' in df_pauta.columns else 0
         visualizaciones_videos = df_pauta['visualizaciones_videos'].sum() if not df_pauta.empty and 'visualizaciones_videos' in df_pauta.columns else 0
@@ -670,8 +715,8 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Métricas en UNA SOLA FRANJA
-st.markdown('<div class="metrics-row">', unsafe_allow_html=True)
+# Métricas en UNA SOLA FRANJA HORIZONTAL
+st.markdown('<div class="metrics-horizontal">', unsafe_allow_html=True)
 
 # Métricas de pauta publicitaria
 if not df_pauta.empty:
@@ -686,34 +731,34 @@ if not df_pauta.empty:
             elif num >= 1000:
                 return f"{num/1000:.1f}K"
             else:
-                return f"{int(num):,}".replace(",", ".")
+                return f"{int(num):,}"
         except:
             return "0"
     
     # Tarjeta 1: COSTE ANUNCIO
     st.markdown(f"""
-    <div class="pauta-item">
-        <div class="pauta-icon">💰</div>
-        <div class="pauta-label">COSTE ANUNCIO</div>
-        <div class="pauta-value">${format_number(coste_anuncio_sum)}</div>
+    <div class="pauta-horizontal-item">
+        <div class="pauta-horizontal-icon">💰</div>
+        <div class="pauta-horizontal-label">COSTE ANUNCIO</div>
+        <div class="pauta-horizontal-value">${format_number(coste_anuncio_sum)}</div>
     </div>
     """, unsafe_allow_html=True)
     
     # Tarjeta 2: VISUALIZACIONES VIDEOS
     st.markdown(f"""
-    <div class="pauta-item">
-        <div class="pauta-icon">👁️</div>
-        <div class="pauta-label">VISUALIZACIONES VIDEOS</div>
-        <div class="pauta-value">{format_number(visualizaciones_videos_sum)}</div>
+    <div class="pauta-horizontal-item">
+        <div class="pauta-horizontal-icon">👁️</div>
+        <div class="pauta-horizontal-label">VISUALIZACIONES VIDEOS</div>
+        <div class="pauta-horizontal-value">{format_number(visualizaciones_videos_sum)}</div>
     </div>
     """, unsafe_allow_html=True)
     
     # Tarjeta 3: NUEVOS SEGUIDORES
     st.markdown(f"""
-    <div class="pauta-item">
-        <div class="pauta-icon">📈</div>
-        <div class="pauta-label">NUEVOS SEGUIDORES</div>
-        <div class="pauta-value">{format_number(nuevos_seguidores_sum)}</div>
+    <div class="pauta-horizontal-item">
+        <div class="pauta-horizontal-icon">📈</div>
+        <div class="pauta-horizontal-label">NUEVOS SEGUIDORES</div>
+        <div class="pauta-horizontal-value">{format_number(nuevos_seguidores_sum)}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -721,48 +766,53 @@ if not df_pauta.empty:
 # CORRECCIÓN: Obtener correctamente los seguidores
 total_seguidores = 0
 if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
-    total_seguidores = int(df_followers['Seguidores_Totales'].dropna().iloc[-1]) if not df_followers['Seguidores_Totales'].dropna().empty else 0
+    if not df_followers['Seguidores_Totales'].dropna().empty:
+        total_seguidores = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
 
 total_contenidos = len(df_all)
 total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
 
 # Tarjeta 4: TOTAL SEGUIDORES
 st.markdown(f"""
-<div class="metric-item">
-    <div class="metric-icon">👥</div>
-    <div class="metric-label">TOTAL SEGUIDORES</div>
-    <div class="metric-value">{format_number(total_seguidores)}</div>
+<div class="metric-horizontal-item">
+    <div class="metric-horizontal-icon">👥</div>
+    <div class="metric-horizontal-label">TOTAL SEGUIDORES</div>
+    <div class="metric-horizontal-value">{format_number(total_seguidores)}</div>
 </div>
 """, unsafe_allow_html=True)
 
 # Tarjeta 5: TOTAL CONTENIDOS
 st.markdown(f"""
-<div class="metric-item">
-    <div class="metric-icon">📊</div>
-    <div class="metric-label">TOTAL CONTENIDOS</div>
-    <div class="metric-value">{format_number(total_contenidos)}</div>
+<div class="metric-horizontal-item">
+    <div class="metric-horizontal-icon">📊</div>
+    <div class="metric-horizontal-label">TOTAL CONTENIDOS</div>
+    <div class="metric-horizontal-value">{format_number(total_contenidos)}</div>
 </div>
 """, unsafe_allow_html=True)
 
 # Tarjeta 6: VISUALIZACIONES TOTALES
 st.markdown(f"""
-<div class="metric-item">
-    <div class="metric-icon">👁️</div>
-    <div class="metric-label">VISUALIZACIONES TOTALES</div>
-    <div class="metric-value">{format_number(total_visualizaciones)}</div>
+<div class="metric-horizontal-item">
+    <div class="metric-horizontal-icon">👁️</div>
+    <div class="metric-horizontal-label">VISUALIZACIONES TOTALES</div>
+    <div class="metric-horizontal-value">{format_number(total_visualizaciones)}</div>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Selector de gráficas - DISEÑO MEJORADO
-st.markdown('<div class="grafica-selector">', unsafe_allow_html=True)
+st.markdown('<div class="grafica-selector-container">', unsafe_allow_html=True)
+st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁFICA</div>', unsafe_allow_html=True)
 
 # Inicializar estado para gráfica seleccionada
 if "grafica_seleccionada" not in st.session_state:
     st.session_state.grafica_seleccionada = "evolucion"
 
-# Selector visual mejorado (usando HTML/CSS personalizado)
+# Selector visual mejorado con HTML/CSS personalizado
+st.markdown('<div class="grafica-selector-buttons">', unsafe_allow_html=True)
+
+# Crear columnas para los botones
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -792,7 +842,7 @@ with col3:
         st.session_state.grafica_seleccionada = "grafica2"
         st.rerun()
 
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div></div>', unsafe_allow_html=True)
 
 # Mostrar gráfica seleccionada
 if st.session_state.grafica_seleccionada == "grafica1":
