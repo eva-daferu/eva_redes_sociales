@@ -459,6 +459,7 @@ st.markdown(f"""
 # MÉTRICAS - ENFOQUE SIMPLIFICADO CON STREAMLIT NATIVO
 def format_number(num):
     try:
+        num = float(num)
         if num >= 1000000:
             return f"{num/1000000:.1f}M"
         elif num >= 1000:
@@ -490,7 +491,7 @@ total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in 
 # Crear columnas para las métricas
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-# Aplicar a cada columna
+# CORREGIDO: Usar st.markdown con unsafe_allow_html=True para renderizar HTML
 with col1:
     st.markdown(f"""
     <div style="
