@@ -205,196 +205,11 @@ def cargar_datos_pauta():
         return pd.DataFrame()
 
 #############################################
-# FUNCIONES DE DATOS DE EJEMPLO PARA GRÁFICAS
-#############################################
-
-def generar_datos_ejemplo_grafica1():
-    """Genera datos de ejemplo para la gráfica 1"""
-    import numpy as np
-    
-    # Generar datos de días válidos REALISTAS (valores bajos como en el ejemplo real)
-    np.random.seed(42)  # Para reproducibilidad
-    
-    # Valores REALISTAS - inversiones bajas como en el ejemplo real
-    dias_validos = []
-    inversiones_realistas = [15000, 25000, 30000, 18000, 22000, 28000, 32000, 19000, 21000]
-    for i, inv_base in enumerate(inversiones_realistas):
-        # Variación del 20% alrededor del valor base
-        costo = np.random.randint(int(inv_base * 0.8), int(inv_base * 1.2))
-        # Seguidores proporcionales (entre 100-300 como en ejemplo real)
-        seguidores = np.random.randint(100, 300)
-        dias_validos.append({
-            "Costo": float(costo),
-            "Seguidores_Impacto": float(seguidores),
-            "Neto_Diario_Real": float(seguidores)
-        })
-    
-    # Agregar algunos días más
-    for i in range(10):
-        costo = np.random.randint(10000, 35000)
-        seguidores = np.random.randint(50, 250)
-        dias_validos.append({
-            "Costo": float(costo),
-            "Seguidores_Impacto": float(seguidores),
-            "Neto_Diario_Real": float(seguidores)
-        })
-    
-    # Generar curva promedio CON VALORES REALISTAS
-    curva_15k = []
-    for inv in range(15000, 100001, 15000):
-        # Seguidores proporcionales a la inversión (valores realistas bajos)
-        seg_prom = int(inv * np.random.uniform(0.005, 0.015))
-        cps = inv / seg_prom if seg_prom > 0 else 0
-        dias_para_meta = 1000 / (seg_prom / 30) if seg_prom > 0 else 0
-        dias_en_rango = np.random.randint(2, 8)  # Pocos días por rango (realista)
-        curva_15k.append({
-            "Inversion_promedio": float(inv),
-            "Seguidores_promedio": float(seg_prom),
-            "CPS_curva": float(cps),
-            "Dias_para_meta": float(dias_para_meta),
-            "Dias": int(dias_en_rango)
-        })
-    
-    # Calcular promedios REALES desde los datos generados
-    costos = [d["Costo"] for d in dias_validos]
-    seguidores = [d["Seguidores_Impacto"] for d in dias_validos]
-    
-    # Punto óptimo (aproximadamente en el 60% del rango)
-    opt_idx = int(len(curva_15k) * 0.6)
-    if opt_idx < len(curva_15k):
-        opt_point = curva_15k[opt_idx]
-    else:
-        opt_point = curva_15k[-1]
-    
-    return {
-        "status": "success",
-        "tables": {
-            "df_merge_fecha": [],
-            "dias_validos": dias_validos,
-            "curva_15k": curva_15k
-        },
-        "parameters": {
-            "STEP": 15000,
-            "BREAK_X": 80000.0,
-            "K": 0.28,
-            "IMPACT_DAYS": 3,
-            "USE_IMPACT": True,
-            "OPT_MIN_DAYS": 3,
-            "OPT_CPS_TOL": 0.20,
-            "TARGET_FOLLOWERS": 1000
-        },
-        "results_summary": {
-            "total_dias_validos": len(dias_validos),
-            "cps_minimo": 85.5,
-            "cps_maximo": 215.3
-        },
-        "calc": {
-            "INV_mean": float(np.mean(costos)),
-            "SEG_mean": float(np.mean(seguidores)),
-            "opt": {
-                "Inversion_promedio": opt_point["Inversion_promedio"],
-                "Seguidores_promedio": opt_point["Seguidores_promedio"],
-                "CPS_curva": opt_point["CPS_curva"],
-                "Dias_para_meta": opt_point["Dias_para_meta"],
-                "Dias": opt_point["Dias"]
-            },
-            "cps_min_curva": 85.5,
-            "cps_max_tol": 102.6
-        }
-    }
-
-def generar_datos_ejemplo_grafica2():
-    """Genera datos de ejemplo para el heatmap"""
-    import numpy as np
-    
-    # Días de la semana y semanas
-    dias_order = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-    weeks = [f"2025-W{i:02d}" for i in range(1, 9)]
-    
-    # Generar datos más realistas
-    np.random.seed(42)
-    
-    # Patrón semanal: mejores días (Miércoles a Viernes), peores (Lunes y Domingo)
-    base_pattern = [1.5, 1.3, 1.0, 0.8, 0.9, 1.2, 1.6]  # Multiplicadores de CPS
-    
-    vals_cps_raw = np.zeros((7, 8))
-    vals_seg = np.zeros((7, 8))
-    
-    for i, dia in enumerate(dias_order):
-        for j in range(8):
-            # CPS base con patrón semanal + variación aleatoria
-            cps_base = 150 * base_pattern[i]
-            cps_var = np.random.uniform(0.8, 1.2)
-            cps = cps_base * cps_var
-            
-            # Seguidores: más en días buenos
-            seg_base = 1000 / base_pattern[i]  # Inversamente proporcional al CPS
-            seg_var = np.random.uniform(0.7, 1.3)
-            seg = int(seg_base * seg_var)
-            
-            # Añadir algunos NaN (20% de probabilidad)
-            if np.random.random() < 0.2:
-                vals_cps_raw[i, j] = np.nan
-                vals_seg[i, j] = np.nan
-            else:
-                vals_cps_raw[i, j] = cps
-                vals_seg[i, j] = seg
-    
-    # CPS clip para visualización
-    vals_cps_clip = np.copy(vals_cps_raw)
-    finite_mask = np.isfinite(vals_cps_raw)
-    if np.any(finite_mask):
-        p5 = np.nanpercentile(vals_cps_raw, 5)
-        p95 = np.nanpercentile(vals_cps_raw, 95)
-        vals_cps_clip = np.clip(vals_cps_clip, p5, p95)
-    
-    # Resumen por día
-    sum_day = []
-    for i, dia in enumerate(dias_order):
-        # Filtrar valores finitos
-        valid_mask = np.isfinite(vals_seg[i, :]) & np.isfinite(vals_cps_raw[i, :])
-        
-        if np.any(valid_mask):
-            costos_dia = np.nansum(vals_seg[i, valid_mask] * vals_cps_raw[i, valid_mask])
-            seguidores_dia = np.nansum(vals_seg[i, valid_mask])
-            cps_dia = costos_dia / seguidores_dia if seguidores_dia > 0 else np.nan
-        else:
-            costos_dia = 0
-            seguidores_dia = 0
-            cps_dia = np.nan
-        
-        sum_day.append({
-            "Dia_Semana": dia,
-            "Costo_sum": float(costos_dia),
-            "Seguidores_sum": float(seguidores_dia),
-            "CPS_total_dia": float(cps_dia) if not np.isnan(cps_dia) else np.nan
-        })
-    
-    return {
-        "status": "success",
-        "plot_data": {
-            "vals_cps_raw": vals_cps_raw.tolist(),
-            "vals_seg": vals_seg.tolist(),
-            "vals_cps_clip": vals_cps_clip.tolist(),
-            "dias_order": dias_order,
-            "weeks": weeks
-        },
-        "tables": {
-            "sum_day": sum_day
-        }
-    }
-
-#############################################
 # FUNCIONES PARA CARGAR GRÁFICAS AVANZADAS
 #############################################
 
 def cargar_datos_grafica1():
     """Carga datos para la gráfica 1: Inversión vs Seguidores"""
-    # Verificar si debemos usar datos de ejemplo
-    if st.session_state.get("use_test_data", False):
-        st.info("📊 Usando datos de ejemplo para Gráfica 1")
-        return generar_datos_ejemplo_grafica1()
-    
     try:
         r = requests.get(GRAFICA1_URL, timeout=20)
         r.raise_for_status()
@@ -402,28 +217,23 @@ def cargar_datos_grafica1():
         
         # Verificar estructura básica
         if data.get("status") != "success":
-            st.warning("Backend no retornó status 'success'. Usando datos de ejemplo.")
-            return generar_datos_ejemplo_grafica1()
+            st.warning("Backend no retornó status 'success'.")
+            return None
         
         # Verificar que tenga los datos mínimos
         tables = data.get("tables", {})
         if not tables or not tables.get("dias_validos") or not tables.get("curva_15k"):
-            st.warning("Datos incompletos del backend. Usando datos de ejemplo.")
-            return generar_datos_ejemplo_grafica1()
+            st.warning("Datos incompletos del backend.")
+            return None
             
         return data
         
     except Exception as e:
-        st.warning(f"Error al cargar datos de gráfica 1: {str(e)[:100]}... Usando datos de ejemplo.")
-        return generar_datos_ejemplo_grafica1()
+        st.warning(f"Error al cargar datos de gráfica 1: {str(e)[:100]}")
+        return None
 
 def cargar_datos_grafica2():
     """Carga datos para la gráfica 2: Heatmap CPS"""
-    # Verificar si debemos usar datos de ejemplo
-    if st.session_state.get("use_test_data", False):
-        st.info("📊 Usando datos de ejemplo para Gráfica 2")
-        return generar_datos_ejemplo_grafica2()
-    
     try:
         r = requests.get(GRAFICA2_URL, timeout=20)
         r.raise_for_status()
@@ -431,20 +241,20 @@ def cargar_datos_grafica2():
         
         # Verificar estructura básica
         if data.get("status") != "success":
-            st.warning("Backend no retornó status 'success'. Usando datos de ejemplo.")
-            return generar_datos_ejemplo_grafica2()
+            st.warning("Backend no retornó status 'success'.")
+            return None
         
         # Verificar que tenga los datos mínimos
         plot_data = data.get("plot_data", {})
         if not plot_data or not plot_data.get("vals_cps_raw"):
-            st.warning("Datos incompletos del backend. Usando datos de ejemplo.")
-            return generar_datos_ejemplo_grafica2()
+            st.warning("Datos incompletos del backend.")
+            return None
             
         return data
         
     except Exception as e:
-        st.warning(f"Error al cargar datos de gráfica 2: {str(e)[:100]}... Usando datos de ejemplo.")
-        return generar_datos_ejemplo_grafica2()
+        st.warning(f"Error al cargar datos de gráfica 2: {str(e)[:100]}")
+        return None
 
 def formato_numero_original(valor):
     """Formato de números igual al original (gráfica.txt)"""
@@ -476,8 +286,8 @@ def crear_grafica1_interactiva(data_grafica1):
                 st.rerun()
         
         with col2:
-            if st.button("🧪 Usar datos de ejemplo", key="use_example_graf1"):
-                st.session_state["use_test_data"] = True
+            if st.button("🔍 Verificar Backend", key="check_backend_graf1"):
+                st.session_state["check_backend"] = True
                 st.rerun()
         return
     
@@ -971,22 +781,17 @@ def crear_grafica1_interactiva(data_grafica1):
         - Compresión X: {BREAK_X/1000:.0f}k+ (K={K})
         """)
     
-    # Botón para cambiar entre datos reales y de ejemplo
+    # Botón para recargar
     st.markdown("---")
-    col_switch1, col_switch2 = st.columns(2)
+    col_refresh, col_debug = st.columns(2)
     
-    with col_switch1:
-        if st.session_state.get("use_test_data", False):
-            if st.button("🔄 Cambiar a datos reales", key="switch_to_real"):
-                st.session_state["use_test_data"] = False
-                st.rerun()
-        else:
-            if st.button("🧪 Usar datos de ejemplo", key="switch_to_example"):
-                st.session_state["use_test_data"] = True
-                st.rerun()
+    with col_refresh:
+        if st.button("🔄 Recargar datos", key="refresh_graf1"):
+            st.cache_data.clear()
+            st.rerun()
     
-    with col_switch2:
-        if st.button("📊 Ver datos crudos y cálculos", key="show_raw_data"):
+    with col_debug:
+        if st.button("📊 Ver datos crudos", key="show_raw_graf1"):
             with st.expander("📁 Datos crudos y cálculos detallados"):
                 st.write("**Parámetros usados:**", parameters)
                 st.write("**Resumen del backend:**", summary)
@@ -1007,19 +812,12 @@ def crear_grafica1_interactiva(data_grafica1):
                 
                 st.write("**Curva completa con cálculos:**")
                 st.dataframe(curve)
-                
-                # Mostrar advertencia si los datos parecen incorrectos
-                if INV_mean > 200000:
-                    st.warning("⚠️ **ADVERTENCIA:** La inversión promedio parece muy alta. Verificar los datos de entrada.")
-                if len(cand) < 5:
-                    st.warning("⚠️ **ADVERTENCIA:** Muy pocos días válidos. Los resultados pueden no ser confiables.")
 
 def crear_grafica2_interactiva(data_grafica2):
-    """Crea la gráfica 2 interactiva (Heatmap CPS) - IDÉNTICA AL ORIGINAL"""
+    """Crea la gráfica 2 interactiva (Heatmap CPS)"""
     if not data_grafica2 or data_grafica2.get("status") != "success":
         st.error("No se pudo cargar la gráfica 2: Datos inválidos o vacíos")
         
-        # Mostrar botón para recargar
         col1, col2 = st.columns([1, 3])
         with col1:
             if st.button("🔄 Recargar datos", key="reload_graf2"):
@@ -1027,28 +825,17 @@ def crear_grafica2_interactiva(data_grafica2):
                 st.rerun()
         
         with col2:
-            if st.button("🧪 Usar datos de ejemplo", key="use_example_graf2"):
-                st.session_state["use_test_data"] = True
+            if st.button("🔍 Verificar Backend", key="check_backend_graf2"):
+                st.session_state["check_backend"] = True
                 st.rerun()
         return
     
-    # Extraer datos COMPLETOS del backend
+    # Extraer datos del backend
     heatmap_data = data_grafica2.get("plot_data", {})
     summary_by_day = pd.DataFrame(data_grafica2.get("tables", {}).get("sum_day", []))
     
     if not heatmap_data:
         st.warning("No hay datos suficientes para generar el heatmap")
-        
-        # Botones de acción
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 Intentar de nuevo", key="retry_graf2"):
-                st.rerun()
-        
-        with col2:
-            if st.button("🧪 Usar datos de ejemplo", key="force_example_graf2"):
-                st.session_state["use_test_data"] = True
-                st.rerun()
         return
     
     # Extraer matrices del heatmap
@@ -1060,17 +847,9 @@ def crear_grafica2_interactiva(data_grafica2):
     
     if vals_cps_raw.size == 0 or len(dias_order) == 0 or len(weeks) == 0:
         st.warning("Datos del heatmap incompletos")
-        
-        # Mostrar información de depuración
-        with st.expander("🔍 Información de depuración"):
-            st.write(f"Tamaño vals_cps_raw: {vals_cps_raw.shape}")
-            st.write(f"Días order: {len(dias_order)}")
-            st.write(f"Semanas: {len(weeks)}")
-            st.write(f"Sum day: {len(summary_by_day)} registros")
-        
         return
     
-    # Función para formatear números (IGUAL AL ORIGINAL)
+    # Función para formatear números
     def fmt_int_or_dash(x):
         if x is None or (isinstance(x, float) and np.isnan(x)):
             return "—"
@@ -1079,7 +858,7 @@ def crear_grafica2_interactiva(data_grafica2):
         except Exception:
             return "—"
     
-    # Colores del gráfico original (EXACTAMENTE IGUALES)
+    # Colores del gráfico original
     colors = {
         'fondo_figura': '#060913',
         'fondo_ejes': '#0b1020',
@@ -1090,7 +869,7 @@ def crear_grafica2_interactiva(data_grafica2):
         'sombra_texto': 'rgba(0, 0, 0, 0.45)'
     }
     
-    # Calcular percentiles para recorte de color (p5-p95) IGUAL AL ORIGINAL
+    # Calcular percentiles para recorte de color (p5-p95)
     cps_flat = vals_cps_raw[np.isfinite(vals_cps_raw)]
     if len(cps_flat) > 0:
         p5 = np.nanpercentile(cps_flat, 5)
@@ -1100,9 +879,8 @@ def crear_grafica2_interactiva(data_grafica2):
     else:
         zmin = 0
         zmax = 100
-        p5 = p95 = 0
     
-    # Crear texto para cada celda - ETIQUETAS SIEMPRE VISIBLES (IGUAL AL ORIGINAL)
+    # Crear texto para cada celda
     text_matrix = []
     hover_text_matrix = []
     for i in range(len(vals_cps_raw)):
@@ -1124,12 +902,12 @@ def crear_grafica2_interactiva(data_grafica2):
         hover_text_matrix.append(row_hover)
     
     try:
-        # Crear heatmap con colores invertidos (RdYlGn_r) - IGUAL AL ORIGINAL
+        # Crear heatmap con colores invertidos (RdYlGn_r)
         fig = go.Figure(data=go.Heatmap(
             z=vals_cps_clip,
             x=weeks,
             y=dias_order,
-            colorscale='RdYlGn_r',  # EXACTO: rojo (malo) a verde (bueno) INVERTIDO
+            colorscale='RdYlGn_r',
             zmin=zmin,
             zmax=zmax,
             colorbar=dict(
@@ -1148,7 +926,7 @@ def crear_grafica2_interactiva(data_grafica2):
             showscale=True
         ))
         
-        # Configurar layout - FONDO AZUL OSCURO IGUAL AL ORIGINAL
+        # Configurar layout
         fig.update_layout(
             height=750,
             plot_bgcolor=colors['fondo_ejes'],
@@ -1173,14 +951,14 @@ def crear_grafica2_interactiva(data_grafica2):
             yaxis=dict(
                 title="Día de la semana",
                 gridcolor='rgba(255,255,255,0.1)',
-                autorange="reversed",  # IGUAL AL ORIGINAL: Lunes arriba
+                autorange="reversed",
                 tickfont=dict(size=12, color=colors['ticks'], family="Arial"),
                 title_font=dict(size=13, color=colors['texto'])
             ),
             margin=dict(l=80, r=50, t=120, b=80)
         )
         
-        # Añadir grid como en el original (líneas finas)
+        # Añadir grid
         fig.update_xaxes(
             showgrid=True, 
             gridwidth=0.6, 
@@ -1233,9 +1011,9 @@ def crear_grafica2_interactiva(data_grafica2):
         # Mostrar heatmap
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
         
-        # Gráfico de barras para resumen por día (BARRA DERECHA) - IGUAL AL ORIGINAL
+        # Gráfico de barras para resumen por día
         if not summary_by_day.empty:
-            # Ordenar por día de semana (Lunes a Domingo) - IGUAL AL ORIGINAL
+            # Ordenar por día de semana (Lunes a Domingo)
             dias_order = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
             summary_by_day['Dia_Semana'] = pd.Categorical(
                 summary_by_day['Dia_Semana'], 
@@ -1244,7 +1022,7 @@ def crear_grafica2_interactiva(data_grafica2):
             )
             summary_by_day = summary_by_day.sort_values('Dia_Semana')
             
-            # Crear gráfico de barras HORIZONTAL - IGUAL AL ORIGINAL (barra derecha)
+            # Crear gráfico de barras HORIZONTAL
             fig_bar = go.Figure()
             
             fig_bar.add_trace(go.Bar(
@@ -1292,7 +1070,7 @@ def crear_grafica2_interactiva(data_grafica2):
                     title="",
                     gridcolor='rgba(255,255,255,0.1)',
                     tickfont=dict(size=12, color=colors['ticks'], family="Arial"),
-                    autorange="reversed"  # IGUAL AL ORIGINAL: Lunes arriba
+                    autorange="reversed"
                 ),
                 hovermode='y',
                 margin=dict(l=20, r=50, t=80, b=80),
@@ -1331,22 +1109,17 @@ def crear_grafica2_interactiva(data_grafica2):
             heatmap_df = pd.DataFrame(vals_cps_raw, index=dias_order, columns=weeks)
             st.dataframe(heatmap_df.style.format("${:,.0f}"))
     
-    # Botón para cambiar entre datos reales y de ejemplo
+    # Botón para recargar
     st.markdown("---")
-    col_switch1, col_switch2 = st.columns(2)
+    col_refresh, col_debug = st.columns(2)
     
-    with col_switch1:
-        if st.session_state.get("use_test_data", False):
-            if st.button("🔄 Cambiar a datos reales", key="switch_to_real_2"):
-                st.session_state["use_test_data"] = False
-                st.rerun()
-        else:
-            if st.button("🧪 Usar datos de ejemplo", key="switch_to_example_2"):
-                st.session_state["use_test_data"] = True
-                st.rerun()
+    with col_refresh:
+        if st.button("🔄 Recargar datos", key="refresh_graf2"):
+            st.cache_data.clear()
+            st.rerun()
     
-    with col_switch2:
-        if st.button("📊 Ver datos crudos", key="show_raw_data_2"):
+    with col_debug:
+        if st.button("📊 Ver datos crudos", key="show_raw_graf2"):
             with st.expander("📁 Datos crudos del heatmap"):
                 st.write("**Días order:**", dias_order)
                 st.write("**Semanas:**", weeks)
@@ -1375,7 +1148,7 @@ def cargar_datos():
         # Datos de respaldo si falla el backend
         st.warning("Usando datos de respaldo. El backend no está disponible.")
         
-        # Datos de ejemplo
+        # Datos de ejemplo mínimos
         youtobe_data = pd.DataFrame({
             'titulo': ['Amazonía al borde', 'El costo oculto de botar comida'],
             'fecha_publicacion': ['01/10/2025', '23/09/2025'],
@@ -1438,16 +1211,15 @@ def cargar_datos():
     
     return df, youtobe_data, tiktok_data, df_followers, df_pauta
 
-# Estilos CSS mejorados con reducción de espacio
+# Estilos CSS
 st.markdown("""
 <style>
-/* Main container - REDUCIDO ESPACIO SUPERIOR */
+/* Estilos básicos */
 .main { 
     padding: 0;
     padding-top: 0.5rem !important;
 }
 
-/* Sidebar styling - AZUL PROFESIONAL */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     border-right: 1px solid #334155;
@@ -1457,7 +1229,6 @@ st.markdown("""
     padding-top: 1.5rem;
 }
 
-/* Social media buttons - MEJORADO */
 .stButton > button {
     display: flex;
     align-items: center;
@@ -1488,7 +1259,6 @@ st.markdown("""
     color: #3B82F6;
 }
 
-/* Metrics cards - MEJORADAS */
 .metric-card {
     background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     border-radius: 16px;
@@ -1543,7 +1313,6 @@ st.markdown("""
 .trend-up { color: #10b981; }
 .trend-down { color: #ef4444; }
 
-/* Tarjetas de pauta publicitaria */
 .pauta-card {
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border-radius: 14px;
@@ -1594,7 +1363,6 @@ st.markdown("""
     font-weight: 500;
 }
 
-/* Header principal - REDUCIDO */
 .dashboard-header {
     background: linear-gradient(135deg, #1e40af 0%, #3B82F6 100%);
     border-radius: 18px;
@@ -1625,32 +1393,6 @@ st.markdown("""
     opacity: 0.1;
 }
 
-/* Tabs mejorados */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 4px;
-    background: #f1f5f9;
-    padding: 6px;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-}
-
-.stTabs [data-baseweb="tab"] {
-    border-radius: 8px;
-    padding: 10px 18px;
-    background: transparent;
-    color: #64748b;
-    font-weight: 500;
-    transition: all 0.3s;
-}
-
-.stTabs [aria-selected="true"] {
-    background: white;
-    color: #3B82F6;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    font-weight: 600;
-}
-
-/* Chart containers */
 .performance-chart {
     background: white;
     border-radius: 16px;
@@ -1669,7 +1411,6 @@ st.markdown("""
     border: 1px solid #e5e7eb;
 }
 
-/* Platform-specific colors */
 .youtube-color { color: #FF0000; }
 .tiktok-color { color: #000000; }
 .facebook-color { color: #1877F2; }
@@ -1677,7 +1418,6 @@ st.markdown("""
 .instagram-color { color: #E4405F; }
 .linkedin-color { color: #0A66C2; }
 
-/* Status indicators */
 .status-connected {
     color: #10b981;
     font-weight: 600;
@@ -1702,7 +1442,6 @@ st.markdown("""
     gap: 6px;
 }
 
-/* Sidebar titles */
 .sidebar-title {
     color: #cbd5e1 !important;
     font-size: 15px;
@@ -1713,7 +1452,6 @@ st.markdown("""
     text-transform: uppercase;
 }
 
-/* Status containers */
 .status-container {
     background: rgba(255, 255, 255, 0.05);
     padding: 10px 14px;
@@ -1727,7 +1465,33 @@ st.markdown("""
     background: rgba(255, 255, 255, 0.08);
 }
 
-/* Custom table */
+.backend-status {
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 12px 0;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.backend-connected {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.backend-disconnected {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+@media (max-width: 768px) {
+    .metric-value { font-size: 26px; }
+    .pauta-value { font-size: 22px; }
+    .dashboard-header { padding: 20px; }
+    .dashboard-header h1 { font-size: 26px; }
+}
+
 .dataframe {
     width: 100%;
     border-collapse: separate;
@@ -1759,141 +1523,6 @@ st.markdown("""
     border-bottom: none;
 }
 
-/* Badges */
-.platform-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 5px 10px;
-    border-radius: 18px;
-    font-size: 11px;
-    font-weight: 600;
-    margin: 2px;
-}
-
-/* Loader */
-.loader {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #3B82F6;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    animation: spin 1s linear infinite;
-    margin: 15px auto;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Backend status */
-.backend-status {
-    padding: 8px 12px;
-    border-radius: 8px;
-    margin: 12px 0;
-    font-size: 12px;
-    font-weight: 500;
-}
-
-.backend-connected {
-    background: rgba(16, 185, 129, 0.1);
-    color: #10b981;
-    border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.backend-disconnected {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .metric-value { font-size: 26px; }
-    .pauta-value { font-size: 22px; }
-    .dashboard-header { padding: 20px; }
-    .dashboard-header h1 { font-size: 26px; }
-}
-
-/* Data table improvements */
-.full-table {
-    width: 100%;
-    max-height: 550px;
-    overflow-y: auto;
-}
-
-.full-table th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-
-/* Filter buttons */
-.filter-btn {
-    margin: 2px;
-    border-radius: 8px;
-}
-
-.filter-btn.active {
-    background-color: #3B82F6;
-    color: white;
-    border-color: #3B82F6;
-}
-
-/* Platform header styles */
-.platform-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 20px;
-    padding: 18px;
-    background: rgba(var(--platform-color-rgb), 0.05);
-    border-radius: 16px;
-    border-left: 5px solid var(--platform-color);
-}
-
-.platform-icon {
-    font-size: 28px;
-    margin-right: 18px;
-    color: var(--platform-color);
-}
-
-.platform-title {
-    flex: 1;
-}
-
-.platform-title h2 {
-    margin: 0;
-    color: var(--platform-color);
-    font-size: 24px;
-}
-
-.platform-title p {
-    margin: 6px 0 0 0;
-    color: #6b7280;
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.platform-badge-container {
-    margin-left: auto;
-    display: flex;
-    gap: 12px;
-    align-items: center;
-}
-
-.platform-badge-style {
-    background: rgba(var(--platform-color-rgb), 0.1);
-    color: var(--platform-color);
-    padding: 8px 20px;
-    border-radius: 22px;
-    font-size: 14px;
-    font-weight: 700;
-    border: 2px solid rgba(var(--platform-color-rgb), 0.2);
-}
-
-/* Gráficas avanzadas - CONTENEDOR AZUL OSCURO */
 .grafica-container {
     background: linear-gradient(135deg, #060913 0%, #0b1020 100%);
     border-radius: 16px;
@@ -1921,156 +1550,13 @@ st.markdown("""
     font-family: 'Arial', sans-serif;
 }
 
-/* Tabs para gráficas */
-.grafica-tabs {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 25px;
-    flex-wrap: wrap;
-}
-
-.grafica-tab {
-    padding: 12px 24px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    color: #cbd5e1;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    font-family: 'Arial', sans-serif;
-}
-
-.grafica-tab:hover {
-    background: rgba(255, 255, 255, 0.1);
-    transform: translateY(-2px);
-}
-
-.grafica-tab.active {
-    background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
-    color: white;
-    border-color: transparent;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-}
-
-/* Botones de acción */
-.action-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #10b981 0%, #3B82F6 100%);
-    color: white;
-    font-weight: 600;
-    border: none;
-    cursor: pointer;
-    transition: all 0.3s;
-    text-decoration: none;
-    font-family: 'Arial', sans-serif;
-}
-
-.action-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-}
-
-/* Tooltips */
-.tooltip {
-    position: relative;
-    display: inline-block;
-    border-bottom: 1px dotted #666;
-}
-
-.tooltip .tooltiptext {
-    visibility: hidden;
-    width: 200px;
-    background-color: #1e293b;
-    color: #fff;
-    text-align: center;
-    border-radius: 6px;
-    padding: 10px;
-    position: absolute;
-    z-index: 1;
-    bottom: 125%;
-    left: 50%;
-    margin-left: -100px;
-    opacity: 0;
-    transition: opacity 0.3s;
-    font-size: 12px;
-    border: 1px solid #334155;
-    font-family: 'Arial', sans-serif;
-}
-
-.tooltip:hover .tooltiptext {
-    visibility: visible;
-    opacity: 1;
-}
-
-/* Etiquetas de gráficas */
-.chart-label {
-    font-family: 'Arial Black', sans-serif !important;
-    font-weight: 800 !important;
-    color: white !important;
-}
-
-.heatmap-cell {
-    font-family: 'Arial Black', sans-serif !important;
-    font-weight: 800 !important;
-    font-size: 10px !important;
-}
-
-/* Leyenda mejorada */
-.legend-item {
-    font-family: 'Arial', sans-serif !important;
-    font-weight: 600 !important;
-}
-
-/* Ejes mejorados */
-.axis-label {
-    font-family: 'Arial Black', sans-serif !important;
-    font-weight: 800 !important;
-    color: #c7d2fe !important;
-}
-
-/* Texto en gráficas */
-.chart-text {
-    font-family: 'Arial', sans-serif !important;
-    font-weight: 500 !important;
-}
-
-/* Botones de control gráficas */
-.control-button {
-    margin: 5px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
-    color: white;
-    font-weight: 600;
-    border: none;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-family: 'Arial', sans-serif;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.control-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-}
-
-.control-button.secondary {
-    background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
-}
 </style>
 """, unsafe_allow_html=True)
 
 # Cargar datos
 df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
 
-# Inicializar estado de sesión para datos de ejemplo
+# Inicializar estado de sesión
 if "use_test_data" not in st.session_state:
     st.session_state["use_test_data"] = False
 
@@ -2082,6 +1568,9 @@ if "show_grafica1" not in st.session_state:
 
 if "show_grafica2" not in st.session_state:
     st.session_state["show_grafica2"] = False
+
+if "check_backend" not in st.session_state:
+    st.session_state["check_backend"] = False
 
 # Sidebar
 with st.sidebar:
@@ -2107,10 +1596,6 @@ with st.sidebar:
             st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Error: {backend_test.status_code}</div>', unsafe_allow_html=True)
     except Exception as e:
         st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Offline: {str(e)[:50]}</div>', unsafe_allow_html=True)
-    
-    # Estado de datos de ejemplo
-    if st.session_state.get("use_test_data", False):
-        st.markdown('<div class="backend-status backend-connected">🧪 Usando datos de ejemplo</div>', unsafe_allow_html=True)
     
     st.markdown('<p class="sidebar-title" style="font-family: Arial Black, sans-serif;">🔗 Panel Professional</p>', unsafe_allow_html=True)
     
@@ -2156,25 +1641,8 @@ with st.sidebar:
     
     # Botón para verificar backend
     if st.button("🔍 Verificar Backend", key="check_backend", use_container_width=True):
-        with st.spinner("Verificando endpoints..."):
-            status = verificar_backend()
-            with st.expander("Resultados de verificación", expanded=True):
-                for nombre, info in status.items():
-                    st.write(f"**{nombre}:** {info['estado']}")
-                    st.write(f"URL: `{info['url']}`")
-                    if info['datos']:
-                        st.write(f"Datos: {str(info['datos'])[:100]}...")
-                    st.divider()
-    
-    # Botón para datos de ejemplo
-    if st.session_state.get("use_test_data", False):
-        if st.button("🔄 Cambiar a datos reales", key="switch_to_real_sidebar", use_container_width=True):
-            st.session_state["use_test_data"] = False
-            st.rerun()
-    else:
-        if st.button("🧪 Usar datos de ejemplo", key="use_example_sidebar", use_container_width=True):
-            st.session_state["use_test_data"] = True
-            st.rerun()
+        st.session_state["check_backend"] = True
+        st.rerun()
     
     # Botón para ocultar gráficas
     if st.session_state.get("show_grafica1", False) or st.session_state.get("show_grafica2", False):
@@ -2228,6 +1696,41 @@ with st.sidebar:
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+# Verificar backend si se solicitó
+if st.session_state.get("check_backend", False):
+    st.markdown("""
+    <div class="dashboard-header">
+        <h1 style="font-family: 'Arial Black', sans-serif;">🔍 VERIFICACIÓN DE BACKEND</h1>
+        <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 15px; font-weight: 400; font-family: 'Arial', sans-serif;">
+            Estado de todos los endpoints del sistema
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Verificando endpoints..."):
+        status = verificar_backend()
+        
+        for nombre, info in status.items():
+            col1, col2, col3 = st.columns([2, 1, 3])
+            with col1:
+                st.write(f"**{nombre}:**")
+            with col2:
+                if "✅" in info['estado']:
+                    st.success(info['estado'])
+                elif "❌" in info['estado']:
+                    st.error(info['estado'])
+                else:
+                    st.warning(info['estado'])
+            with col3:
+                st.caption(f"URL: `{info['url']}`")
+        
+        st.markdown("---")
+        if st.button("⬅️ Volver al Dashboard", key="back_from_check"):
+            st.session_state["check_backend"] = False
+            st.rerun()
+    
+    st.stop()
 
 # Contenido principal
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
@@ -2358,8 +1861,8 @@ if df.empty:
             st.rerun()
     
     with col2:
-        if st.button("🧪 Usar datos de ejemplo", key="use_example_main"):
-            st.session_state["use_test_data"] = True
+        if st.button("🔍 Verificar Backend", key="check_backend_main"):
+            st.session_state["check_backend"] = True
             st.rerun()
     
     st.stop()
@@ -2999,4 +2502,386 @@ if not df.empty:
         display_df['fecha_publicacion'] = display_df['fecha_publicacion'].dt.strftime('%d/%m/%Y %H:%M')
     
     if 'red' in display_df.columns:
-        column_order
+        column_order.append('red')
+    
+    if 'visualizaciones' in display_df.columns:
+        column_order.append('visualizaciones')
+    
+    if 'me_gusta' in df.columns:
+        column_order.append('me_gusta')
+    
+    if 'comentarios' in df.columns:
+        column_order.append('comentarios')
+    
+    # AGREGAR COLUMNA DE SEGUIDORES_TOTALES SI EXISTE
+    if 'Seguidores_Totales' in display_df.columns:
+        column_order.append('Seguidores_Totales')
+    
+    if 'rendimiento_por_dia' in display_df.columns:
+        column_order.append('rendimiento_por_dia')
+    
+    if 'dias_desde_publicacion' in display_df.columns:
+        column_order.append('dias_desde_publicacion')
+    
+    if 'semana' in display_df.columns:
+        column_order.append('semana')
+    
+    if 'meses' in display_df.columns:
+        column_order.append('meses')
+    
+    # Filtrar solo columnas existentes
+    column_order = [col for col in column_order if col in display_df.columns]
+    display_df = display_df[column_order]
+    
+    # Renombrar columnas para mejor visualización
+    rename_dict = {
+        'titulo': '📝 TÍTULO',
+        'fecha_publicacion': '📅 FECHA PUBLICACIÓN',
+        'red': '🌐 PLATAFORMA',
+        'visualizaciones': '👁️ VISUALIZACIONES',
+        'me_gusta': '❤️ LIKES',
+        'comentarios': '💬 COMENTARIOS',
+        'Seguidores_Totales': '👥 SEGUIDORES TOTALES',
+        'rendimiento_por_dia': '🚀 REND/DÍA',
+        'dias_desde_publicacion': '📅 DÍAS PUBLICADO',
+        'semana': '📅 SEMANA',
+        'meses': '📅 MES'
+    }
+    
+    display_df = display_df.rename(columns={k: v for k, v in rename_dict.items() if k in display_df.columns})
+    
+    # Configurar columnas para mejor visualización
+    column_config = {}
+    
+    if '👁️ VISUALIZACIONES' in display_df.columns:
+        column_config['👁️ VISUALIZACIONES'] = st.column_config.NumberColumn(
+            format="%d",
+            help="Número total de visualizaciones"
+        )
+    
+    if '❤️ LIKES' in display_df.columns:
+        column_config['❤️ LIKES'] = st.column_config.NumberColumn(
+            format="%d",
+            help="Número total de likes"
+        )
+    
+    if '💬 COMENTARIOS' in display_df.columns:
+        column_config['💬 COMENTARIOS'] = st.column_config.NumberColumn(
+            format="%d",
+            help="Número total de comentarios"
+        )
+    
+    # AGREGAR CONFIGURACIÓN PARA SEGUIDORES TOTALES
+    if '👥 SEGUIDORES TOTALES' in display_df.columns:
+        column_config['👥 SEGUIDORES TOTALES'] = st.column_config.NumberColumn(
+            format="%d",
+            help="Seguidores totales del contenido"
+        )
+    
+    if '🚀 REND/DÍA' in display_df.columns:
+        column_config['🚀 REND/DÍA'] = st.column_config.NumberColumn(
+            format="%.1f",
+            help="Rendimiento promedio por día"
+        )
+    
+    if '📝 TÍTULO' in display_df.columns:
+        column_config['📝 TÍTULO'] = st.column_config.TextColumn(
+            width="large",
+            help="Título del contenido"
+        )
+    
+    # Mostrar tabla completa con paginación
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config=column_config,
+        height=550
+    )
+    
+    # Estadísticas de la tabla
+    col_table1, col_table2, col_table3, col_table4 = st.columns(4)
+    
+    with col_table1:
+        avg_views = display_df['👁️ VISUALIZACIONES'].mean() if '👁️ VISUALIZACIONES' in display_df.columns else 0
+        st.metric("📊 Views promedio", f"{avg_views:,.0f}")
+    
+    with col_table2:
+        avg_likes = display_df['❤️ LIKES'].mean() if '❤️ LIKES' in display_df.columns else 0
+        st.metric("📊 Likes promedio", f"{avg_likes:,.0f}")
+    
+    with col_table3:
+        avg_comments = display_df['💬 COMENTARIOS'].mean() if '💬 COMENTARIOS' in display_df.columns else 0
+        st.metric("📊 Comments promedio", f"{avg_comments:,.0f}")
+    
+    with col_table4:
+        avg_perf = display_df['🚀 REND/DÍA'].mean() if '🚀 REND/DÍA' in display_df.columns else 0
+        st.metric("📊 Rendimiento promedio", f"{avg_perf:.1f}")
+    
+    # AGREGAR ESTADÍSTICA DE SEGUIDORES SI EXISTE
+    if '👥 SEGUIDORES TOTALES' in display_df.columns:
+        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+        col_followers1, col_followers2, col_followers3, col_followers4 = st.columns(4)
+        
+        with col_followers1:
+            total_seguidores = display_df['👥 SEGUIDORES TOTALES'].sum() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
+            st.metric("👥 Total Seguidores", f"{total_seguidores:,}")
+        
+        with col_followers2:
+            avg_seguidores = display_df['👥 SEGUIDORES TOTALES'].mean() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
+            st.metric("👥 Promedio/Post", f"{avg_seguidores:,.0f}")
+        
+        with col_followers3:
+            max_seguidores = display_df['👥 SEGUIDORES TOTALES'].max() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
+            st.metric("👥 Máximo", f"{max_seguidores:,}")
+        
+        with col_followers4:
+            min_seguidores = display_df['👥 SEGUIDORES TOTALES'].min() if '👥 SEGUIDORES TOTALES' in display_df.columns else 0
+            st.metric("👥 Mínimo", f"{min_seguidores:,}")
+    
+else:
+    st.info("No hay datos para mostrar en la tabla")
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+# SECCIÓN 3: ANÁLISIS DETALLADO EN DOS COLUMNAS
+col_analysis1, col_analysis2 = st.columns(2)
+
+with col_analysis1:
+    st.markdown("""
+    <div class="performance-chart" style="height: 100%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 18px; font-family: Arial Black, sans-serif;">
+                📊 PERFORMANCE ANALYTICS
+            </h3>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    if not df.empty and 'rendimiento_por_dia' in df.columns:
+        # Análisis de distribución por rendimiento
+        q75 = df['rendimiento_por_dia'].quantile(0.75)
+        q50 = df['rendimiento_por_dia'].quantile(0.50)
+        q25 = df['rendimiento_por_dia'].quantile(0.25)
+        
+        high_perf = len(df[df['rendimiento_por_dia'] > q75])
+        medium_high_perf = len(df[(df['rendimiento_por_dia'] > q50) & (df['rendimiento_por_dia'] <= q75)])
+        medium_low_perf = len(df[(df['rendimiento_por_dia'] > q25) & (df['rendimiento_por_dia'] <= q50)])
+        low_perf = len(df[df['rendimiento_por_dia'] <= q25])
+        
+        # Gráfico de pastel
+        labels = ['🟢 Alto', '🟡 Medio-Alto', '🟠 Medio-Bajo', '🔴 Bajo']
+        values = [high_perf, medium_high_perf, medium_low_perf, low_perf]
+        colors = ['#10b981', '#f59e0b', '#f97316', '#ef4444']
+        
+        fig_pie = go.Figure(data=[go.Pie(
+            labels=labels,
+            values=values,
+            hole=0.4,
+            marker=dict(colors=colors),
+            textinfo='label+percent',
+            textposition='outside',
+            hovertemplate='<b>%{label}</b><br>Cantidad: %{value}<br>Porcentaje: %{percent}<extra></extra>'
+        )])
+        
+        fig_pie.update_layout(
+            height=320,
+            showlegend=False,
+            template='plotly_white',
+            margin=dict(l=20, r=20, t=40, b=20),
+            title_text="Distribución por Nivel de Rendimiento",
+            title_font=dict(size=14)
+        )
+        
+        st.plotly_chart(fig_pie, use_container_width=True)
+        
+        # Estadísticas detalladas
+        high_perf_pct = (high_perf / total_posts * 100) if total_posts > 0 else 0
+        medium_high_pct = (medium_high_perf / total_posts * 100) if total_posts > 0 else 0
+        medium_low_pct = (medium_low_perf / total_posts * 100) if total_posts > 0 else 0
+        low_perf_pct = (low_perf / total_posts * 100) if total_posts > 0 else 0
+        
+        st.markdown(f"""
+        <div style="margin-top: 18px; padding: 18px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); 
+                    border-radius: 12px; border-left: 4px solid #3B82F6;">
+            <h4 style="margin: 0 0 12px 0; color: #374151; font-size: 15px; font-family: Arial Black, sans-serif;">📈 ANÁLISIS DE PERFORMANCE</h4>
+            <div style="color: #4b5563; font-size: 13px; font-family: Arial, sans-serif;">
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">🟢 Alto rendimiento:</span>
+                    <span style="font-weight: 700; color: #10b981;">{high_perf} posts ({high_perf_pct:.1f}%)</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">🟡 Medio-Alto:</span>
+                    <span style="font-weight: 700; color: #f59e0b;">{medium_high_perf} posts ({medium_high_pct:.1f}%)</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">🟠 Medio-Bajo:</span>
+                    <span style="font-weight: 700; color: #f97316;">{medium_low_perf} posts ({medium_low_pct:.1f}%)</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">🔴 Bajo rendimiento:</span>
+                    <span style="font-weight: 700; color: #ef4444;">{low_perf} posts ({low_perf_pct:.1f}%)</span>
+                </div>
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                    <span style="display: inline-block; width: 160px;">📊 Rendimiento promedio:</span>
+                    <span style="font-weight: 700; color: #3B82F6;">{df['rendimiento_por_dia'].mean():.1f} views/día</span>
+                </div>
+                <div style="margin-top: 6px;">
+                    <span style="display: inline-block; width: 160px;">🚀 Mejor rendimiento:</span>
+                    <span style="font-weight: 700; color: #8b5cf6;">{df['rendimiento_por_dia'].max():.1f} views/día</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    else:
+        st.info("No hay datos para análisis de performance")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with col_analysis2:
+    st.markdown("""
+    <div class="performance-chart" style="height: 100%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+            <h3 style="margin: 0; color: #1f2937; font-size: 18px; font-family: Arial Black, sans-serif;">
+                📈 KEY METRICS - MÉTRICAS CLAVE
+            </h3>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    if not df.empty:
+        # Calcular métricas detalladas
+        metrics_detailed = []
+        
+        # Métricas de visualizaciones
+        if 'visualizaciones' in df.columns:
+            metrics_detailed.append(('👁️ Avg. Views/Post', f"{df['visualizaciones'].mean():.0f}"))
+            metrics_detailed.append(('👁️ Median Views', f"{df['visualizaciones'].median():.0f}"))
+            metrics_detailed.append(('👁️ Std Dev Views', f"{df['visualizaciones'].std():.0f}"))
+            metrics_detailed.append(('👁️ Min Views', f"{df['visualizaciones'].min():,}"))
+            metrics_detailed.append(('👁️ Max Views', f"{df['visualizaciones'].max():,}"))
+        
+        # Métricas de engagement
+        if 'me_gusta' in df.columns:
+            metrics_detailed.append(('❤️ Avg. Likes/Post', f"{df['me_gusta'].mean():.1f}"))
+            metrics_detailed.append(('❤️ Max Likes', f"{df['me_gusta'].max():,}"))
+        
+        if 'comentarios' in df.columns:
+            metrics_detailed.append(('💬 Avg. Comments/Post', f"{df['comentarios'].mean():.1f}"))
+            metrics_detailed.append(('💬 Max Comments', f"{df['comentarios'].max():,}"))
+        
+        # Métricas de seguidores si existen
+        if 'Seguidores_Totales' in df.columns:
+            metrics_detailed.append(('👥 Avg. Followers/Post', f"{df['Seguidores_Totales'].mean():.0f}"))
+            metrics_detailed.append(('👥 Total Followers', f"{df['Seguidores_Totales'].sum():,}"))
+        
+        # Métricas de tiempo
+        if 'dias_desde_publicacion' in df.columns:
+            metrics_detailed.append(('📅 Avg. Content Age', f"{df['dias_desde_publicacion'].mean():.0f} días"))
+            metrics_detailed.append(('📅 Newest Post', f"{df['dias_desde_publicacion'].min()} días"))
+            metrics_detailed.append(('📅 Oldest Post', f"{df['dias_desde_publicacion'].max()} días"))
+        
+        # Métricas de rendimiento
+        if 'rendimiento_por_dia' in df.columns:
+            metrics_detailed.append(('🚀 Avg. Daily Perf.', f"{df['rendimiento_por_dia'].mean():.1f}"))
+            metrics_detailed.append(('🚀 Median Daily Perf.', f"{df['rendimiento_por_dia'].median():.1f}"))
+        
+        # Engagement rate detallado
+        metrics_detailed.append(('💬 Engagement Rate', f"{engagement_rate:.2f}%"))
+        
+        if total_views > 0 and total_likes > 0:
+            like_to_view_ratio = (total_likes / total_views) * 100
+            metrics_detailed.append(('👍 Like/View Ratio', f"{like_to_view_ratio:.2f}%"))
+        
+        if total_comments > 0 and total_likes > 0:
+            comment_to_like_ratio = (total_comments / total_likes) * 100
+            metrics_detailed.append(('💬 Comment/Like Ratio', f"{comment_to_like_ratio:.2f}%"))
+        
+        # Mostrar métricas en tabla mejorada
+        for i, (metric, value) in enumerate(metrics_detailed):
+            bg_color = "#ffffff" if i % 2 == 0 else "#f8fafc"
+            icon = metric.split(' ')[0]
+            metric_name = ' '.join(metric.split(' ')[1:])
+            
+            st.markdown(f"""
+            <div style="display: flex; justify-content: space-between; align-items: center; 
+                        padding: 12px 14px; background: {bg_color}; 
+                        border-radius: 8px; margin: 3px 0; border: 1px solid #e5e7eb;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">{icon}</span>
+                    <span style="color: #4b5563; font-size: 13px; font-weight: 500; font-family: Arial, sans-serif;">{metric_name}</span>
+                </div>
+                <span style="font-weight: 700; color: #1f2937; font-size: 14px; font-family: Arial Black, sans-serif;">
+                    {value}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Análisis de engagement avanzado
+        st.markdown("""
+        <div style="margin-top: 18px; padding: 18px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); 
+                    border-radius: 12px; border-left: 4px solid #0ea5e9;">
+            <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 15px; font-family: Arial Black, sans-serif;">📊 ANÁLISIS DE ENGAGEMENT AVANZADO</h4>
+            <div style="color: #4b5563; font-size: 13px; font-family: Arial, sans-serif;">
+        """, unsafe_allow_html=True)
+        
+        engagement_html = ""
+        
+        if total_views > 0:
+            like_rate = (total_likes / total_views * 100) if 'me_gusta' in df.columns else 0
+            comment_rate = (total_comments / total_views * 100) if 'comentarios' in df.columns else 0
+            
+            engagement_html += f"""
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">👍 Tasa de Likes:</span>
+                    <span style="font-weight: 700; color: #10b981;">{like_rate:.2f}%</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">💬 Tasa de Comentarios:</span>
+                    <span style="font-weight: 700; color: #3B82F6;">{comment_rate:.2f}%</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                    <span style="display: inline-block; width: 160px;">📊 Total Engagement:</span>
+                    <span style="font-weight: 700; color: #8b5cf6;">{(like_rate + comment_rate):.2f}%</span>
+                </div>
+            """
+        
+        if total_likes > 0 and total_comments > 0:
+            like_to_comment_ratio = total_likes / total_comments
+            engagement_html += f"""
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                    <span style="display: inline-block; width: 160px;">⚖️ Ratio Likes/Comments:</span>
+                    <span style="font-weight: 700; color: #EC4899;">{like_to_comment_ratio:.1f}</span>
+                </div>
+            """
+        
+        if engagement_html:
+            st.markdown(engagement_html, unsafe_allow_html=True)
+        
+        st.markdown("</div></div>", unsafe_allow_html=True)
+    
+    else:
+        st.info("No hay datos para métricas clave")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# Footer
+current_time_full = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+st.markdown(f"""
+<div style="text-align: center; color: #6b7280; font-size: 12px; padding: 25px; 
+            border-top: 1px solid #e5e7eb; margin-top: 30px;">
+    <div style="display: flex; justify-content: center; gap: 25px; margin-bottom: 12px; flex-wrap: wrap; font-family: Arial, sans-serif;">
+        <span>Social Media Dashboard PRO v3.2</span>
+        <span>•</span>
+        <span>Data from Backend API</span>
+        <span>•</span>
+        <span>{platform_name} Analytics</span>
+        <span>•</span>
+        <span>Updated in Real-time</span>
+        <span>•</span>
+        <span>Gráficas Avanzadas: Inversión vs Seguidores • Heatmap CPS</span>
+    </div>
+    <div style="font-size: 11px; color: #9ca3af; font-family: Arial, sans-serif;">
+        © 2025 Social Media Analytics Platform • Connected to: <strong>{BACKEND_URL}</strong> • {current_time_full}
+    </div>
+</div>
+""", unsafe_allow_html=True)
