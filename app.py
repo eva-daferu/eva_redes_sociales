@@ -252,112 +252,97 @@ st.markdown("""
     color: #3B82F6;
 }
 
-/* Métricas en una sola franja horizontal */
-.metrics-horizontal {
+/* FRANJA COMPACTA DE MÉTRICAS - TODO EN UNA SOLA LÍNEA */
+.metrics-compact-container {
     display: flex;
-    gap: 8px;
-    margin-bottom: 15px;
-    width: 100%;
-    overflow-x: auto;
-    padding-bottom: 5px;
-}
-
-.metric-horizontal-item {
-    flex: 1;
-    min-width: 160px;
     background: white;
     border-radius: 10px;
-    padding: 15px 12px;
+    padding: 10px 15px;
+    margin: 12px 0;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
     border: 1px solid #e5e7eb;
-    transition: all 0.3s;
-    position: relative;
-    overflow: hidden;
+    overflow-x: auto;
+    gap: 20px;
+    align-items: center;
+}
+
+.metric-compact-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    padding: 5px 0;
+}
+
+.metric-compact-icon {
+    font-size: 16px;
+    width: 24px;
     text-align: center;
 }
 
-.metric-horizontal-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 100%);
+.metric-compact-content {
+    display: flex;
+    flex-direction: column;
 }
 
-.metric-horizontal-item:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
-}
-
-.metric-horizontal-value {
-    font-size: 20px;
-    font-weight: 800;
-    color: #1f2937;
-    margin: 6px 0 3px 0;
-    font-family: 'Segoe UI', system-ui, sans-serif;
-}
-
-.metric-horizontal-label {
-    font-size: 11px;
+.metric-compact-label {
+    font-size: 10px;
     color: #6b7280;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.6px;
-    line-height: 1.3;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
 }
 
-.metric-horizontal-icon {
-    font-size: 16px;
-    margin-bottom: 5px;
-}
-
-/* Tarjetas de pauta publicitaria en horizontal */
-.pauta-horizontal-item {
-    flex: 1;
-    min-width: 160px;
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    border-radius: 10px;
-    padding: 15px 12px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
-    border: 1px solid #bae6fd;
-    transition: all 0.3s;
-    position: relative;
-    overflow: hidden;
-    text-align: center;
-}
-
-.pauta-horizontal-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 100%);
-}
-
-.pauta-horizontal-value {
-    font-size: 20px;
+.metric-compact-value {
+    font-size: 14px;
     font-weight: 800;
-    color: #0369a1;
-    margin: 6px 0 3px 0;
+    color: #1f2937;
+    margin-top: 2px;
 }
 
-.pauta-horizontal-label {
-    font-size: 11px;
+.pauta-compact-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    padding: 5px 0;
+}
+
+.pauta-compact-icon {
+    font-size: 16px;
+    width: 24px;
+    text-align: center;
+    color: #0ea5e9;
+}
+
+.pauta-compact-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.pauta-compact-label {
+    font-size: 10px;
     color: #475569;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.6px;
-    line-height: 1.3;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
 }
 
-.pauta-horizontal-icon {
-    font-size: 16px;
-    margin-bottom: 5px;
-    color: #0ea5e9;
+.pauta-compact-value {
+    font-size: 14px;
+    font-weight: 800;
+    color: #0369a1;
+    margin-top: 2px;
+}
+
+/* Separador entre métricas */
+.metric-separator {
+    width: 1px;
+    height: 30px;
+    background: #e5e7eb;
+    margin: 0 5px;
 }
 
 /* Header principal */
@@ -393,11 +378,11 @@ st.markdown("""
     opacity: 0.1;
 }
 
-/* Selector de gráficas - DISEÑO MEJORADO CON FONDO Y EFECTOS */
+/* SELECTOR DE GRÁFICAS - DISEÑO MEJORADO CON BOTONES ATTRACTIVOS */
 .grafica-selector-container {
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border-radius: 12px;
-    padding: 10px;
+    padding: 12px;
     margin: 12px 0 15px 0;
     border: 1px solid #e5e7eb;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
@@ -407,7 +392,7 @@ st.markdown("""
     font-size: 14px;
     font-weight: 700;
     color: #1f2937;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     text-align: center;
     display: flex;
     align-items: center;
@@ -417,57 +402,57 @@ st.markdown("""
 
 .grafica-selector-buttons {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     justify-content: center;
 }
 
-.grafica-selector-btn {
+.selector-btn {
     flex: 1;
     max-width: 200px;
-    padding: 12px 15px;
+    padding: 14px 20px;
     border-radius: 10px;
-    background: white;
-    border: 2px solid #e5e7eb;
-    color: #64748b;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 2px solid #d1d5db;
+    color: #374151;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.3s ease;
     text-align: center;
-    font-size: 13px;
+    font-size: 14px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+    gap: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 
-.grafica-selector-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
-    border-color: #cbd5e1;
-    background: #f8fafc;
+.selector-btn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+    border-color: #9ca3af;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
 }
 
-.grafica-selector-btn.active {
+.selector-btn.active {
     background: linear-gradient(135deg, #3B82F6 0%, #2563eb 100%);
     color: white;
     border-color: #3B82F6;
-    box-shadow: 0 6px 18px rgba(59, 130, 246, 0.3);
-}
-
-.grafica-selector-btn.active:hover {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-    transform: translateY(-3px);
     box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
 }
 
-.grafica-btn-icon {
-    font-size: 20px;
+.selector-btn.active:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.5);
 }
 
-.grafica-btn-text {
-    font-size: 12px;
-    font-weight: 600;
+.selector-btn-icon {
+    font-size: 22px;
+}
+
+.selector-btn-text {
+    font-size: 13px;
+    font-weight: 700;
 }
 
 /* Contenedores */
@@ -556,21 +541,20 @@ st.markdown("""
 
 /* Responsive */
 @media (max-width: 768px) {
-    .metric-horizontal-value, .pauta-horizontal-value { font-size: 16px; }
+    .metrics-compact-container {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .metric-compact-item, .pauta-compact-item {
+        min-width: calc(50% - 10px);
+    }
     .dashboard-header { padding: 15px; }
     .dashboard-header h1 { font-size: 20px; }
-    .metrics-horizontal {
-        flex-wrap: wrap;
-    }
-    .metric-horizontal-item, .pauta-horizontal-item {
-        min-width: calc(50% - 4px);
-        margin-bottom: 8px;
-    }
     .grafica-selector-buttons {
         flex-wrap: wrap;
     }
-    .grafica-selector-btn {
-        min-width: calc(50% - 4px);
+    .selector-btn {
+        min-width: calc(50% - 5px);
     }
 }
 </style>
@@ -715,8 +699,8 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Métricas en UNA SOLA FRANJA HORIZONTAL
-st.markdown('<div class="metrics-horizontal">', unsafe_allow_html=True)
+# MÉTRICAS EN UNA SOLA FRANJA HORIZONTAL COMPACTA
+st.markdown('<div class="metrics-compact-container">', unsafe_allow_html=True)
 
 # Métricas de pauta publicitaria
 if not df_pauta.empty:
@@ -735,30 +719,40 @@ if not df_pauta.empty:
         except:
             return "0"
     
-    # Tarjeta 1: COSTE ANUNCIO
+    # 1. COSTE ANUNCIO
     st.markdown(f"""
-    <div class="pauta-horizontal-item">
-        <div class="pauta-horizontal-icon">💰</div>
-        <div class="pauta-horizontal-label">COSTE ANUNCIO</div>
-        <div class="pauta-horizontal-value">${format_number(coste_anuncio_sum)}</div>
+    <div class="pauta-compact-item">
+        <div class="pauta-compact-icon">💰</div>
+        <div class="pauta-compact-content">
+            <div class="pauta-compact-label">COSTE ANUNCIO</div>
+            <div class="pauta-compact-value">${format_number(coste_anuncio_sum)}</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
-    # Tarjeta 2: VISUALIZACIONES VIDEOS
+    st.markdown('<div class="metric-separator"></div>', unsafe_allow_html=True)
+    
+    # 2. VISUALIZACIONES VIDEOS
     st.markdown(f"""
-    <div class="pauta-horizontal-item">
-        <div class="pauta-horizontal-icon">👁️</div>
-        <div class="pauta-horizontal-label">VISUALIZACIONES VIDEOS</div>
-        <div class="pauta-horizontal-value">{format_number(visualizaciones_videos_sum)}</div>
+    <div class="pauta-compact-item">
+        <div class="pauta-compact-icon">👁️</div>
+        <div class="pauta-compact-content">
+            <div class="pauta-compact-label">VISUALIZACIONES VIDEOS</div>
+            <div class="pauta-compact-value">{format_number(visualizaciones_videos_sum)}</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
-    # Tarjeta 3: NUEVOS SEGUIDORES
+    st.markdown('<div class="metric-separator"></div>', unsafe_allow_html=True)
+    
+    # 3. NUEVOS SEGUIDORES
     st.markdown(f"""
-    <div class="pauta-horizontal-item">
-        <div class="pauta-horizontal-icon">📈</div>
-        <div class="pauta-horizontal-label">NUEVOS SEGUIDORES</div>
-        <div class="pauta-horizontal-value">{format_number(nuevos_seguidores_sum)}</div>
+    <div class="pauta-compact-item">
+        <div class="pauta-compact-icon">📈</div>
+        <div class="pauta-compact-content">
+            <div class="pauta-compact-label">NUEVOS SEGUIDORES</div>
+            <div class="pauta-compact-value">{format_number(nuevos_seguidores_sum)}</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -772,36 +766,48 @@ if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
 total_contenidos = len(df_all)
 total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
 
-# Tarjeta 4: TOTAL SEGUIDORES
+st.markdown('<div class="metric-separator"></div>', unsafe_allow_html=True)
+
+# 4. TOTAL SEGUIDORES
 st.markdown(f"""
-<div class="metric-horizontal-item">
-    <div class="metric-horizontal-icon">👥</div>
-    <div class="metric-horizontal-label">TOTAL SEGUIDORES</div>
-    <div class="metric-horizontal-value">{format_number(total_seguidores)}</div>
+<div class="metric-compact-item">
+    <div class="metric-compact-icon">👥</div>
+    <div class="metric-compact-content">
+        <div class="metric-compact-label">TOTAL SEGUIDORES</div>
+        <div class="metric-compact-value">{format_number(total_seguidores)}</div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Tarjeta 5: TOTAL CONTENIDOS
+st.markdown('<div class="metric-separator"></div>', unsafe_allow_html=True)
+
+# 5. TOTAL CONTENIDOS
 st.markdown(f"""
-<div class="metric-horizontal-item">
-    <div class="metric-horizontal-icon">📊</div>
-    <div class="metric-horizontal-label">TOTAL CONTENIDOS</div>
-    <div class="metric-horizontal-value">{format_number(total_contenidos)}</div>
+<div class="metric-compact-item">
+    <div class="metric-compact-icon">📊</div>
+    <div class="metric-compact-content">
+        <div class="metric-compact-label">TOTAL CONTENIDOS</div>
+        <div class="metric-compact-value">{format_number(total_contenidos)}</div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Tarjeta 6: VISUALIZACIONES TOTALES
+st.markdown('<div class="metric-separator"></div>', unsafe_allow_html=True)
+
+# 6. VISUALIZACIONES TOTALES
 st.markdown(f"""
-<div class="metric-horizontal-item">
-    <div class="metric-horizontal-icon">👁️</div>
-    <div class="metric-horizontal-label">VISUALIZACIONES TOTALES</div>
-    <div class="metric-horizontal-value">{format_number(total_visualizaciones)}</div>
+<div class="metric-compact-item">
+    <div class="metric-compact-icon">👁️</div>
+    <div class="metric-compact-content">
+        <div class="metric-compact-label">VISUALIZACIONES TOTALES</div>
+        <div class="metric-compact-value">{format_number(total_visualizaciones)}</div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Selector de gráficas - DISEÑO MEJORADO
+# SELECTOR DE GRÁFICAS - DISEÑO MEJORADO CON BOTONES ATTRACTIVOS
 st.markdown('<div class="grafica-selector-container">', unsafe_allow_html=True)
 st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁFICA</div>', unsafe_allow_html=True)
 
@@ -809,7 +815,7 @@ st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁ
 if "grafica_seleccionada" not in st.session_state:
     st.session_state.grafica_seleccionada = "evolucion"
 
-# Selector visual mejorado con HTML/CSS personalizado
+# Selector visual mejorado con botones atractivos
 st.markdown('<div class="grafica-selector-buttons">', unsafe_allow_html=True)
 
 # Crear columnas para los botones
