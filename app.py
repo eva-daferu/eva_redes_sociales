@@ -20,15 +20,19 @@ st.set_page_config(
 )
 
 #############################################
-# NUEVOS ENDPOINTS PARA GRÁFICAS
+# ENDPOINTS (DATOS + GRÁFICAS)
 #############################################
 BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
 FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
 PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
-GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
-GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
-DATOS1_URL = "https://pahubisas.pythonanywhere.com/datos1"
-DATOS2_URL = "https://pahubisas.pythonanywhere.com/datos2"
+
+# Gráfica 1
+GRAFICA1_IMG_URL = "https://pahubisas.pythonanywhere.com/grafica1"
+METRICAS1_URL = "https://pahubisas.pythonanywhere.com/metricas_grafica1"
+
+# Gráfica 2
+GRAFICA2_IMG_URL = "https://pahubisas.pythonanywhere.com/grafica2"
+METRICAS2_URL = "https://pahubisas.pythonanywhere.com/metricas_grafica2"
 
 
 def cargar_datos_backend():
@@ -165,48 +169,57 @@ def cargar_datos_pauta():
 
 
 #############################################
-# NUEVAS FUNCIONES PARA GRÁFICAS AVANZADAS - CORREGIDAS
+# FUNCIONES PARA GRÁFICAS (ARCHIVOS)
 #############################################
 
-def _download_bytes(url, timeout=60):
+def _descargar_bytes(url, timeout=30):
     r = requests.get(url, timeout=timeout)
     r.raise_for_status()
-    return r.content
+    return r.content, r.headers.get("Content-Type", "")
 
 
 def cargar_imagen_grafica1_bytes():
+    """Descarga la imagen PNG de la Gráfica 1"""
     try:
-        return _download_bytes(GRAFICA1_URL, timeout=30)
+        content, _ = _descargar_bytes(GRAFICA1_IMG_URL, timeout=30)
+        return content
     except Exception as e:
         st.error(f"Error al cargar imagen de gráfica 1: {str(e)}")
         return b""
 
 
-def cargar_imagen_grafica2_bytes():
-    try:
-        return _download_bytes(GRAFICA2_URL, timeout=30)
-    except Exception as e:
-        st.error(f"Error al cargar imagen de gráfica 2: {str(e)}")
-        return b""
-
-
 def cargar_excel_metricas_grafica1_bytes():
+    """Descarga el Excel XLSX de métricas de la Gráfica 1"""
     try:
-        return _download_bytes(DATOS1_URL, timeout=60)
+        content, _ = _descargar_bytes(METRICAS1_URL, timeout=60)
+        return content
     except Exception as e:
         st.error(f"Error al cargar Excel de métricas (gráfica 1): {str(e)}")
         return b""
 
 
-def cargar_excel_metricas_grafica2_bytes():
+def cargar_imagen_grafica2_bytes():
+    """Descarga la imagen PNG de la Gráfica 2"""
     try:
-        return _download_bytes(DATOS2_URL, timeout=60)
+        content, _ = _descargar_bytes(GRAFICA2_IMG_URL, timeout=30)
+        return content
+    except Exception as e:
+        st.error(f"Error al cargar imagen de gráfica 2: {str(e)}")
+        return b""
+
+
+def cargar_excel_metricas_grafica2_bytes():
+    """Descarga el Excel XLSX de métricas de la Gráfica 2"""
+    try:
+        content, _ = _descargar_bytes(METRICAS2_URL, timeout=60)
+        return content
     except Exception as e:
         st.error(f"Error al cargar Excel de métricas (gráfica 2): {str(e)}")
         return b""
 
 
 def leer_excel_primer_sheet(excel_bytes):
+    """Lee SOLO la primera hoja del Excel (la más relevante por defecto)."""
     if not excel_bytes:
         return pd.DataFrame()
     try:
@@ -217,6 +230,10 @@ def leer_excel_primer_sheet(excel_bytes):
     except Exception:
         return pd.DataFrame()
 
+
+#############################################
+# FIN NUEVAS FUNCIONES CORREGIDAS
+#############################################
 
 # Función para cargar datos con caché
 @st.cache_data(ttl=300)  # 5 minutos de caché
@@ -298,7 +315,7 @@ def cargar_datos():
 st.markdown("""
 <style>
 /* Main container - REDUCIDO ESPACIO SUPERIOR */
-.main {
+.main { 
     padding: 0;
     padding-top: 0.5rem !important;
 }
@@ -534,81 +551,81 @@ st.markdown("""
 .linkedin-color { color: #0A66C2; }
 
 /* Status indicators */
-.status-container {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 10px;
-    padding: 10px 12px;
-    margin: 6px 0;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.status-connected { color: #10b981; font-weight: 600; }
-.status-warning { color: #f59e0b; font-weight: 600; }
-.status-disconnected { color: #ef4444; font-weight: 600; }
-
-.sidebar-title {
-    color: #e2e8f0;
-    font-size: 14px;
-    font-weight: 800;
-    margin: 12px 0 8px 0;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-}
-
-.backend-status {
-    padding: 8px 10px;
-    border-radius: 10px;
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 20px;
     font-size: 12px;
-    font-weight: 700;
-    margin: 10px 0;
-    text-align: center;
-    border: 1px solid rgba(255,255,255,0.10);
+    font-weight: 600;
 }
 
-.backend-connected {
+.status-active {
     background: rgba(16, 185, 129, 0.15);
-    color: #34d399;
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
-.backend-disconnected {
-    background: rgba(239, 68, 68, 0.15);
-    color: #f87171;
+.status-warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
-/* Gráficas avanzadas */
+/* Tablas mejoradas */
+.dataframe {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+}
+
+/* Gráficas Avanzadas (contenedor) */
 .grafica-container {
     background: white;
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.10);
     border: 1px solid #e5e7eb;
-    margin-top: 15px;
+    margin: 16px 0 24px 0;
 }
 
 .grafica-title {
     font-size: 22px;
-    font-weight: 900;
+    font-weight: 800;
     color: #0f172a;
     margin-bottom: 6px;
-    font-family: 'Arial Black', sans-serif;
 }
 
 .grafica-subtitle {
     font-size: 13px;
-    color: #64748b;
-    margin-bottom: 18px;
     font-weight: 600;
+    color: #475569;
+    margin-bottom: 16px;
 }
 
-.footer-container {
-    padding: 18px;
-    background: #0f172a;
-    border-radius: 14px;
-    color: #e2e8f0;
-    margin-top: 18px;
-    border: 1px solid #334155;
-    font-size: 12px;
-    text-align: center;
+.grafica-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.grafica-tab {
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    font-weight: 700;
+    color: #334155;
+}
+
+.grafica-tab:hover {
+    background: #e2e8f0;
+}
+
+.grafica-tab.active {
+    background: rgba(59,130,246,0.15);
+    border-color: rgba(59,130,246,0.35);
+    color: #1d4ed8;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -616,156 +633,133 @@ st.markdown("""
 # Cargar datos
 df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
 
-# Sidebar principal
+# ================================================================
+# SIDEBAR: Selección de plataforma y opciones
+# ================================================================
 with st.sidebar:
     st.markdown("""
-    <div style="text-align:center;">
-        <div style="font-size: 28px; font-weight: 900; color: #e2e8f0; font-family: 'Arial Black', sans-serif;">
-            DASHBOARD PRO
-        </div>
-        <div style="font-size: 12px; opacity: 0.85; color: #cbd5e1; margin-top: 6px; font-family: Arial, sans-serif;">
-            Social Analytics • Powered by PythonAnywhere
-        </div>
+    <div style="text-align: center; padding: 10px 0;">
+        <h2 style="color: white; margin: 0;">📊 Dashboard PRO</h2>
+        <p style="color: #94a3b8; margin: 5px 0 0 0;">Social Media Analytics</p>
     </div>
     """, unsafe_allow_html=True)
 
-    # Estado del backend
-    try:
-        backend_test = requests.get(BACKEND_URL, timeout=5)
-        if backend_test.status_code == 200:
-            st.markdown('<div class="backend-status backend-connected">✅ Backend Conectado</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Error: {backend_test.status_code}</div>', unsafe_allow_html=True)
-    except Exception as e:
-        st.markdown(f'<div class="backend-status backend-disconnected">⚠️ Backend Offline</div>', unsafe_allow_html=True)
+    st.markdown("---")
 
-    st.markdown('<p class="sidebar-title" style="font-family: Arial Black, sans-serif;">🔗 Panel Professional</p>', unsafe_allow_html=True)
+    # Selección de plataforma
+    st.markdown("### 🎯 Seleccionar Plataforma")
 
-    # Botones de plataformas con botón GENERAL
-    platforms = {
-        "general": ("🌐 GENERAL", "#3B82F6"),
-        "facebook": ("📘 Facebook", "#1877F2"),
-        "twitter": ("🐦 Twitter", "#1DA1F2"),
-        "instagram": ("📷 Instagram", "#E4405F"),
-        "linkedin": ("💼 LinkedIn", "#0A66C2"),
-        "youtube": ("▶️ YouTube", "#FF0000"),
-        "tiktok": ("🎵 TikTok", "#000000")
-    }
+    if "selected_platform" not in st.session_state:
+        st.session_state.selected_platform = "general"
 
-    selected_platform = st.session_state.get("selected_platform", "general")
+    platforms = [
+        ("general", "Vista General", "📊"),
+        ("tiktok", "TikTok", "🎵"),
+        ("youtobe", "YouTube", "▶️"),
+        ("instagram", "Instagram", "📷"),
+        ("facebook", "Facebook", "📘")
+    ]
 
-    for platform_key, (platform_name, platform_color) in platforms.items():
-        if st.button(platform_name, key=f"{platform_key}_btn", use_container_width=True):
-            selected_platform = platform_key
-            st.session_state["selected_platform"] = platform_key
+    for platform_id, platform_name, icon in platforms:
+        if st.button(
+            f"{icon} {platform_name}",
+            key=f"btn_{platform_id}",
+            use_container_width=True,
+            type="primary" if st.session_state.selected_platform == platform_id else "secondary"
+        ):
+            st.session_state.selected_platform = platform_id
+
+    st.markdown("---")
+
+    # Filtro de tiempo
+    st.markdown("### 📅 Filtro de Tiempo")
+
+    time_options = ["Todo el período", "Últimos 7 días", "Últimos 30 días", "Últimos 90 días"]
+    if "tiempo_filtro" not in st.session_state:
+        st.session_state.tiempo_filtro = "Todo el período"
+
+    st.session_state.tiempo_filtro = st.selectbox(
+        "Seleccionar período:",
+        time_options,
+        index=time_options.index(st.session_state.tiempo_filtro)
+    )
+
+    st.markdown("---")
+
+    # Acciones rápidas
+    st.markdown("### ⚡ Acciones Rápidas")
+
+    col_btn1, col_btn2 = st.columns(2)
+
+    with col_btn1:
+        if st.button("🔄 Actualizar", use_container_width=True):
+            st.cache_data.clear()
             st.rerun()
 
-    st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
+    with col_btn2:
+        if st.button("📊 Exportar", use_container_width=True):
+            st.session_state.show_export = True
 
-    # Nueva sección para gráficas avanzadas
-    st.markdown('<p class="sidebar-title" style="font-family: Arial Black, sans-serif;">📊 GRÁFICAS AVANZADAS</p>', unsafe_allow_html=True)
+    st.markdown("---")
 
-    col_graf1, col_graf2 = st.columns(2)
+    # Gráficas Avanzadas
+    st.markdown("### 📈 Gráficas Avanzadas")
 
-    with col_graf1:
+    col_g1, col_g2 = st.columns(2)
+
+    with col_g1:
         if st.button("📈 Gráfica 1", key="grafica1_btn", use_container_width=True,
-                     help="Inversión vs Seguidores - Análisis de eficiencia"):
+                     type="primary" if st.session_state.get("show_grafica1", False) else "secondary"):
             st.session_state["show_grafica1"] = not st.session_state.get("show_grafica1", False)
             if "show_grafica2" in st.session_state:
                 st.session_state["show_grafica2"] = False
 
-    with col_graf2:
+    with col_g2:
         if st.button("📊 Gráfica 2", key="grafica2_btn", use_container_width=True,
-                     help="Gráfica 2 + métricas Excel"):
+                     type="primary" if st.session_state.get("show_grafica2", False) else "secondary"):
             st.session_state["show_grafica2"] = not st.session_state.get("show_grafica2", False)
             if "show_grafica1" in st.session_state:
                 st.session_state["show_grafica1"] = False
 
-    # Botón para ocultar gráficas
     if st.session_state.get("show_grafica1", False) or st.session_state.get("show_grafica2", False):
-        if st.button("⬅️ Volver a Dashboard", key="back_dashboard", use_container_width=True):
+        if st.button("❌ Cerrar Gráficas", use_container_width=True):
             if "show_grafica1" in st.session_state:
                 st.session_state["show_grafica1"] = False
             if "show_grafica2" in st.session_state:
                 st.session_state["show_grafica2"] = False
-            st.rerun()
 
-    st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
 
-    # Filtros de tiempo cuando no está en modo GENERAL
-    if selected_platform != "general":
-        st.markdown('<p class="sidebar-title" style="font-family: Arial Black, sans-serif;">📅 Filtros de Tiempo</p>', unsafe_allow_html=True)
+# ================================================================
+# MAIN: Header y contenido principal
+# ================================================================
+selected_platform = st.session_state.selected_platform
 
-        tiempo_filtro = st.selectbox(
-            "Seleccionar período:",
-            ["Últimos 7 días", "Últimos 30 días", "Últimos 90 días", "Todo el período"],
-            key="tiempo_filtro"
-        )
-
-    st.markdown('<p class="sidebar-title" style="font-family: Arial Black, sans-serif;">📈 Status Conexiones</p>', unsafe_allow_html=True)
-
-    # Estado de conexiones basado en datos reales
-    connection_status = []
-
-    # YouTube/Youtobe
-    youtube_connected = not youtobe_df.empty
-    connection_status.append(("YouTube", "connected" if youtube_connected else "disconnected"))
-
-    # TikTok
-    tiktok_connected = not tiktok_df.empty
-    connection_status.append(("TikTok", "connected" if tiktok_connected else "disconnected"))
-
-    # Otras plataformas
-    connection_status.extend([
-        ("Facebook", "disconnected"),
-        ("Twitter", "disconnected"),
-        ("Instagram", "disconnected"),
-        ("LinkedIn", "disconnected")
-    ])
-
-    for platform, status in connection_status:
-        icon = "🔴" if status == "disconnected" else "🟡" if status == "warning" else "🟢"
-        status_class = "status-disconnected" if status == "disconnected" else "status-warning" if status == "warning" else "status-connected"
-
-        st.markdown(f"""
-        <div class="status-container">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #e2e8f0; font-family: 'Arial', sans-serif;">{platform}</span>
-                <span class="{status_class}" style="font-family: 'Arial', sans-serif;">{icon} {status.title()}</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-# Contenido principal
-current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
+# Header principal
 st.markdown(f"""
 <div class="dashboard-header">
-    <h1 style="font-family: 'Arial Black', sans-serif;">📊 SOCIAL MEDIA DASHBOARD PRO</h1>
-    <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 15px; font-weight: 400; font-family: 'Arial', sans-serif;">
-        Analytics en Tiempo Real • Monitoreo de Performance • Insights Inteligentes
+    <h1>📊 Social Media Dashboard PRO</h1>
+    <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 16px;">
+        Análisis avanzado de rendimiento • Última actualización: {datetime.now().strftime('%d/%m/%Y %H:%M')}
     </p>
-    <div style="position: absolute; bottom: 15px; right: 25px; font-size: 13px; opacity: 0.8; font-family: 'Arial', sans-serif;">
-        Actualizado: {current_time}
-    </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Determinar datos según plataforma seleccionada
+# Seleccionar dataset según plataforma
 if selected_platform == "general":
-    platform_name = "GENERAL"
+    df = df_all.copy()
+    platform_name = "Vista General"
     platform_color = "#3B82F6"
-    platform_icon = "🌐"
-    df = df_all
-elif selected_platform == "youtube":
-    platform_name = "YouTube"
-    platform_color = "#FF0000"
-    platform_icon = "▶️"
-    df = youtobe_df
+    platform_icon = "📊"
 elif selected_platform == "tiktok":
+    df = tiktok_df.copy()
     platform_name = "TikTok"
     platform_color = "#000000"
     platform_icon = "🎵"
-    df = tiktok_df
+elif selected_platform == "youtobe":
+    df = youtobe_df.copy()
+    platform_name = "YouTube"
+    platform_color = "#FF0000"
+    platform_icon = "▶️"
 else:
     # Para otras plataformas (Facebook, Twitter, etc.) usar datos de YouTube temporalmente
     platform_config = {
@@ -819,37 +813,30 @@ if st.session_state.get("show_grafica1", False):
     <div class="grafica-container">
         <div class="grafica-title">📈 GRÁFICA 1: INVERSIÓN VS SEGUIDORES</div>
         <div class="grafica-subtitle">
-            Imagen + Excel de métricas (1 hoja) • Descarga directa desde el backend
+            Análisis de eficiencia por nivel de inversión • CPS (Costo por Seguidor) • Punto óptimo
         </div>
     """, unsafe_allow_html=True)
 
-    with st.spinner("Cargando imagen y métricas (gráfica 1)..."):
+    with st.spinner("Cargando imagen y métricas..."):
         img_bytes = cargar_imagen_grafica1_bytes()
         if img_bytes:
             st.image(img_bytes, caption="Inversion vs Seguidores", use_container_width=True)
-            st.markdown(f"[Abrir imagen en navegador]({GRAFICA1_URL})")
+            st.markdown(f"[Abrir imagen en navegador]({GRAFICA1_IMG_URL})")
         else:
             st.warning("No se pudo cargar la imagen.")
 
-        xlsx_bytes = cargar_excel_metricas_grafica1_bytes()
-        df_metricas = leer_excel_primer_sheet(xlsx_bytes)
-        if not df_metricas.empty:
-            st.dataframe(df_metricas, use_container_width=True)
-        else:
-            if xlsx_bytes:
-                st.info("Excel descargado, pero no se pudo leer la hoja.")
-            else:
-                st.warning("No se pudo cargar el Excel.")
-
-        if xlsx_bytes:
+        excel_bytes = cargar_excel_metricas_grafica1_bytes()
+        if excel_bytes:
             st.download_button(
-                label="⬇️ Descargar Excel: metricas_seguidores_vs_inversion.xlsx",
-                data=xlsx_bytes,
-                file_name="metricas_seguidores_vs_inversion.xlsx",
+                label="⬇️ Descargar Excel: metricas_grafica1.xlsx",
+                data=excel_bytes,
+                file_name="metricas_grafica1.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
-            st.markdown(f"[Abrir Excel en navegador]({DATOS1_URL})")
+            st.markdown(f"[Abrir Excel en navegador]({METRICAS1_URL})")
+        else:
+            st.warning("No se pudo cargar el Excel.")
 
     st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
@@ -858,39 +845,39 @@ if st.session_state.get("show_grafica1", False):
 elif st.session_state.get("show_grafica2", False):
     st.markdown("""
     <div class="grafica-container">
-        <div class="grafica-title">📊 GRÁFICA 2</div>
+        <div class="grafica-title">📊 GRÁFICA 2: HEATMAP CPS (COSTO POR SEGUIDOR)</div>
         <div class="grafica-subtitle">
-            Imagen + Excel de métricas (1 hoja) • Descarga directa desde el backend
+            Análisis por día de semana y semana ISO • CPS bajo = mejor eficiencia • Etiquetas siempre visibles
         </div>
     """, unsafe_allow_html=True)
 
-    with st.spinner("Cargando imagen y métricas (gráfica 2)..."):
+    with st.spinner("Cargando imagen y métricas..."):
         img_bytes = cargar_imagen_grafica2_bytes()
         if img_bytes:
-            st.image(img_bytes, caption="Grafica 2", use_container_width=True)
-            st.markdown(f"[Abrir imagen en navegador]({GRAFICA2_URL})")
+            st.image(img_bytes, caption="grafica2", use_container_width=True)
+            st.markdown(f"[Abrir imagen en navegador]({GRAFICA2_IMG_URL})")
         else:
             st.warning("No se pudo cargar la imagen.")
 
-        xlsx_bytes = cargar_excel_metricas_grafica2_bytes()
-        df_metricas = leer_excel_primer_sheet(xlsx_bytes)
+        excel_bytes = cargar_excel_metricas_grafica2_bytes()
+        df_metricas = leer_excel_primer_sheet(excel_bytes)
+
         if not df_metricas.empty:
             st.dataframe(df_metricas, use_container_width=True)
         else:
-            if xlsx_bytes:
-                st.info("Excel descargado, pero no se pudo leer la hoja.")
-            else:
-                st.warning("No se pudo cargar el Excel.")
+            st.warning("No hay datos para mostrar.")
 
-        if xlsx_bytes:
+        if excel_bytes:
             st.download_button(
-                label="⬇️ Descargar Excel: metricas_grafica2.xlsx",
-                data=xlsx_bytes,
-                file_name="metricas_grafica2.xlsx",
+                label="⬇️ Descargar Excel: metricas_seguidores_vs_inversion.xlsx",
+                data=excel_bytes,
+                file_name="metricas_seguidores_vs_inversion.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
-            st.markdown(f"[Abrir Excel en navegador]({DATOS2_URL})")
+            st.markdown(f"[Abrir Excel en navegador]({METRICAS2_URL})")
+        else:
+            st.warning("No se pudo cargar el Excel.")
 
     st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
@@ -931,39 +918,42 @@ with col_header1:
 
 with col_header2:
     st.markdown(f"""
-    <div style="text-align: left; padding-top: 6px;">
-        <div style="font-size: 22px; font-weight: 900; color: #0f172a; font-family: 'Arial Black', sans-serif;">
-            {platform_name} Analytics
-        </div>
-        <div style="font-size: 12px; color: #64748b; font-weight: 600; font-family: Arial, sans-serif;">
-            Resumen de rendimiento y métricas clave
-        </div>
+    <div style="padding: 8px 0;">
+        <h2 style="margin: 0; color: #1f2937;">{platform_name} Analytics</h2>
+        <p style="margin: 3px 0 0 0; color: #6b7280; font-weight: 500;">
+            Período: {st.session_state.tiempo_filtro} • Actualizado: {current_time_short}
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
 with col_header3:
+    status_class = "status-active" if not df.empty else "status-warning"
+    status_text = "✅ Datos Activos" if not df.empty else "⚠️ Sin Datos"
     st.markdown(f"""
-    <div style="text-align: right; padding-top: 8px;">
-        <div style="font-size: 12px; color: #64748b; font-weight: 700; font-family: Arial, sans-serif;">
-            {current_time_short}
-        </div>
-        <div style="font-size: 11px; color: #94a3b8; font-weight: 600; font-family: Arial, sans-serif;">
-            Hora local
-        </div>
+    <div style="text-align: right; padding: 10px 0;">
+        <span class="status-indicator {status_class}">{status_text}</span>
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-
-# Métricas principales
+# ================================================================
+# MÉTRICAS PRINCIPALES
+# ================================================================
 col1, col2, col3, col4, col5 = st.columns(5)
+
+def format_number(num):
+    if num >= 1000000:
+        return f"{num/1000000:.1f}M"
+    elif num >= 1000:
+        return f"{num/1000:.1f}K"
+    else:
+        return f"{num:,.0f}"
 
 with col1:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-label">Publicaciones</div>
-        <div class="metric-value">{total_posts:,}</div>
-        <div class="metric-trend trend-up">📌 Total</div>
+        <div class="metric-label">Total Posts</div>
+        <div class="metric-value">{total_posts}</div>
+        <div class="metric-trend trend-up">📈 Contenido publicado</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -971,8 +961,8 @@ with col2:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-label">Visualizaciones</div>
-        <div class="metric-value">{int(total_views):,}</div>
-        <div class="metric-trend trend-up">👁️ Total</div>
+        <div class="metric-value">{format_number(total_views)}</div>
+        <div class="metric-trend trend-up">👁️ Total acumulado</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -980,8 +970,8 @@ with col3:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-label">Me gusta</div>
-        <div class="metric-value">{int(total_likes):,}</div>
-        <div class="metric-trend trend-up">❤️ Total</div>
+        <div class="metric-value">{format_number(total_likes)}</div>
+        <div class="metric-trend trend-up">❤️ Engagement</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -989,153 +979,271 @@ with col4:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-label">Comentarios</div>
-        <div class="metric-value">{int(total_comments):,}</div>
-        <div class="metric-trend trend-up">💬 Total</div>
+        <div class="metric-value">{format_number(total_comments)}</div>
+        <div class="metric-trend trend-up">💬 Interacciones</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col5:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-label">Engagement</div>
-        <div class="metric-value">{engagement_rate:.1f}%</div>
-        <div class="metric-trend trend-up">📈 Promedio</div>
+        <div class="metric-label">Seguidores</div>
+        <div class="metric-value">{format_number(total_followers)}</div>
+        <div class="metric-trend trend-up">👥 Comunidad</div>
     </div>
     """, unsafe_allow_html=True)
 
-# Sección de pauta publicitaria (solo GENERAL)
-if selected_platform == "general" and not df_pauta.empty:
-    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-    st.markdown("""
-    <div style="font-size: 18px; font-weight: 900; color: #0f172a; font-family: 'Arial Black', sans-serif; margin-bottom: 6px;">
-        📣 Pauta Publicitaria (Resumen)
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
-    # Tomar último registro si hay varios
-    row = df_pauta.iloc[-1].to_dict() if len(df_pauta) > 0 else {}
-    coste = int(row.get("coste_anuncio", 0)) if row.get("coste_anuncio", 0) is not None else 0
-    vis = int(row.get("visualizaciones_videos", 0)) if row.get("visualizaciones_videos", 0) is not None else 0
-    seg = int(row.get("nuevos_seguidores", 0)) if row.get("nuevos_seguidores", 0) is not None else 0
-    fecha = row.get("fecha", "")
-    fecha_txt = ""
-    try:
-        if pd.notna(fecha):
-            fecha_txt = pd.to_datetime(fecha).strftime("%d/%m/%Y")
-    except Exception:
-        fecha_txt = str(fecha)
+# ================================================================
+# TABS PRINCIPALES DEL DASHBOARD
+# ================================================================
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Rendimiento", "📈 Análisis Temporal", "🎯 Contenido Top", "💰 Pauta Publicitaria"])
 
-    p1, p2, p3 = st.columns(3)
-    with p1:
-        st.markdown(f"""
-        <div class="pauta-card">
-            <div class="pauta-label">Inversión</div>
-            <div class="pauta-value">${coste:,}</div>
-            <div class="pauta-period">{fecha_txt}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with p2:
-        st.markdown(f"""
-        <div class="pauta-card">
-            <div class="pauta-label">Visualizaciones</div>
-            <div class="pauta-value">{vis:,}</div>
-            <div class="pauta-period">{fecha_txt}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with p3:
-        st.markdown(f"""
-        <div class="pauta-card">
-            <div class="pauta-label">Seguidores</div>
-            <div class="pauta-value">{seg:,}</div>
-            <div class="pauta-period">{fecha_txt}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
-
-# Tabs principales
-tab1, tab2, tab3 = st.tabs(["📊 Rendimiento", "📈 Tendencias", "🗂️ Datos"])
-
-# TAB 1: Rendimiento
+# ================================================================
+# TAB 1: RENDIMIENTO GENERAL
+# ================================================================
 with tab1:
     st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
 
-    if 'fecha_publicacion' in df.columns and 'visualizaciones' in df.columns:
-        # Top 10 posts por visualizaciones
-        df_top = df.dropna(subset=['fecha_publicacion', 'visualizaciones']).sort_values('visualizaciones', ascending=False).head(10)
+    col_chart1, col_chart2 = st.columns([2, 1])
 
-        fig = px.bar(
-            df_top,
-            x='visualizaciones',
-            y='titulo' if 'titulo' in df_top.columns else df_top.index.astype(str),
-            orientation='h',
-            title="Top 10 Publicaciones por Visualizaciones",
+    with col_chart1:
+        st.subheader("📊 Visualizaciones por Contenido")
+
+        if 'titulo' in df.columns and 'visualizaciones' in df.columns:
+            df_sorted = df.sort_values('visualizaciones', ascending=False).head(15)
+
+            fig_bar = px.bar(
+                df_sorted,
+                x='visualizaciones',
+                y='titulo',
+                orientation='h',
+                title="Top 15 Contenidos por Visualizaciones",
+                labels={'visualizaciones': 'Visualizaciones', 'titulo': 'Contenido'}
+            )
+
+            fig_bar.update_layout(
+                height=500,
+                yaxis={'categoryorder': 'total ascending'},
+                showlegend=False
+            )
+
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+    with col_chart2:
+        st.subheader("🎯 Distribución Engagement")
+
+        engagement_data = {
+            'Tipo': ['Me gusta', 'Comentarios'],
+            'Cantidad': [total_likes, total_comments]
+        }
+
+        fig_pie = px.pie(
+            pd.DataFrame(engagement_data),
+            values='Cantidad',
+            names='Tipo',
+            title="Engagement Total"
         )
-        fig.update_layout(
-            height=420,
-            margin=dict(l=10, r=10, t=60, b=10),
-            yaxis_title="",
-            xaxis_title="Visualizaciones",
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No hay columnas suficientes para graficar rendimiento.")
+
+        fig_pie.update_layout(height=500)
+        st.plotly_chart(fig_pie, use_container_width=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# TAB 2: Tendencias
+    # Tabla de datos
+    st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
+    st.subheader("📋 Datos Detallados")
+
+    # Seleccionar columnas relevantes
+    cols_to_show = []
+    for col in ['titulo', 'fecha_publicacion', 'visualizaciones', 'me_gusta', 'comentarios', 'rendimiento_por_dia']:
+        if col in df.columns:
+            cols_to_show.append(col)
+
+    if cols_to_show:
+        df_display = df[cols_to_show].copy()
+
+        # Formatear fecha
+        if 'fecha_publicacion' in df_display.columns:
+            df_display['fecha_publicacion'] = df_display['fecha_publicacion'].dt.strftime('%d/%m/%Y')
+
+        st.dataframe(df_display, use_container_width=True, height=400)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ================================================================
+# TAB 2: ANÁLISIS TEMPORAL
+# ================================================================
 with tab2:
     st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
 
-    try:
-        # Evolución de visualizaciones por fecha (si existe)
-        if 'fecha_publicacion' in df.columns and 'visualizaciones' in df.columns:
-            df_ts = df.dropna(subset=['fecha_publicacion']).copy()
-            df_ts['fecha_publicacion'] = pd.to_datetime(df_ts['fecha_publicacion'], errors='coerce')
-            df_ts = df_ts.dropna(subset=['fecha_publicacion'])
-            df_daily = df_ts.groupby(df_ts['fecha_publicacion'].dt.date)['visualizaciones'].sum().reset_index()
-            df_daily.columns = ['fecha', 'visualizaciones']
+    st.subheader("📈 Evolución Temporal")
 
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=df_daily['fecha'],
-                y=df_daily['visualizaciones'],
+    if 'fecha_publicacion' in df.columns and 'visualizaciones' in df.columns:
+        df_time = df.groupby('fecha_publicacion').agg({
+            'visualizaciones': 'sum',
+            'me_gusta': 'sum' if 'me_gusta' in df.columns else 'count',
+            'comentarios': 'sum' if 'comentarios' in df.columns else 'count'
+        }).reset_index()
+
+        fig_line = go.Figure()
+
+        fig_line.add_trace(go.Scatter(
+            x=df_time['fecha_publicacion'],
+            y=df_time['visualizaciones'],
+            mode='lines+markers',
+            name='Visualizaciones'
+        ))
+
+        if 'me_gusta' in df_time.columns:
+            fig_line.add_trace(go.Scatter(
+                x=df_time['fecha_publicacion'],
+                y=df_time['me_gusta'],
                 mode='lines+markers',
-                name='Visualizaciones'
+                name='Me gusta',
+                yaxis='y2'
             ))
-            fig.update_layout(
-                title="Tendencia diaria de visualizaciones",
-                height=420,
-                margin=dict(l=10, r=10, t=60, b=10),
-                xaxis_title="Fecha",
-                yaxis_title="Visualizaciones"
+
+        fig_line.update_layout(
+            title="Evolución de Métricas en el Tiempo",
+            xaxis_title="Fecha",
+            yaxis_title="Visualizaciones",
+            yaxis2=dict(
+                title="Me gusta",
+                overlaying='y',
+                side='right'
+            ),
+            height=500
+        )
+
+        st.plotly_chart(fig_line, use_container_width=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Seguidores temporal
+    if not df_followers.empty and selected_platform in ["general", "tiktok"]:
+        st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
+        st.subheader("👥 Evolución de Seguidores")
+
+        if 'Fecha' in df_followers.columns and 'Seguidores_Totales' in df_followers.columns:
+            fig_followers = px.line(
+                df_followers,
+                x='Fecha',
+                y='Seguidores_Totales',
+                title="Crecimiento de Seguidores",
+                markers=True
             )
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No hay datos suficientes para generar tendencias.")
-    except Exception as e:
-        st.warning(f"Error al generar gráfica de tendencias: {str(e)}")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+            fig_followers.update_layout(height=400)
+            st.plotly_chart(fig_followers, use_container_width=True)
 
-# TAB 3: Datos
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ================================================================
+# TAB 3: CONTENIDO TOP
+# ================================================================
 with tab3:
-    st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
+    st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
 
-    st.markdown("""
-    <div style="font-size: 16px; font-weight: 900; color: #0f172a; font-family: 'Arial Black', sans-serif; margin-bottom: 10px;">
-        🗂️ Datos crudos (filtrados por plataforma)
-    </div>
-    """, unsafe_allow_html=True)
+    st.subheader("🏆 Top Contenidos")
 
-    st.dataframe(df, use_container_width=True, height=460)
+    col_top1, col_top2 = st.columns(2)
+
+    with col_top1:
+        st.markdown("#### 👁️ Más Vistos")
+        if 'visualizaciones' in df.columns:
+            top_views = df.nlargest(10, 'visualizaciones')[['titulo', 'visualizaciones']]
+            st.dataframe(top_views, use_container_width=True)
+
+    with col_top2:
+        st.markdown("#### ❤️ Más Engagement")
+        if 'me_gusta' in df.columns:
+            df['engagement_total'] = df['me_gusta'] + df['comentarios']
+            top_engagement = df.nlargest(10, 'engagement_total')[['titulo', 'engagement_total', 'me_gusta', 'comentarios']]
+            st.dataframe(top_engagement, use_container_width=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Footer
-current_time_full = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-st.markdown(f"""
-<div class="footer-container">
-    © 2025 Social Media Analytics Platform • Connected to: <strong>{BACKEND_URL}</strong> • {current_time_full}
-</div>
-""", unsafe_allow_html=True)
+# ================================================================
+# TAB 4: PAUTA PUBLICITARIA
+# ================================================================
+with tab4:
+    st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
+    st.subheader("💰 Resumen Pauta Publicitaria")
+
+    if not df_pauta.empty:
+        # Calcular métricas de pauta
+        total_inversion = df_pauta['coste_anuncio'].sum() if 'coste_anuncio' in df_pauta.columns else 0
+        total_visualizaciones_ads = df_pauta['visualizaciones_videos'].sum() if 'visualizaciones_videos' in df_pauta.columns else 0
+        total_nuevos_seguidores = df_pauta['nuevos_seguidores'].sum() if 'nuevos_seguidores' in df_pauta.columns else 0
+
+        col_p1, col_p2, col_p3 = st.columns(3)
+
+        with col_p1:
+            st.markdown(f"""
+            <div class="pauta-card">
+                <div class="pauta-label">Inversión Total</div>
+                <div class="pauta-value">${total_inversion:,.0f}</div>
+                <div class="pauta-period">COP</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_p2:
+            st.markdown(f"""
+            <div class="pauta-card">
+                <div class="pauta-label">Visualizaciones Ads</div>
+                <div class="pauta-value">{format_number(total_visualizaciones_ads)}</div>
+                <div class="pauta-period">Total</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_p3:
+            st.markdown(f"""
+            <div class="pauta-card">
+                <div class="pauta-label">Nuevos Seguidores</div>
+                <div class="pauta-value">{format_number(total_nuevos_seguidores)}</div>
+                <div class="pauta-period">Generados</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Tabla de pauta
+        st.markdown("#### 📋 Detalle de Campañas")
+        st.dataframe(df_pauta, use_container_width=True)
+
+    else:
+        st.warning("No hay datos de pauta publicitaria disponibles.")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ================================================================
+# EXPORTACIÓN (SI ESTÁ ACTIVADA)
+# ================================================================
+if st.session_state.get("show_export", False):
+    st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
+    st.subheader("📤 Exportar Datos")
+
+    col_exp1, col_exp2 = st.columns(2)
+
+    with col_exp1:
+        st.markdown("#### 📊 Exportar Datos Principales")
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="⬇️ Descargar CSV",
+            data=csv,
+            file_name=f"datos_{selected_platform}_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+
+    with col_exp2:
+        st.markdown("#### 📈 Exportar Reporte Completo")
+        st.info("Funcionalidad en desarrollo...")
+
+    if st.button("❌ Cerrar Exportación"):
+        st.session_state.show_export = False
+        st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
