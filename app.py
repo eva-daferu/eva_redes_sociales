@@ -78,16 +78,14 @@ def cargar_datos_seguidores():
                 dayfirst=True,
                 errors="coerce"
             )
-            # Asegurar orden por fecha
-            df_followers = df_followers.sort_values("Fecha")
         
         if "Seguidores_Totales" in df_followers.columns:
             df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors="coerce")
         
-        return df_followers
+        return df_followers, data.get("analytics", {})
     except Exception as e:
         st.error(f"Error al conectar con el backend de seguidores: {str(e)}")
-        return pd.DataFrame()
+        return pd.DataFrame(), {}
 
 def cargar_datos_pauta():
     try:
@@ -143,7 +141,7 @@ def cargar_imagen_grafica2_bytes():
 @st.cache_data(ttl=300)
 def cargar_datos():
     df = cargar_datos_backend()
-    df_followers = cargar_datos_seguidores()
+    df_followers, analytics_followers = cargar_datos_seguidores()
     df_pauta = cargar_datos_pauta()
     
     if df.empty:
@@ -184,6 +182,7 @@ def cargar_datos():
             'fecha': ['2025-10-19']
         })
         
+        analytics_followers = {"suma_total_seguidores": sum(range(400, 430))}
     else:
         if 'red' in df.columns:
             df['red'] = df['red'].astype(str).str.lower().str.strip()
@@ -194,7 +193,7 @@ def cargar_datos():
         
         tiktok_data = df[df['red'] == 'tiktok'].copy()
     
-    return df, youtobe_data, tiktok_data, df_followers, df_pauta
+    return df, youtobe_data, tiktok_data, df_followers, df_pauta, analytics_followers
 
 def generar_contexto_completo():
     """Genera un contexto completo con TODOS los datos disponibles para la IA"""
@@ -255,14 +254,13 @@ def generar_contexto_completo():
     # 2. Seguidores
     contexto += "👥 SEGUIDORES:\n"
     if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
-        # MODIFICADO: Tomar el último valor NO NULO ordenado por fecha
-        df_followers_sorted = df_followers.sort_values('Fecha')
-        if not df_followers_sorted['Seguidores_Totales'].dropna().empty:
-            total_seguidores = int(df_followers_sorted['Seguidores_Totales'].dropna().iloc[-1])
-        else:
-            total_seguidores = 0
+        # ¡IMPORTANTE! Usar la SUMA de toda la columna
+        total_seguidores = analytics_followers.get("suma_total_seguidores", 0)
+        if total_seguidores == 0:
+            # Fallback: calcular la suma manualmente si no está en analytics
+            total_seguidores = int(df_followers['Seguidores_Totales'].sum())
         
-        contexto += f"• Seguidores actuales: {total_seguidores:,}\n"
+        contexto += f"• Total de seguidores (suma): {total_seguidores:,}\n"
         contexto += f"• Total de registros: {len(df_followers)}\n"
         
         # Evolución reciente (últimos 5)
@@ -558,7 +556,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cargar datos
-df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
+df_all, youtobe_df, tiktok_df, df_followers, df_pauta, analytics_followers = cargar_datos()
 
 # Sidebar (MANTENIDO EXACTAMENTE IGUAL, SOLO CORREGIDO EL TYPO)
 with st.sidebar:
@@ -619,17 +617,15 @@ with st.sidebar:
     with st.expander("📋 **DATOS DISPONIBLES PARA IA**", expanded=False):
         st.caption("El asistente tiene acceso COMPLETO a estos datos:")
         
-        # Mostrar resumen rápido (CORREGIDO: Usar la misma lógica para calcular total_seguidores)
+        # Mostrar resumen rápido
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("📊 Videos", len(df_all))
         with col2:
-            # MODIFICADO: Tomar el último valor NO NULO ordenado por fecha
-            total_seguidores_sidebar = 0
-            if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
-                df_followers_sorted = df_followers.sort_values('Fecha')
-                if not df_followers_sorted['Seguidores_Totales'].dropna().empty:
-                    total_seguidores_sidebar = int(df_followers_sorted['Seguidores_Totales'].dropna().iloc[-1])
+            # ¡IMPORTANTE! Usar la SUMA de toda la columna
+            total_seguidores_sidebar = analytics_followers.get("suma_total_seguidores", 0)
+            if total_seguidores_sidebar == 0 and not df_followers.empty:
+                total_seguidores_sidebar = int(df_followers['Seguidores_Totales'].sum())
             st.metric("👥 Seguidores", f"{total_seguidores_sidebar:,}")
         with col3:
             total_pauta = int(df_pauta['coste_anuncio'].sum()) if not df_pauta.empty and 'coste_anuncio' in df_pauta.columns else 0
@@ -732,12 +728,10 @@ else:
     visualizaciones_videos_sum = 0
     nuevos_seguidores_sum = 0
 
-# Métricas generales (MODIFICADO: Tomar el último valor NO NULO ordenado por fecha)
-total_seguidores = 0
-if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
-    df_followers_sorted = df_followers.sort_values('Fecha')
-    if not df_followers_sorted['Seguidores_Totales'].dropna().empty:
-        total_seguidores = int(df_followers_sorted['Seguidores_Totales'].dropna().iloc[-1])
+# Métricas generales (¡IMPORTANTE! CAMBIADO: Usar la SUMA de toda la columna)
+total_seguidores = analytics_followers.get("suma_total_seguidores", 0)
+if total_seguidores == 0 and not df_followers.empty:
+    total_seguidores = int(df_followers['Seguidores_Totales'].sum())
 
 total_contenidos = len(df_all)
 total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
@@ -775,7 +769,7 @@ with col3:
     )
     st.markdown(html, unsafe_allow_html=True)
 
-# Métrica 4: Total Seguidores
+# Métrica 4: Total Seguidores (¡AHORA MUESTRA LA SUMA!)
 with col4:
     html = create_metric_card(
         icon="👥", 
