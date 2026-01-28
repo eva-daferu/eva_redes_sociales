@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 import warnings
 import requests
 from io import BytesIO
-from openai import OpenAI
 import json
 
 warnings.filterwarnings('ignore')
@@ -286,8 +285,8 @@ def preparar_contexto_ai(df_all, df_followers, df_pauta):
     
     return contexto
 
-def procesar_respuesta_ia():
-    """Procesa la respuesta del asistente IA de forma segura"""
+def procesar_respuesta_ia(df_all, df_followers, df_pauta):
+    """Procesa la respuesta del asistente IA usando tu backend"""
     if "processing_chat" not in st.session_state:
         st.session_state.processing_chat = False
     
@@ -302,31 +301,29 @@ def procesar_respuesta_ia():
                 # Preparar contexto
                 contexto = preparar_contexto_ai(df_all, df_followers, df_pauta)
                 
-                # Llamar a OpenAI
-                try:
-                    response = client.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=[
-                            {"role": "system", "content": contexto},
-                            *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-6:]]
-                        ],
-                        temperature=0.7,
-                        max_tokens=500
-                    )
-                    
-                    respuesta = response.choices[0].message.content
-                    
-                except Exception as e:
-                    respuesta = f"❌ **Error al procesar tu consulta:**\n\n`{str(e)}`\n\nPor favor, verifica tu API Key de OpenAI o intenta nuevamente."
+                # Construir el prompt completo para el backend
+                # Incluir el contexto y la conversación reciente
+                conversacion_reciente = ""
+                for msg in st.session_state.messages[-6:]:  # Últimos 6 mensajes (3 intercambios)
+                    role = "Usuario" if msg["role"] == "user" else "DataBot"
+                    conversacion_reciente += f"{role}: {msg['content']}\n"
+                
+                prompt_completo = f"{contexto}\n\nConversación actual:\n{conversacion_reciente}DataBot: "
+                
+                # Llamar a tu backend en lugar de OpenAI SDK
+                respuesta = openai_chat(prompt_completo, model="gpt-4.1-mini", max_output_tokens=500)
                 
                 # Agregar respuesta del asistente
                 st.session_state.messages.append({"role": "assistant", "content": respuesta})
+        
+        except Exception as e:
+            respuesta = f"❌ **Error al procesar tu consulta:**\n\n`{str(e)}`\n\nPor favor, intenta nuevamente."
+            st.session_state.messages.append({"role": "assistant", "content": respuesta})
         
         finally:
             # Resetear estados
             st.session_state.process_chat_request = False
             st.session_state.processing_chat = False
-            st.session_state.chat_input = ""  # Limpiar el input
 
 # ============================================
 # FUNCIONES DE INTERFAZ
@@ -800,7 +797,7 @@ with st.sidebar:
 # ============================================
 # PROCESAR RESPUESTA IA (fuera del sidebar)
 # ============================================
-procesar_respuesta_ia()
+procesar_respuesta_ia(df_all, df_followers, df_pauta)
 
 # ============================================
 # CONTENIDO PRINCIPAL
