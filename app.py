@@ -13,7 +13,7 @@ warnings.filterwarnings('ignore')
 # ============================================
 # CONFIGURACIÓN DE API KEYS
 # ============================================
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = "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"
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # ============================================
