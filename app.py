@@ -10,7 +10,7 @@ from openai import OpenAI
 warnings.filterwarnings('ignore')
 
 # Configuración de OpenAI
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = "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"
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Configuración de la página
