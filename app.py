@@ -11,7 +11,7 @@ import json
 warnings.filterwarnings('ignore')
 
 # ============================================
-# CONFIGURACIÓN DE API KEYS (¡ACTUALIZA AQUÍ!)
+# CONFIGURACIÓN DE API KEYS
 # ============================================
 OPENAI_API_KEY = "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"
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -272,33 +272,47 @@ def preparar_contexto_ai(df_all, df_followers, df_pauta):
     
     return contexto
 
-def llamar_openai(mensaje_usuario, contexto, historial):
-    """Realiza la llamada a OpenAI"""
-    try:
-        # Verificar que la API key sea válida
-        if not OPENAI_API_KEY or OPENAI_API_KEY.startswith("sk-proj-****************************************************************"):
-            raise ValueError("API Key no configurada correctamente")
+def procesar_respuesta_ia():
+    """Procesa la respuesta del asistente IA de forma segura"""
+    if "processing_chat" not in st.session_state:
+        st.session_state.processing_chat = False
+    
+    if st.session_state.get("process_chat_request", False) and not st.session_state.processing_chat:
+        st.session_state.processing_chat = True
         
-        # Preparar mensajes para OpenAI
-        mensajes = [
-            {"role": "system", "content": contexto},
-            *[{"role": m["role"], "content": m["content"]} for m in historial[-6:]],  # Últimos 6 mensajes
-            {"role": "user", "content": mensaje_usuario}
-        ]
+        try:
+            # Obtener último mensaje del usuario
+            if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
+                ultimo_mensaje = st.session_state.messages[-1]["content"]
+                
+                # Preparar contexto
+                contexto = preparar_contexto_ai(df_all, df_followers, df_pauta)
+                
+                # Llamar a OpenAI
+                try:
+                    response = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": contexto},
+                            *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-6:]]
+                        ],
+                        temperature=0.7,
+                        max_tokens=500
+                    )
+                    
+                    respuesta = response.choices[0].message.content
+                    
+                except Exception as e:
+                    respuesta = f"❌ **Error al procesar tu consulta:**\n\n`{str(e)}`\n\nPor favor, verifica tu API Key de OpenAI o intenta nuevamente."
+                
+                # Agregar respuesta del asistente
+                st.session_state.messages.append({"role": "assistant", "content": respuesta})
         
-        # Llamar a OpenAI
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=mensajes,
-            temperature=0.7,
-            max_tokens=500,
-            stream=False
-        )
-        
-        return response.choices[0].message.content
-        
-    except Exception as e:
-        return f"❌ **Error al procesar tu consulta:**\n\n`{str(e)}`\n\nPor favor, verifica tu API Key de OpenAI o intenta nuevamente."
+        finally:
+            # Resetear estados
+            st.session_state.process_chat_request = False
+            st.session_state.processing_chat = False
+            st.session_state.chat_input = ""  # Limpiar el input
 
 # ============================================
 # FUNCIONES DE INTERFAZ
@@ -687,12 +701,11 @@ with st.sidebar:
                     type="primary" if selected_platform == platform_key else "secondary"):
             selected_platform = platform_key
             st.session_state["selected_platform"] = platform_key
-            st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)
     
     # ============================================
-    # ASISTENTE IA MEJORADO
+    # ASISTENTE IA MEJORADO - SIN BUCLE
     # ============================================
     st.markdown('<div class="ai-header">', unsafe_allow_html=True)
     st.markdown('<h3><span>🤖</span> ASISTENTE IA DE DATOS</h3>', unsafe_allow_html=True)
@@ -707,10 +720,11 @@ with st.sidebar:
             }
         ]
     
-    if "thinking" not in st.session_state:
-        st.session_state.thinking = False
+    # Inicializar estados del chat
+    if "process_chat_request" not in st.session_state:
+        st.session_state.process_chat_request = False
     
-    # Contenedor del chat mejorado
+    # Contenedor del chat
     st.markdown('<div class="chat-container" id="chat-container">', unsafe_allow_html=True)
     
     for message in st.session_state.messages:
@@ -719,12 +733,11 @@ with st.sidebar:
         else:
             # Formatear respuesta del asistente
             content = message["content"]
-            # Reemplazar saltos de línea con <br> para HTML
             content = content.replace('\n', '<br>')
             st.markdown(f'<div class="chat-message"><div class="assistant-message">{content}</div></div>', unsafe_allow_html=True)
     
-    # Mostrar indicador de escritura si está pensando
-    if st.session_state.thinking:
+    # Mostrar indicador de escritura si está procesando
+    if st.session_state.get("processing_chat", False):
         st.markdown('''
         <div class="chat-message">
             <div class="typing-indicator">
@@ -737,26 +750,27 @@ with st.sidebar:
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Input de chat mejorado
-    col1, col2 = st.columns([4, 1])
-    with col1:
-        user_input = st.text_input(
-            "Escribe tu pregunta...",
-            key="chat_input",
-            label_visibility="collapsed",
-            placeholder="Ej: ¿Cuál es el ROI de la campaña?"
-        )
+    # Input de chat - Usamos un formulario para evitar bucles
+    with st.form(key="chat_form", clear_on_submit=True):
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            user_input = st.text_input(
+                "Escribe tu pregunta...",
+                key="chat_input_form",
+                label_visibility="collapsed",
+                placeholder="Ej: ¿Cuál es el ROI de la campaña?"
+            )
+        with col2:
+            submit_button = st.form_submit_button("➤", use_container_width=True, type="primary")
     
-    with col2:
-        send_button = st.button("➤", use_container_width=True, type="primary")
-    
-    # Procesar mensaje
-    if (user_input and user_input.strip()) or send_button:
-        if user_input.strip():
-            # Agregar mensaje del usuario
-            st.session_state.messages.append({"role": "user", "content": user_input.strip()})
-            st.session_state.thinking = True
-            st.rerun()
+    # Procesar mensaje cuando se envía el formulario
+    if submit_button and user_input.strip():
+        # Agregar mensaje del usuario
+        st.session_state.messages.append({"role": "user", "content": user_input.strip()})
+        # Marcar para procesar
+        st.session_state.process_chat_request = True
+        # Forzar actualización
+        st.rerun()
     
     # Botón para limpiar chat
     if st.button("🗑️ Limpiar Conversación", use_container_width=True, type="secondary"):
@@ -766,25 +780,13 @@ with st.sidebar:
                 "content": "👋 ¡Conversación reiniciada! ¿En qué puedo ayudarte ahora?"
             }
         ]
-        st.rerun()
+        st.session_state.process_chat_request = False
+        st.session_state.processing_chat = False
 
 # ============================================
 # PROCESAR RESPUESTA IA (fuera del sidebar)
 # ============================================
-if st.session_state.thinking:
-    # Preparar contexto
-    contexto = preparar_contexto_ai(df_all, df_followers, df_pauta)
-    
-    # Obtener último mensaje del usuario
-    ultimo_mensaje = st.session_state.messages[-1]["content"]
-    
-    # Llamar a OpenAI
-    respuesta = llamar_openai(ultimo_mensaje, contexto, st.session_state.messages[:-1])
-    
-    # Agregar respuesta del asistente
-    st.session_state.messages.append({"role": "assistant", "content": respuesta})
-    st.session_state.thinking = False
-    st.rerun()
+procesar_respuesta_ia()
 
 # ============================================
 # CONTENIDO PRINCIPAL
@@ -915,7 +917,6 @@ with col1:
                  use_container_width=True,
                  type="primary" if st.session_state.grafica_seleccionada == "evolucion" else "secondary"):
         st.session_state.grafica_seleccionada = "evolucion"
-        st.rerun()
 
 with col2:
     if st.button("**💰** **Inversión vs ROI**", 
@@ -923,7 +924,6 @@ with col2:
                  use_container_width=True,
                  type="primary" if st.session_state.grafica_seleccionada == "grafica1" else "secondary"):
         st.session_state.grafica_seleccionada = "grafica1"
-        st.rerun()
 
 with col3:
     if st.button("**📊** **Heatmap Performance**", 
@@ -931,7 +931,6 @@ with col3:
                  use_container_width=True,
                  type="primary" if st.session_state.grafica_seleccionada == "grafica2" else "secondary"):
         st.session_state.grafica_seleccionada = "grafica2"
-        st.rerun()
 
 st.markdown('</div>', unsafe_allow_html=True)
 
