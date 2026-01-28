@@ -13,8 +13,22 @@ warnings.filterwarnings('ignore')
 # ============================================
 # CONFIGURACIÓN DE API KEYS
 # ============================================
-OPENAI_API_KEY = "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"
-client = OpenAI(api_key=OPENAI_API_KEY)
+BACKEND_URL = "https://pahubisas.pythonanywhere.com/openai_response"
+
+def openai_chat(prompt, model="gpt-4.1-mini", max_output_tokens=300):
+    payload = {
+        "input": prompt,
+        "model": model,
+        "max_output_tokens": max_output_tokens
+    }
+
+    r = requests.post(BACKEND_URL, json=payload, timeout=60)
+
+    if r.status_code != 200:
+        raise RuntimeError(r.text)
+
+    data = r.json()
+    return data["data"]["output_text"]
 
 # ============================================
 # CONFIGURACIÓN DE LA PÁGINA
