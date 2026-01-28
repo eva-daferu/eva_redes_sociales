@@ -5,293 +5,15 @@ from datetime import datetime, timedelta
 import warnings
 import requests
 from io import BytesIO
-import json
+from openai import OpenAI
 
 warnings.filterwarnings('ignore')
 
-# ============================================
-# CONFIGURACIÓN DE ENDPOINTS
-# ============================================
-# ENDPOINTS DEL BACKEND EN PYTHONANYWHERE
-BACKEND_BASE_URL = "https://pahubisas.pythonanywhere.com"
-DATA_URL = f"{BACKEND_BASE_URL}/data"
-FOLLOWERS_URL = f"{BACKEND_BASE_URL}/followers"
-PAUTA_URL = f"{BACKEND_BASE_URL}/pauta_anuncio"
-GRAFICA1_URL = f"{BACKEND_BASE_URL}/grafica1"
-GRAFICA2_URL = f"{BACKEND_BASE_URL}/grafica2"
-OPENAI_URL = f"{BACKEND_BASE_URL}/openai_response"  # Endpoint para IA
+# Configuración de OpenAI
+OPENAI_API_KEY = "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"
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-# ============================================
-# FUNCIONES PARA CARGAR DATOS
-# ============================================
-@st.cache_data(ttl=300)
-def cargar_datos_principales():
-    """Carga datos principales del backend"""
-    try:
-        response = requests.get(DATA_URL, timeout=20)
-        response.raise_for_status()
-        data = response.json()
-        
-        if "data" in data:
-            df = pd.DataFrame(data["data"])
-        else:
-            df = pd.DataFrame(data)
-        
-        # Limpieza y transformación de datos
-        if not df.empty:
-            # Convertir fechas
-            date_columns = ['fecha_publicacion', 'fecha', 'Fecha']
-            for col in date_columns:
-                if col in df.columns:
-                    df[col] = pd.to_datetime(df[col], dayfirst=True, errors='coerce')
-            
-            # Convertir columnas numéricas
-            numeric_columns = ['visualizaciones', 'vistas', 'me_gusta', 'comentarios', 
-                             'Seguidores_Totales', 'me_gusta_numero', 'comentarios_num']
-            for col in numeric_columns:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-            
-            # Normalizar nombres de plataformas
-            if 'red' in df.columns:
-                df['red'] = df['red'].astype(str).str.lower().str.strip()
-            elif 'platform' in df.columns:
-                df['red'] = df['platform'].astype(str).str.lower().str.strip()
-            else:
-                df['red'] = 'desconocido'
-        
-        return df
-    except Exception as e:
-        st.error(f"Error al cargar datos principales: {str(e)}")
-        return pd.DataFrame()
-
-@st.cache_data(ttl=300)
-def cargar_datos_seguidores():
-    """Carga datos de seguidores"""
-    try:
-        response = requests.get(FOLLOWERS_URL, timeout=20)
-        response.raise_for_status()
-        data = response.json()
-        
-        if "data" in data:
-            df = pd.DataFrame(data["data"])
-        else:
-            df = pd.DataFrame(data)
-        
-        if not df.empty:
-            # Convertir fechas
-            if 'Fecha' in df.columns:
-                df['Fecha'] = pd.to_datetime(df['Fecha'], dayfirst=True, errors='coerce')
-            
-            # Convertir numéricas
-            if 'Seguidores_Totales' in df.columns:
-                df['Seguidores_Totales'] = pd.to_numeric(df['Seguidores_Totales'], errors='coerce')
-        
-        return df
-    except Exception as e:
-        st.error(f"Error al cargar datos de seguidores: {str(e)}")
-        return pd.DataFrame()
-
-@st.cache_data(ttl=300)
-def cargar_datos_pauta():
-    """Carga datos de pauta publicitaria"""
-    try:
-        response = requests.get(PAUTA_URL, timeout=20)
-        response.raise_for_status()
-        data = response.json()
-        
-        if "data" in data:
-            df = pd.DataFrame(data["data"])
-        else:
-            df = pd.DataFrame(data)
-        
-        if not df.empty:
-            # Normalizar nombres de columnas
-            column_mapping = {
-                'Costo': 'coste_anuncio',
-                'Visualizaciones': 'visualizaciones_videos',
-                'Seguidores': 'nuevos_seguidores',
-                'fecha': 'fecha'
-            }
-            
-            for old_col, new_col in column_mapping.items():
-                if old_col in df.columns:
-                    df[new_col] = df[old_col]
-            
-            # Convertir tipos de datos
-            numeric_cols = ['coste_anuncio', 'visualizaciones_videos', 'nuevos_seguidores']
-            for col in numeric_cols:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-            
-            if 'fecha' in df.columns:
-                df['fecha'] = pd.to_datetime(df['fecha'], dayfirst=True, errors='coerce')
-        
-        return df
-    except Exception as e:
-        return pd.DataFrame()
-
-def cargar_imagen_grafica(url):
-    """Carga imagen de gráfica desde URL"""
-    try:
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        return response.content
-    except Exception as e:
-        st.error(f"Error al cargar imagen: {str(e)}")
-        return None
-
-# ============================================
-# FUNCIONES DE ASISTENTE IA - VERSIÓN ROBUSTA
-# ============================================
-def preparar_contexto_para_ia(df_all, df_followers, df_pauta):
-    """
-    Prepara un resumen completo de los datos para el contexto de IA
-    """
-    contexto = "CONTEXTO PARA ANÁLISIS DE REDES SOCIALES:\n\n"
-    
-    # 1. Resumen general
-    contexto += "📊 RESUMEN GENERAL:\n"
-    contexto += f"• Total de publicaciones: {len(df_all)}\n"
-    
-    if 'visualizaciones' in df_all.columns:
-        total_views = df_all['visualizaciones'].sum()
-        avg_views = total_views / len(df_all) if len(df_all) > 0 else 0
-        contexto += f"• Visualizaciones totales: {total_views:,.0f}\n"
-        contexto += f"• Promedio por publicación: {avg_views:,.0f}\n"
-    
-    # 2. Datos por plataforma
-    contexto += "\n📱 DATOS POR PLATAFORMA:\n"
-    if 'red' in df_all.columns:
-        platforms = df_all['red'].value_counts()
-        for platform, count in platforms.items():
-            platform_data = df_all[df_all['red'] == platform]
-            platform_views = platform_data['visualizaciones'].sum() if 'visualizaciones' in platform_data.columns else 0
-            contexto += f"• {platform.upper()}: {count} publicaciones, {platform_views:,.0f} visualizaciones\n"
-    
-    # 3. Seguidores
-    contexto += "\n👥 DATOS DE SEGUIDORES:\n"
-    if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
-        if not df_followers['Seguidores_Totales'].dropna().empty:
-            latest_followers = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
-            contexto += f"• Seguidores actuales: {latest_followers:,}\n"
-        
-        # Crecimiento de seguidores si hay múltiples fechas
-        if len(df_followers) > 1 and 'Fecha' in df_followers.columns:
-            df_followers_sorted = df_followers.sort_values('Fecha')
-            growth = df_followers_sorted['Seguidores_Totales'].iloc[-1] - df_followers_sorted['Seguidores_Totales'].iloc[0]
-            contexto += f"• Crecimiento neto: {growth:+,}\n"
-    
-    # 4. Inversión publicitaria
-    contexto += "\n💰 INVERSIÓN PUBLICITARIA:\n"
-    if not df_pauta.empty:
-        if 'coste_anuncio' in df_pauta.columns:
-            total_investment = df_pauta['coste_anuncio'].sum()
-            contexto += f"• Inversión total: ${total_investment:,.0f}\n"
-        
-        if 'visualizaciones_videos' in df_pauta.columns:
-            paid_views = df_pauta['visualizaciones_videos'].sum()
-            contexto += f"• Visualizaciones pagadas: {paid_views:,}\n"
-            
-            if total_investment > 0 and paid_views > 0:
-                cpm = (total_investment / paid_views) * 1000
-                contexto += f"• CPM (Costo por mil): ${cpm:,.2f}\n"
-        
-        if 'nuevos_seguidores' in df_pauta.columns:
-            new_followers = df_pauta['nuevos_seguidores'].sum()
-            contexto += f"• Nuevos seguidores de pauta: {new_followers:,}\n"
-            
-            if total_investment > 0 and new_followers > 0:
-                cost_per_follower = total_investment / new_followers
-                contexto += f"• Costo por seguidor: ${cost_per_follower:,.2f}\n"
-    
-    # 5. Top contenido
-    contexto += "\n🏆 CONTENIDO DESTACADO:\n"
-    if not df_all.empty and 'titulo' in df_all.columns and 'visualizaciones' in df_all.columns:
-        top_content = df_all.nlargest(3, 'visualizaciones')[['titulo', 'visualizaciones', 'red']]
-        for idx, row in top_content.iterrows():
-            titulo = str(row['titulo'])[:50] + "..." if len(str(row['titulo'])) > 50 else str(row['titulo'])
-            contexto += f"• {titulo}: {row['visualizaciones']:,} vistas ({row['red']})\n"
-    
-    # 6. Recomendaciones base
-    contexto += "\n💡 INSTRUCCIONES PARA EL ASISTENTE:\n"
-    contexto += """Eres un analista de redes sociales especializado. Basándote en los datos proporcionados:
-    1. Analiza el rendimiento del contenido
-    2. Evalúa el ROI de la inversión publicitaria
-    3. Identifica tendencias y oportunidades
-    4. Proporciona recomendaciones específicas y accionables
-    5. Usa un tono profesional pero amigable
-    6. Incluye métricas relevantes en tu análisis
-    7. Responde directamente a la pregunta del usuario
-    
-    Formato de respuesta: Claro, estructurado y con emojis relevantes."""
-    
-    return contexto
-
-def enviar_pregunta_a_backend(pregunta, contexto):
-    """Envía la pregunta al backend de PythonAnywhere"""
-    try:
-        # Preparar el prompt completo
-        prompt_completo = f"{contexto}\n\nPREGUNTA DEL USUARIO: {pregunta}\n\nRESPUESTA DEL ASISTENTE:"
-        
-        # Enviar al backend
-        payload = {
-            "input": prompt_completo,
-            "model": "gpt-4.1-mini",
-            "max_output_tokens": 500
-        }
-        
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
-        
-        response = requests.post(OPENAI_URL, json=payload, headers=headers, timeout=60)
-        
-        # Manejar diferentes formatos de respuesta
-        if response.status_code == 200:
-            # Intentar como JSON
-            try:
-                data = response.json()
-                # Buscar respuesta en diferentes estructuras
-                if isinstance(data, dict):
-                    if "data" in data and "output_text" in data["data"]:
-                        return data["data"]["output_text"]
-                    elif "output_text" in data:
-                        return data["output_text"]
-                    elif "response" in data:
-                        return data["response"]
-                    elif "text" in data:
-                        return data["text"]
-                    elif "message" in data:
-                        return data["message"]
-                    else:
-                        # Devolver el primer valor de texto encontrado
-                        for key, value in data.items():
-                            if isinstance(value, str) and len(value) > 20:
-                                return value
-                # Si no es dict, devolver el texto
-                return response.text
-            except json.JSONDecodeError:
-                # Si no es JSON, devolver texto plano
-                text_response = response.text.strip()
-                if text_response and text_response != "OpenAI response":
-                    return text_response
-                else:
-                    return "El backend respondió pero no proporcionó una respuesta válida."
-        else:
-            return f"Error del backend: Código {response.status_code} - {response.text[:100]}"
-            
-    except requests.exceptions.Timeout:
-        return "⏳ El servidor tardó demasiado en responder. Por favor, intenta nuevamente."
-    except requests.exceptions.ConnectionError:
-        return "🔌 Error de conexión con el servidor. Verifica tu conexión a internet."
-    except Exception as e:
-        return f"❌ Error inesperado: {str(e)}"
-
-# ============================================
-# CONFIGURACIÓN DE LA APLICACIÓN
-# ============================================
+# Configuración de la página
 st.set_page_config(
     page_title="Social Media Dashboard PRO",
     layout="wide",
@@ -299,36 +21,193 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ============================================
-# CARGAR DATOS UNA VEZ
-# ============================================
-@st.cache_resource
-def cargar_todos_los_datos():
-    """Carga todos los datos necesarios"""
-    with st.spinner("Cargando datos del servidor..."):
-        df_all = cargar_datos_principales()
-        df_followers = cargar_datos_seguidores()
-        df_pauta = cargar_datos_pauta()
-        
-        # Preparar datos por plataforma
-        youtobe_df = pd.DataFrame()
-        tiktok_df = pd.DataFrame()
-        
-        if not df_all.empty and 'red' in df_all.columns:
-            youtobe_df = df_all[df_all['red'].str.contains('youtub|youtobe', case=False, na=False)].copy()
-            tiktok_df = df_all[df_all['red'].str.contains('tiktok', case=False, na=False)].copy()
-        
-        return df_all, youtobe_df, tiktok_df, df_followers, df_pauta
+#############################################
+# ENDPOINTS
+#############################################
+BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
+FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
+PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
+GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
+GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
 
-# Cargar datos
-df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_todos_los_datos()
+def cargar_datos_backend():
+    try:
+        r = requests.get(BACKEND_URL, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        df = pd.DataFrame(data.get("data", []))
+        
+        if "fecha_publicacion" in df.columns:
+            df["fecha_publicacion"] = pd.to_datetime(
+                df["fecha_publicacion"],
+                dayfirst=True,
+                errors="coerce"
+            )
 
-# ============================================
-# ESTILOS CSS
-# ============================================
+        num_cols = ["vistas", "comentarios", "me_gusta_numero", "visualizaciones", 
+                   "me_gusta", "comentarios_num", "Seguidores_Totales"]
+        for col in num_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        if "visualizaciones" not in df.columns and "vistas" in df.columns:
+            df["visualizaciones"] = df["vistas"]
+        
+        if "me_gusta" not in df.columns and "me_gusta_numero" in df.columns:
+            df["me_gusta"] = df["me_gusta_numero"]
+        
+        if "comentarios" not in df.columns and "comentarios_num" in df.columns:
+            df["comentarios"] = df["comentarios_num"]
+
+        if "red" not in df.columns and "platform" in df.columns:
+            df["red"] = df["platform"]
+        elif "red" not in df.columns:
+            df["red"] = "desconocido"
+
+        return df
+    except Exception as e:
+        st.error(f"Error al conectar con el backend: {str(e)}")
+        return pd.DataFrame()
+
+def cargar_datos_seguidores():
+    try:
+        r = requests.get(FOLLOWERS_URL, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        df_followers = pd.DataFrame(data.get("data", []))
+        
+        if "Fecha" in df_followers.columns:
+            df_followers["Fecha"] = pd.to_datetime(
+                df_followers["Fecha"],
+                dayfirst=True,
+                errors="coerce"
+            )
+        
+        if "Seguidores_Totales" in df_followers.columns:
+            df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors="coerce")
+        
+        return df_followers
+    except Exception as e:
+        st.error(f"Error al conectar con el backend de seguidores: {str(e)}")
+        return pd.DataFrame()
+
+def cargar_datos_pauta():
+    try:
+        r = requests.get(PAUTA_URL, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        df_pauta = pd.DataFrame(data.get("data", []))
+        
+        if not df_pauta.empty:
+            if 'Costo' in df_pauta.columns:
+                df_pauta['coste_anuncio'] = df_pauta['Costo']
+            if 'Visualizaciones' in df_pauta.columns:
+                df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
+            if 'Seguidores' in df_pauta.columns:
+                df_pauta['nuevos_seguidores'] = df_pauta['Seguidores']
+            
+            if "coste_anuncio" in df_pauta.columns:
+                df_pauta["coste_anuncio"] = pd.to_numeric(df_pauta["coste_anuncio"], errors="coerce").fillna(0).astype(int)
+            
+            for col in ["visualizaciones_videos", "nuevos_seguidores"]:
+                if col in df_pauta.columns:
+                    df_pauta[col] = pd.to_numeric(df_pauta[col], errors="coerce").fillna(0).astype(int)
+            
+            if "fecha" in df_pauta.columns:
+                df_pauta["fecha"] = pd.to_datetime(df_pauta["fecha"], errors='coerce', dayfirst=True)
+        
+        return df_pauta
+    except Exception as e:
+        return pd.DataFrame()
+
+def _descargar_bytes(url, timeout=30):
+    r = requests.get(url, timeout=timeout)
+    r.raise_for_status()
+    return r.content
+
+def cargar_imagen_grafica1_bytes():
+    try:
+        content = _descargar_bytes(GRAFICA1_URL, timeout=30)
+        return content
+    except Exception as e:
+        st.error(f"Error al cargar imagen de gráfica 1: {str(e)}")
+        return b""
+
+def cargar_imagen_grafica2_bytes():
+    try:
+        content = _descargar_bytes(GRAFICA2_URL, timeout=30)
+        return content
+    except Exception as e:
+        st.error(f"Error al cargar imagen de gráfica 2: {str(e)}")
+        return b""
+
+# Función para cargar datos con caché
+@st.cache_data(ttl=300)
+def cargar_datos():
+    df = cargar_datos_backend()
+    df_followers = cargar_datos_seguidores()
+    df_pauta = cargar_datos_pauta()
+    
+    if df.empty:
+        st.warning("Usando datos de respaldo.")
+        
+        youtobe_data = pd.DataFrame({
+            'titulo': ['Amazonía al borde', 'El costo oculto de botar comida'],
+            'fecha_publicacion': ['01/10/2025', '23/09/2025'],
+            'visualizaciones': [18, 22],
+            'me_gusta': [0, 0],
+            'comentarios': [0, 0],
+            'Seguidores_Totales': [0, 0],
+            'red': ['youtobe', 'youtobe']
+        })
+        
+        tiktok_data = pd.DataFrame({
+            'titulo': ['Especie única en Colombia', 'Una peli que te volará la mente'],
+            'fecha_publicacion': ['03/12/2025', '28/11/2025'],
+            'visualizaciones': [127, 5669],
+            'me_gusta': [19, 211],
+            'comentarios': [2, 5],
+            'Seguidores_Totales': [450, 450],
+            'red': ['tiktok', 'tiktok']
+        })
+        
+        youtobe_data['fecha_publicacion'] = pd.to_datetime(youtobe_data['fecha_publicacion'], dayfirst=True)
+        tiktok_data['fecha_publicacion'] = pd.to_datetime(tiktok_data['fecha_publicacion'], dayfirst=True)
+        
+        df_followers = pd.DataFrame({
+            'Fecha': pd.date_range(start='2024-01-01', periods=30, freq='D'),
+            'Seguidores_Totales': range(400, 430)
+        })
+        
+        df_pauta = pd.DataFrame({
+            'coste_anuncio': [641140],
+            'visualizaciones_videos': [180500],
+            'nuevos_seguidores': [4170],
+            'fecha': ['2025-10-19']
+        })
+        
+    else:
+        if 'red' in df.columns:
+            df['red'] = df['red'].astype(str).str.lower().str.strip()
+        
+        youtobe_data = df[df['red'] == 'youtobe'].copy()
+        if youtobe_data.empty:
+            youtobe_data = df[df['red'] == 'youtube'].copy()
+        
+        tiktok_data = df[df['red'] == 'tiktok'].copy()
+    
+    return df, youtobe_data, tiktok_data, df_followers, df_pauta
+
+# Estilos CSS
 st.markdown("""
 <style>
-/* Estilos generales */
+/* Animación shimmer */
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* Header principal */
 .dashboard-header {
     background: linear-gradient(135deg, #1e40af 0%, #3B82F6 100%);
     border-radius: 16px;
@@ -351,7 +230,85 @@ st.markdown("""
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.metric-card {
+/* Contenedores */
+.performance-chart {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin: 15px 0;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+    border: 1px solid #e5e7eb;
+}
+
+.data-table-container {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin: 15px 0;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+    border: 1px solid #e5e7eb;
+}
+
+/* Selector de gráficas */
+.grafica-selector-container {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 16px;
+    padding: 15px;
+    margin: 15px 0 18px 0;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+}
+
+.grafica-selector-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #1f2937;
+    margin-bottom: 12px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+.grafica-selector-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.grafica-selector-btn {
+    flex: 1;
+    max-width: 240px;
+    padding: 18px 16px;
+    border-radius: 14px;
+    background: white;
+    border: 2px solid #e5e7eb;
+    color: #64748b;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+.grafica-selector-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+}
+
+.grafica-selector-btn.active {
+    background: linear-gradient(135deg, #3B82F6 0%, #2563eb 100%);
+    color: white;
+    border-color: #3B82F6;
+    box-shadow: 0 12px 30px rgba(59, 130, 246, 0.5);
+}
+
+/* Estilos para las métricas */
+.metric-container {
     background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
     border-radius: 14px;
     padding: 20px 16px;
@@ -359,6 +316,8 @@ st.markdown("""
     border: 1px solid #bae6fd;
     text-align: center;
     transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
     min-height: 130px;
     display: flex;
     flex-direction: column;
@@ -366,19 +325,26 @@ st.markdown("""
     align-items: center;
 }
 
-.metric-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+.metric-shimmer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #0ea5e9 0%, #3B82F6 50%, #0ea5e9 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s infinite linear;
+    border-radius: 14px 14px 0 0;
 }
 
 .metric-icon {
-    font-size: 28px;
+    font-size: 24px;
     margin-bottom: 10px;
     color: #0ea5e9;
 }
 
 .metric-value {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 900;
     color: #0369a1;
     margin: 5px 0;
@@ -394,399 +360,585 @@ st.markdown("""
     line-height: 1.4;
 }
 
-/* Estilos para el chat */
-.chat-container {
-    background: white;
-    border-radius: 12px;
+.metric-container-light {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     border: 1px solid #e5e7eb;
-    height: 320px;
-    overflow-y: auto;
-    padding: 15px;
-    margin-bottom: 15px;
 }
 
-.user-message {
-    background: linear-gradient(135deg, #3B82F6 0%, #2563eb 100%);
-    color: white;
-    padding: 10px 14px;
-    border-radius: 14px 14px 4px 14px;
-    max-width: 85%;
-    margin-left: auto;
-    margin-bottom: 10px;
-    font-size: 12px;
-    line-height: 1.4;
+.metric-shimmer-light {
+    background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #3B82F6 100%);
 }
 
-.assistant-message {
-    background: #f8fafc;
+.metric-icon-light {
     color: #1f2937;
-    padding: 10px 14px;
-    border-radius: 14px 14px 14px 4px;
-    max-width: 85%;
-    margin-right: auto;
-    margin-bottom: 10px;
-    font-size: 12px;
-    line-height: 1.4;
-    border: 1px solid #e5e7eb;
 }
 
-.typing-indicator {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 10px 14px;
-    background: #f8fafc;
-    border-radius: 14px;
-    width: fit-content;
-    margin-right: auto;
+.metric-value-light {
+    color: #1f2937;
 }
 
-.typing-dot {
-    width: 6px;
-    height: 6px;
-    background: #8B5CF6;
-    border-radius: 50%;
-    animation: pulse 1.4s infinite;
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
+.metric-label-light {
+    color: #6b7280;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================
-# SIDEBAR - ASISTENTE IA
-# ============================================
+# Cargar datos
+df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
+
+# Sidebar
 with st.sidebar:
-    # Logo
     st.markdown("""
-    <div style="text-align: center; margin-bottom: 20px;">
+    <div style="text-align: center; margin-bottom: 20px; padding: 0 10px;">
         <div style="
-            background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%);
-            width: 52px; 
-            height: 52px; 
-            border-radius: 14px; 
+            background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+            width: 48px; 
+            height: 48px; 
+            border-radius: 12px; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
-            margin: 0 auto 12px auto; 
-            font-size: 24px;
-            box-shadow: 0 8px 20px rgba(139, 92, 246, 0.4);
+            margin: 0 auto 10px auto; 
+            font-size: 22px;
+            box-shadow: 0 6px 15px rgba(59, 130, 246, 0.4);
         ">
-            🤖
+            📊
         </div>
-        <h3 style="color: white; margin: 0; font-size: 15px; font-weight: 800;">AI ANALYTICS PRO</h3>
+        <h3 style="color: white; margin-bottom: 4px; font-size: 14px; font-weight: 800;">DASHBOARD PRO</h3>
+        <p style="color: #94a3b8; font-size: 10px; margin: 0;">Social Media Analytics Platform</p>
     </div>
     """, unsafe_allow_html=True)
     
     # Estado del backend
     try:
-        test_response = requests.get(DATA_URL, timeout=5)
-        if test_response.status_code == 200:
-            st.success("✅ Backend conectado")
+        backend_test = requests.get(BACKEND_URL, timeout=5)
+        if backend_test.status_code == 200:
+            st.markdown('<div style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; border: 1px solid rgba(16, 185, 129, 0.2); font-size: 10px;">✅ <strong>Backend Conectado</strong></div>', unsafe_allow_html=True)
         else:
-            st.error(f"⚠️ Backend error: {test_response.status_code}")
+            st.markdown(f'<div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 10px;">⚠️ <strong>Backend Error</strong></div>', unsafe_allow_html=True)
     except:
-        st.error("⚠️ No se pudo conectar al backend")
+        st.markdown('<div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 10px;">⚠️ <strong>Backend Offline</strong></div>', unsafe_allow_html=True)
     
-    # Selector de plataforma
-    st.markdown("---")
-    st.subheader("📊 Panel de Análisis")
+    # Botones de plataformas
+    st.markdown('<p style="color: #cbd5e1; font-size: 11px; font-weight: 600; margin-bottom: 8px; margin-top: 15px; letter-spacing: 0.8px; text-transform: uppercase;">🔗 PANEL PROFESIONAL</p>', unsafe_allow_html=True)
     
-    platform_options = {
-        "general": "🌐 Vista General",
+    platforms = {
+        "general": "🌐 GENERAL",
         "youtube": "▶️ YouTube",
         "tiktok": "🎵 TikTok"
     }
     
-    selected_platform = st.radio(
-        "Selecciona plataforma:",
-        options=list(platform_options.keys()),
-        format_func=lambda x: platform_options[x],
-        key="platform_selector"
-    )
+    selected_platform = st.session_state.get("selected_platform", "general")
     
-    # ASISTENTE IA
-    st.markdown("---")
-    st.subheader("🤖 Asistente IA")
+    for platform_key, platform_name in platforms.items():
+        if st.button(platform_name, key=f"{platform_key}_btn", use_container_width=True):
+            selected_platform = platform_key
+            st.session_state["selected_platform"] = platform_key
+            st.rerun()
+    
+    st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
+    
+    # Asistente de Chat
+    st.markdown('<p style="color: #cbd5e1; font-size: 11px; font-weight: 600; margin-bottom: 8px; margin-top: 15px; letter-spacing: 0.8px; text-transform: uppercase;">🤖 ASISTENTE DE DATOS</p>', unsafe_allow_html=True)
     
     # Inicializar historial de chat
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = [
-            {"role": "assistant", "content": "👋 ¡Hola! Soy tu asistente de análisis de redes sociales. Puedo ayudarte a analizar métricas, tendencias, ROI de campañas y más. ¿En qué puedo ayudarte hoy?"}
-        ]
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
     
-    if "processing" not in st.session_state:
-        st.session_state.processing = False
-    
-    # Mostrar historial de chat
-    chat_container = st.container()
-    with chat_container:
-        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-        for message in st.session_state.chat_history:
+    # Contenedor del chat
+    with st.container(height=220):
+        for message in st.session_state.messages:
             if message["role"] == "user":
-                st.markdown(f'<div class="user-message">{message["content"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background: #3B82F6; color: white; padding: 8px 10px; border-radius: 9px; margin-bottom: 6px; font-size: 11px; max-width: 90%; margin-left: auto;">{message["content"]}</div>', unsafe_allow_html=True)
             else:
-                st.markdown(f'<div class="assistant-message">{message["content"]}</div>', unsafe_allow_html=True)
-        
-        # Mostrar indicador de escritura si está procesando
-        if st.session_state.processing:
-            st.markdown('''
-            <div class="typing-indicator">
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-            </div>
-            ''', unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background: #f1f5f9; color: #1f2937; padding: 8px 10px; border-radius: 9px; margin-bottom: 6px; font-size: 11px; max-width: 90%; border: 1px solid #e5e7eb;">{message["content"]}</div>', unsafe_allow_html=True)
     
     # Input de chat
-    with st.form(key="chat_form", clear_on_submit=True):
-        user_input = st.text_area(
-            "Escribe tu pregunta:",
-            height=80,
-            placeholder="Ej: ¿Cuál es el ROI de la campaña publicitaria?",
-            key="chat_input"
-        )
-        
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            submit_button = st.form_submit_button("Enviar", use_container_width=True)
-        with col2:
-            clear_button = st.form_submit_button("Limpiar", use_container_width=True, type="secondary")
+    user_input = st.chat_input("Pregunta sobre los datos...", key="chat_input")
     
-    # Procesar mensaje
-    if submit_button and user_input.strip():
+    if user_input:
         # Agregar mensaje del usuario
-        st.session_state.chat_history.append({"role": "user", "content": user_input.strip()})
-        st.session_state.processing = True
+        st.session_state.messages.append({"role": "user", "content": user_input})
         
-        # Preparar contexto con los datos actuales
-        contexto = preparar_contexto_para_ia(df_all, df_followers, df_pauta)
+        # Preparar contexto con datos actuales
+        total_posts = len(df_all)
+        total_views = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
         
-        # Obtener respuesta del backend
-        respuesta = enviar_pregunta_a_backend(user_input.strip(), contexto)
+        # Obtener correctamente los seguidores
+        total_followers = 0
+        if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
+            # Obtener el último valor no nulo
+            if not df_followers['Seguidores_Totales'].dropna().empty:
+                total_followers = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
         
-        # Agregar respuesta al historial
-        st.session_state.chat_history.append({"role": "assistant", "content": respuesta})
-        st.session_state.processing = False
-        st.rerun()
-    
-    # Limpiar chat
-    if clear_button:
-        st.session_state.chat_history = [
-            {"role": "assistant", "content": "👋 ¡Conversación reiniciada! ¿En qué puedo ayudarte ahora?"}
-        ]
-        st.rerun()
+        coste_anuncio = df_pauta['coste_anuncio'].sum() if not df_pauta.empty and 'coste_anuncio' in df_pauta.columns else 0
+        visualizaciones_videos = df_pauta['visualizaciones_videos'].sum() if not df_pauta.empty and 'visualizaciones_videos' in df_pauta.columns else 0
+        nuevos_seguidores = df_pauta['nuevos_seguidores'].sum() if not df_pauta.empty and 'nuevos_seguidores' in df_pauta.columns else 0
+        
+        contexto = f"""
+        Eres un asistente especializado en análisis de datos de redes sociales. 
+        
+        Datos actuales del dashboard:
+        - Total de publicaciones: {total_posts}
+        - Visualizaciones totales: {total_views:,}
+        - Total de seguidores TikTok: {total_followers:,}
+        - Inversión en publicidad: ${coste_anuncio:,}
+        - Visualizaciones de videos pagados: {visualizaciones_videos:,}
+        - Nuevos seguidores de publicidad: {nuevos_seguidores:,}
+        
+        Puedes responder preguntas sobre estas métricas, tendencias, eficiencia de publicidad, y análisis de datos.
+        """
+        
+        # Llamar a OpenAI
+        try:
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": contexto},
+                    *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
+                ],
+                temperature=0.7,
+                max_tokens=300
+            )
+            
+            assistant_response = response.choices[0].message.content
+            
+            # Agregar respuesta del asistente
+            st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+            
+            # Rerun para mostrar la respuesta
+            st.rerun()
+            
+        except Exception as e:
+            st.error(f"Error al conectar con OpenAI: {str(e)}")
 
-# ============================================
-# CONTENIDO PRINCIPAL
-# ============================================
+# Contenido principal - HEADER
+current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
 st.markdown(f"""
 <div class="dashboard-header">
-    <h1>📊 SOCIAL MEDIA DASHBOARD PRO</h1>
-    <p style="margin: 0; opacity: 0.9; font-size: 13px;">
-        Analytics en Tiempo Real • Monitoreo de Performance • Insights Inteligentes
-    </p>
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+            <h1>📊 SOCIAL MEDIA DASHBOARD PRO</h1>
+            <p style="margin: 0; opacity: 0.9; font-size: 13px; font-weight: 500;">
+                Analytics en Tiempo Real • Monitoreo de Performance • Insights Inteligentes
+            </p>
+        </div>
+        <div style="font-size: 12px; opacity: 0.9; background: rgba(255,255,255,0.1); padding: 6px 14px; border-radius: 20px; font-weight: 600;">
+            ⏱️ {current_time}
+        </div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ============================================
-# MÉTRICAS PRINCIPALES
-# ============================================
-# Calcular métricas
-total_inversion = df_pauta['coste_anuncio'].sum() if not df_pauta.empty and 'coste_anuncio' in df_pauta.columns else 0
-total_visualizaciones_pagadas = df_pauta['visualizaciones_videos'].sum() if not df_pauta.empty and 'visualizaciones_videos' in df_pauta.columns else 0
-nuevos_seguidores_pauta = df_pauta['nuevos_seguidores'].sum() if not df_pauta.empty and 'nuevos_seguidores' in df_pauta.columns else 0
+# MÉTRICAS - VERSIÓN SIMPLIFICADA USANDO FUNCIONES HELPER
+def format_number(num):
+    try:
+        num = float(num)
+        if num >= 1000000:
+            return f"{num/1000000:.1f}M"
+        elif num >= 1000:
+            return f"{num/1000:.1f}K"
+        else:
+            return f"{int(num):,}"
+    except:
+        return "0"
 
-# Seguidores actuales
-seguidores_actuales = 0
+def create_metric_card(icon, value, label, is_light=False):
+    """Crea una tarjeta de métrica con HTML"""
+    if is_light:
+        return f"""
+        <div class="metric-container metric-container-light">
+            <div class="metric-shimmer metric-shimmer-light"></div>
+            <div class="metric-icon metric-icon-light">{icon}</div>
+            <div class="metric-value metric-value-light">{value}</div>
+            <div class="metric-label metric-label-light">{label}</div>
+        </div>
+        """
+    else:
+        return f"""
+        <div class="metric-container">
+            <div class="metric-shimmer"></div>
+            <div class="metric-icon">{icon}</div>
+            <div class="metric-value">{value}</div>
+            <div class="metric-label">{label}</div>
+        </div>
+        """
+
+# Calcular métricas
+if not df_pauta.empty:
+    coste_anuncio_sum = df_pauta['coste_anuncio'].sum() if 'coste_anuncio' in df_pauta.columns else 0
+    visualizaciones_videos_sum = df_pauta['visualizaciones_videos'].sum() if 'visualizaciones_videos' in df_pauta.columns else 0
+    nuevos_seguidores_sum = df_pauta['nuevos_seguidores'].sum() if 'nuevos_seguidores' in df_pauta.columns else 0
+else:
+    coste_anuncio_sum = 0
+    visualizaciones_videos_sum = 0
+    nuevos_seguidores_sum = 0
+
+# Métricas generales
+total_seguidores = 0
 if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
     if not df_followers['Seguidores_Totales'].dropna().empty:
-        seguidores_actuales = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
+        total_seguidores = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
 
-# Métricas de contenido
-total_publicaciones = len(df_all)
+total_contenidos = len(df_all)
 total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
-promedio_visualizaciones = total_visualizaciones / total_publicaciones if total_publicaciones > 0 else 0
 
-# Calcular ROI
-costo_por_seguidor = total_inversion / nuevos_seguidores_pauta if nuevos_seguidores_pauta > 0 else 0
-cpm = (total_inversion / total_visualizaciones_pagadas * 1000) if total_visualizaciones_pagadas > 0 else 0
+# Crear columnas para las métricas
+col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-# Mostrar métricas en columnas
-col1, col2, col3, col4 = st.columns(4)
+# Métrica 1: Coste Anuncio
+with col1:
+    html = create_metric_card(
+        icon="💰", 
+        value=f"${format_number(coste_anuncio_sum)}", 
+        label="COSTE ANUNCIO",
+        is_light=False
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+# Métrica 2: Visualizaciones Videos
+with col2:
+    html = create_metric_card(
+        icon="👁️", 
+        value=format_number(visualizaciones_videos_sum), 
+        label="VISUALIZACIONES VIDEOS",
+        is_light=False
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+# Métrica 3: Nuevos Seguidores
+with col3:
+    html = create_metric_card(
+        icon="📈", 
+        value=format_number(nuevos_seguidores_sum), 
+        label="NUEVOS SEGUIDORES",
+        is_light=False
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+# Métrica 4: Total Seguidores
+with col4:
+    html = create_metric_card(
+        icon="👥", 
+        value=format_number(total_seguidores), 
+        label="TOTAL SEGUIDORES",
+        is_light=True
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+# Métrica 5: Total Contenidos
+with col5:
+    html = create_metric_card(
+        icon="📊", 
+        value=format_number(total_contenidos), 
+        label="TOTAL CONTENIDOS",
+        is_light=True
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+# Métrica 6: Visualizaciones Totales
+with col6:
+    html = create_metric_card(
+        icon="👁️", 
+        value=format_number(total_visualizaciones), 
+        label="VISUALIZACIONES TOTALES",
+        is_light=True
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+# Agregar espacio
+st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+
+# Selector de gráficas
+st.markdown('<div class="grafica-selector-container">', unsafe_allow_html=True)
+st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁFICA</div>', unsafe_allow_html=True)
+
+# Inicializar estado para gráfica seleccionada
+if "grafica_seleccionada" not in st.session_state:
+    st.session_state.grafica_seleccionada = "evolucion"
+
+# Selector visual
+st.markdown('<div class="grafica-selector-buttons">', unsafe_allow_html=True)
+
+# Crear botones
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-icon">💰</div>
-        <div class="metric-value">${total_inversion:,.0f}</div>
-        <div class="metric-label">INVERSIÓN TOTAL</div>
-    </div>
-    """, unsafe_allow_html=True)
+    btn1_active = st.session_state.grafica_seleccionada == "evolucion"
+    if st.button("**📈** **Evolución**", 
+                 key="btn_evolucion",
+                 use_container_width=True,
+                 type="primary" if btn1_active else "secondary"):
+        st.session_state.grafica_seleccionada = "evolucion"
+        st.rerun()
 
 with col2:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-icon">👥</div>
-        <div class="metric-value">{seguidores_actuales:,}</div>
-        <div class="metric-label">SEGUIDORES ACTUALES</div>
-    </div>
-    """, unsafe_allow_html=True)
+    btn2_active = st.session_state.grafica_seleccionada == "grafica1"
+    if st.button("**💰** **Inversión vs Seguidores**", 
+                 key="btn_grafica1",
+                 use_container_width=True,
+                 type="primary" if btn2_active else "secondary"):
+        st.session_state.grafica_seleccionada = "grafica1"
+        st.rerun()
 
 with col3:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-icon">📊</div>
-        <div class="metric-value">${costo_por_seguidor:,.1f}</div>
-        <div class="metric-label">COSTO POR SEGUIDOR</div>
-    </div>
-    """, unsafe_allow_html=True)
+    btn3_active = st.session_state.grafica_seleccionada == "grafica2"
+    if st.button("**📊** **Heatmap CPS**", 
+                 key="btn_grafica2",
+                 use_container_width=True,
+                 type="primary" if btn3_active else "secondary"):
+        st.session_state.grafica_seleccionada = "grafica2"
+        st.rerun()
 
-with col4:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-icon">📈</div>
-        <div class="metric-value">{nuevos_seguidores_pauta:,}</div>
-        <div class="metric-label">NUEVOS SEGUIDORES</div>
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown('</div></div>', unsafe_allow_html=True)
 
-# ============================================
-# GRÁFICAS Y TABLAS
-# ============================================
-st.markdown("---")
+# Mostrar gráfica seleccionada
+if st.session_state.grafica_seleccionada == "grafica1":
+    st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
+    st.markdown("##### 📈 Gráfica 1: Inversión vs Seguidores")
+    img_bytes = cargar_imagen_grafica1_bytes()
+    if img_bytes:
+        st.image(img_bytes, use_container_width=True)
+    else:
+        st.warning("No se pudo cargar la Gráfica 1")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# Selector de visualización
-viz_option = st.radio(
-    "Selecciona visualización:",
-    ["📈 Evolución de Seguidores", "💰 Análisis de Inversión", "📊 Heatmap de Performance"],
-    horizontal=True,
-    key="viz_selector"
-)
+elif st.session_state.grafica_seleccionada == "grafica2":
+    st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
+    st.markdown("##### 📊 Gráfica 2: Heatmap CPS")
+    img_bytes = cargar_imagen_grafica2_bytes()
+    if img_bytes:
+        st.image(img_bytes, use_container_width=True)
+    else:
+        st.warning("No se pudo cargar la Gráfica 2")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-if viz_option == "📈 Evolución de Seguidores":
-    st.subheader("Evolución de Seguidores")
+else:  # Gráfica de evolución
+    st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
+    st.markdown("##### 📈 EVOLUCIÓN DE SEGUIDORES TIKTOK Y MÉTRICAS DE PAUTA")
     
     if not df_followers.empty and 'Fecha' in df_followers.columns and 'Seguidores_Totales' in df_followers.columns:
-        fig = go.Figure()
-        
-        fig.add_trace(go.Scatter(
-            x=df_followers['Fecha'],
-            y=df_followers['Seguidores_Totales'],
-            mode='lines+markers',
-            name='Seguidores',
-            line=dict(color='#3B82F6', width=3),
-            marker=dict(size=8)
-        ))
-        
-        fig.update_layout(
-            template='plotly_white',
-            height=400,
-            xaxis_title="Fecha",
-            yaxis_title="Seguidores Totales",
-            hovermode='x unified'
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
+        try:
+            # Preparar datos de pauta si existen (MÉTODO ORIGINAL)
+            if not df_pauta.empty:
+                if 'Costo' in df_pauta.columns:
+                    df_pauta['coste_anuncio'] = df_pauta['Costo']
+                if 'Visualizaciones' in df_pauta.columns:
+                    df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
+                if 'Seguidores' in df_pauta.columns:
+                    df_pauta['nuevos_seguidores_pauta'] = df_pauta['Seguidores']
+                
+                df_pauta['fecha'] = pd.to_datetime(df_pauta['fecha'], errors='coerce')
+                
+                df_pauta_agg = df_pauta.groupby('fecha').agg({
+                    'coste_anuncio': 'sum',
+                    'visualizaciones_videos': 'sum',
+                    'nuevos_seguidores_pauta': 'sum'
+                }).reset_index()
+                
+                # Fusionar por fecha - USAR OUTER JOIN
+                df_merged = pd.merge(df_followers, df_pauta_agg, left_on='Fecha', right_on='fecha', how='outer')
+                df_merged = df_merged.sort_values('Fecha')
+                
+                # Rellenar valores faltantes
+                if 'Seguidores_Totales' in df_merged.columns:
+                    df_merged['Seguidores_Totales'] = df_merged['Seguidores_Totales'].fillna(method='ffill').fillna(0)
+                
+                if 'coste_anuncio' in df_merged.columns:
+                    df_merged['coste_anuncio'] = df_merged['coste_anuncio'].fillna(0)
+                
+                if 'visualizaciones_videos' in df_merged.columns:
+                    df_merged['visualizaciones_videos'] = df_merged['visualizaciones_videos'].fillna(0)
+                
+                if 'nuevos_seguidores_pauta' in df_merged.columns:
+                    df_merged['nuevos_seguidores_pauta'] = df_merged['nuevos_seguidores_pauta'].fillna(0)
+            else:
+                df_merged = df_followers.copy()
+                df_merged['coste_anuncio'] = 0
+                df_merged['visualizaciones_videos'] = 0
+                df_merged['nuevos_seguidores_pauta'] = 0
+            
+            # Crear gráfica de 4 líneas (MÉTODO ORIGINAL)
+            fig_followers = go.Figure()
+            
+            # 1. Seguidores Totales (línea principal)
+            fig_followers.add_trace(go.Scatter(
+                x=df_merged['Fecha'],
+                y=df_merged['Seguidores_Totales'],
+                mode='lines+markers',
+                name='👥 Seguidores Totales',
+                marker=dict(
+                    size=6,
+                    color='#000000',
+                    symbol='circle',
+                    line=dict(width=1, color='white')
+                ),
+                line=dict(color='#000000', width=2),
+                hovertemplate='<b>%{x|%d/%m/%Y}</b><br>Seguidores Totales: %{y:,}<extra></extra>'
+            ))
+            
+            # 2. Seguidores Pauta (si existe)
+            if 'nuevos_seguidores_pauta' in df_merged.columns:
+                fig_followers.add_trace(go.Scatter(
+                    x=df_merged['Fecha'],
+                    y=df_merged['nuevos_seguidores_pauta'],
+                    mode='lines+markers',
+                    name='👥 Seguidores Pauta',
+                    marker=dict(
+                        size=5,
+                        color='#10b981',
+                        symbol='diamond'
+                    ),
+                    line=dict(color='#10b981', width=1.5, dash='dot'),
+                    hovertemplate='Seguidores Pauta: %{y:,}<extra></extra>',
+                    yaxis='y1'
+                ))
+            
+            # 3. Costo de Pauta (barras, eje secundario)
+            if 'coste_anuncio' in df_merged.columns:
+                fig_followers.add_trace(go.Bar(
+                    x=df_merged['Fecha'],
+                    y=df_merged['coste_anuncio'],
+                    name='💰 Costo Pauta',
+                    marker=dict(
+                        color='#ef4444',
+                        opacity=0.6
+                    ),
+                    hovertemplate='Costo Pauta: $%{y:,}<extra></extra>',
+                    yaxis='y2'
+                ))
+            
+            # 4. Visualizaciones de Pauta (eje secundario)
+            if 'visualizaciones_videos' in df_merged.columns:
+                fig_followers.add_trace(go.Scatter(
+                    x=df_merged['Fecha'],
+                    y=df_merged['visualizaciones_videos'],
+                    mode='lines+markers',
+                    name='👁️ Visualizaciones Pauta',
+                    marker=dict(
+                        size=5,
+                        color='#3B82F6',
+                        symbol='triangle-up'
+                    ),
+                    line=dict(color='#3B82F6', width=1.5, dash='dash'),
+                    hovertemplate='Visualizaciones Pauta: %{y:,}<extra></extra>',
+                    yaxis='y2'
+                ))
+            
+            # Configurar layout con eje secundario (MÉTODO ORIGINAL)
+            fig_followers.update_layout(
+                height=350,
+                template='plotly_white',
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                margin=dict(l=40, r=40, t=20, b=40),
+                hovermode='x unified',
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                ),
+                xaxis=dict(
+                    title="Fecha",
+                    gridcolor='#f1f5f9',
+                    showgrid=True,
+                    tickformat='%d/%m/%Y'
+                ),
+                yaxis=dict(
+                    title="Seguidores",
+                    gridcolor='#f1f5f9',
+                    showgrid=True,
+                    title_font=dict(color='#000000')
+                ),
+                yaxis2=dict(
+                    title="Costo ($) / Visualizaciones",
+                    overlaying='y',
+                    side='right',
+                    gridcolor='rgba(241, 245, 249, 0.5)',
+                    showgrid=False,
+                    title_font=dict(color='#ef4444')
+                )
+            )
+            
+            st.plotly_chart(fig_followers, use_container_width=True)
+                        
+        except Exception as e:
+            st.warning(f"Error al generar gráfica combinada: {str(e)}")
     else:
-        st.info("No hay datos de seguidores disponibles")
-
-elif viz_option == "💰 Análisis de Inversión":
-    st.subheader("Análisis de Inversión")
+        st.warning("No hay datos de seguidores disponibles")
     
-    img_bytes = cargar_imagen_grafica(GRAFICA1_URL)
-    if img_bytes:
-        st.image(img_bytes, use_container_width=True)
-    else:
-        st.info("No hay gráfica de inversión disponible")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-else:  # Heatmap de Performance
-    st.subheader("Heatmap de Performance")
+# Tabla de contenido
+st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
+st.markdown("##### 📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA")
+
+if not df_all.empty:
+    # Filtrar por plataforma seleccionada
+    if selected_platform == "tiktok":
+        display_df = tiktok_df.copy()
+    elif selected_platform == "youtube":
+        display_df = youtobe_df.copy()
+    else:
+        display_df = df_all.copy()
     
-    img_bytes = cargar_imagen_grafica(GRAFICA2_URL)
-    if img_bytes:
-        st.image(img_bytes, use_container_width=True)
-    else:
-        st.info("No hay heatmap disponible")
-
-# ============================================
-# TABLA DE CONTENIDO
-# ============================================
-st.markdown("---")
-st.subheader(f"📋 Contenido - {selected_platform.upper()}")
-
-# Filtrar por plataforma seleccionada
-if selected_platform == "youtube":
-    display_df = youtobe_df.copy()
-    platform_name = "YouTube"
-elif selected_platform == "tiktok":
-    display_df = tiktok_df.copy()
-    platform_name = "TikTok"
-else:
-    display_df = df_all.copy()
-    platform_name = "Todas las Plataformas"
-
-if not display_df.empty:
     # Seleccionar columnas relevantes
-    columns_to_show = []
-    column_names = {}
-    
+    column_order = []
     if 'titulo' in display_df.columns:
-        columns_to_show.append('titulo')
-        column_names['titulo'] = 'Título'
+        column_order.append('titulo')
+        display_df['titulo'] = display_df['titulo'].fillna('Sin título').str.slice(0, 35) + '...'
     
     if 'fecha_publicacion' in display_df.columns:
-        columns_to_show.append('fecha_publicacion')
-        column_names['fecha_publicacion'] = 'Fecha'
+        column_order.append('fecha_publicacion')
+        display_df['fecha_publicacion'] = display_df['fecha_publicacion'].dt.strftime('%d/%m')
+    
+    if 'red' in display_df.columns:
+        column_order.append('red')
     
     if 'visualizaciones' in display_df.columns:
-        columns_to_show.append('visualizaciones')
-        column_names['visualizaciones'] = 'Vistas'
+        column_order.append('visualizaciones')
     
     if 'me_gusta' in display_df.columns:
-        columns_to_show.append('me_gusta')
-        column_names['me_gusta'] = 'Likes'
+        column_order.append('me_gusta')
     
     if 'comentarios' in display_df.columns:
-        columns_to_show.append('comentarios')
-        column_names['comentarios'] = 'Comentarios'
+        column_order.append('comentarios')
     
-    if columns_to_show:
-        # Preparar DataFrame para mostrar
-        df_to_display = display_df[columns_to_show].copy()
-        
-        # Formatear columnas
-        if 'fecha_publicacion' in df_to_display.columns:
-            df_to_display['fecha_publicacion'] = pd.to_datetime(df_to_display['fecha_publicacion']).dt.strftime('%d/%m/%Y')
-        
-        if 'titulo' in df_to_display.columns:
-            df_to_display['titulo'] = df_to_display['titulo'].apply(
-                lambda x: x[:50] + '...' if isinstance(x, str) and len(x) > 50 else x
-            )
-        
-        # Renombrar columnas
-        df_to_display = df_to_display.rename(columns=column_names)
-        
-        # Mostrar tabla
-        st.dataframe(
-            df_to_display,
-            use_container_width=True,
-            hide_index=True,
-            height=300
-        )
-    else:
-        st.info(f"No hay columnas disponibles para mostrar de {platform_name}")
-else:
-    st.info(f"No hay datos disponibles para {platform_name}")
+    if 'Seguidores_Totales' in display_df.columns:
+        column_order.append('Seguidores_Totales')
+    
+    column_order = [col for col in column_order if col in display_df.columns]
+    display_df = display_df[column_order]
+    
+    # Renombrar columnas
+    rename_dict = {
+        'titulo': 'Título',
+        'fecha_publicacion': 'Fecha',
+        'red': 'Plataforma',
+        'visualizaciones': 'Views',
+        'me_gusta': 'Likes',
+        'comentarios': 'Comentarios',
+        'Seguidores_Totales': 'Seguidores'
+    }
+    
+    display_df = display_df.rename(columns={k: v for k, v in rename_dict.items() if k in display_df.columns})
+    
+    # Mostrar tabla compacta
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        height=250
+    )
+    
+st.markdown('</div>', unsafe_allow_html=True)
 
-# ============================================
-# PIE DE PÁGINA
-# ============================================
-st.markdown("---")
-st.caption(f"Social Media Dashboard PRO • Última actualización: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+# Footer
+current_time_full = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+st.markdown(f"""
+<div style="text-align: center; color: #6b7280; font-size: 10px; padding: 12px 0; margin-top: 15px; border-top: 1px solid #e5e7eb;">
+    Social Media Dashboard PRO v3.3 • Analytics en Tiempo Real • {current_time_full}
+</div>
+""", unsafe_allow_html=True)
