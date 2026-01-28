@@ -145,7 +145,7 @@ def cargar_metricas_grafica1():
         r = requests.get(GRAFICA1_METRICS_URL, timeout=20)
         r.raise_for_status()
         data = r.json()
-        return data.get("data", {})
+        return data.get("data", {}) or {}
     except Exception as e:
         return {}
 
@@ -155,7 +155,7 @@ def cargar_metricas_grafica2():
         r = requests.get(GRAFICA2_METRICS_URL, timeout=20)
         r.raise_for_status()
         data = r.json()
-        return data.get("data", {})
+        return data.get("data", {}) or {}
     except Exception as e:
         return {}
 
@@ -166,9 +166,15 @@ def cargar_datos():
     df_followers = cargar_datos_seguidores()
     df_pauta = cargar_datos_pauta()
     
-    # Cargar métricas de gráficas (sin caché adicional para mantener actualizado)
+    # Cargar métricas de gráficas
     metrics_grafica1 = cargar_metricas_grafica1()
     metrics_grafica2 = cargar_metricas_grafica2()
+    
+    # Asegurar que sean diccionarios
+    if not isinstance(metrics_grafica1, dict):
+        metrics_grafica1 = {}
+    if not isinstance(metrics_grafica2, dict):
+        metrics_grafica2 = {}
     
     if df.empty:
         st.warning("Usando datos de respaldo.")
@@ -235,8 +241,16 @@ def cargar_datos():
     
     return df, youtobe_data, tiktok_data, df_followers, df_pauta, metrics_grafica1, metrics_grafica2
 
+# Cargar datos primero
+df_all, youtobe_df, tiktok_df, df_followers, df_pauta, metrics_grafica1, metrics_grafica2 = cargar_datos()
+
+# Ahora definimos las funciones que usan los datos cargados
 def generar_contexto_resumido():
     """Genera un contexto resumido con la información más relevante de todas las bases"""
+    
+    # Asegurar que sean diccionarios (por si acaso)
+    mg1 = metrics_grafica1 if isinstance(metrics_grafica1, dict) else {}
+    mg2 = metrics_grafica2 if isinstance(metrics_grafica2, dict) else {}
     
     # Calcular métricas resumidas de contenido
     total_posts = len(df_all)
@@ -279,15 +293,18 @@ def generar_contexto_resumido():
     # Contenido más popular
     top_content = {}
     if not df_all.empty and 'titulo' in df_all.columns and 'visualizaciones' in df_all.columns:
-        top_content_row = df_all.loc[df_all['visualizaciones'].idxmax()] if not df_all['visualizaciones'].empty else None
-        if top_content_row is not None:
-            top_content = {
-                'titulo': top_content_row['titulo'][:50] + '...' if len(str(top_content_row['titulo'])) > 50 else str(top_content_row['titulo']),
-                'views': int(top_content_row['visualizaciones']),
-                'platform': top_content_row['red'] if 'red' in top_content_row else 'desconocida'
-            }
+        if not df_all['visualizaciones'].empty:
+            try:
+                top_content_row = df_all.loc[df_all['visualizaciones'].idxmax()]
+                top_content = {
+                    'titulo': top_content_row['titulo'][:50] + '...' if len(str(top_content_row['titulo'])) > 50 else str(top_content_row['titulo']),
+                    'views': int(top_content_row['visualizaciones']),
+                    'platform': top_content_row['red'] if 'red' in top_content_row else 'desconocida'
+                }
+            except:
+                top_content = {}
     
-    # Crear contexto resumido
+    # Crear contexto resumido - FORMATO CORREGIDO
     contexto = f"""
     RESUMEN DE DATOS - SOCIAL MEDIA DASHBOARD
     
@@ -313,25 +330,41 @@ def generar_contexto_resumido():
     - Inversión total: ${coste_anuncio:,}
     - Visualizaciones de videos pagados: {visualizaciones_videos:,}
     - Nuevos seguidores de publicidad: {nuevos_seguidores:,}
-    - Costo por seguidor: ${coste_anuncio/nuevos_seguidores:,.2f}" if nuevos_seguidores > 0 else "N/A"
+    - Costo por seguidor: {f'${coste_anuncio/nuevos_seguidores:,.2f}' if nuevos_seguidores > 0 else 'N/A'}
     
-    📈 MÉTRICAS DE GRÁFICA 1 (Inversión vs Seguidores):
-    {f"- Inversión total: ${metrics_grafica1.get('inversion_total', 0):,}" if metrics_grafica1 else "- Datos no disponibles"}
-    {f"- Seguidores totales: {metrics_grafica1.get('seguidores_totales', 0):,}" if metrics_grafica1 else ""}
-    {f"- Costo por seguidor: ${metrics_grafica1.get('costo_por_seguidor', 0):.2f}" if metrics_grafica1 else ""}
+    📈 MÉTRICAS DE GRÁFICA 1 (Inversión vs Seguidores):"""
     
-    📊 MÉTRICAS DE GRÁFICA 2 (Heatmap CPS):
-    {f"- Mejor CPS: ${metrics_grafica2.get('mejor_cps', 0):.2f}" if metrics_grafica2 else "- Datos no disponibles"}
-    {f"- Peor CPS: ${metrics_grafica2.get('peor_cps', 0):.2f}" if metrics_grafica2 else ""}
-    {f"- Promedio CPS: ${metrics_grafica2.get('promedio_cps', 0):.2f}" if metrics_grafica2 else ""}
+    # Agregar métricas de gráfica 1 si existen
+    if mg1:
+        contexto += f"""
+    - Inversión total: ${mg1.get('inversion_total', 0):,}
+    - Seguidores totales: {mg1.get('seguidores_totales', 0):,}
+    - Costo por seguidor: ${mg1.get('costo_por_seguidor', 0):.2f}"""
+    else:
+        contexto += "\n    - Datos no disponibles"
     
-    🏆 CONTENIDO DESTACADO:
-    {f"- Título: {top_content.get('titulo', 'N/A')}" if top_content else "- Sin datos destacados"}
-    {f"- Plataforma: {top_content.get('platform', 'N/A')}" if top_content else ""}
-    {f"- Visualizaciones: {top_content.get('views', 0):,}" if top_content else ""}
+    contexto += "\n\n    📊 MÉTRICAS DE GRÁFICA 2 (Heatmap CPS):"
     
-    ⏱️ DATOS ACTUALIZADOS: {datetime.now().strftime('%d/%m/%Y %H:%M')}
-    """
+    # Agregar métricas de gráfica 2 si existen
+    if mg2:
+        contexto += f"""
+    - Mejor CPS: ${mg2.get('mejor_cps', 0):.2f}
+    - Peor CPS: ${mg2.get('peor_cps', 0):.2f}
+    - Promedio CPS: ${mg2.get('promedio_cps', 0):.2f}"""
+    else:
+        contexto += "\n    - Datos no disponibles"
+    
+    # Agregar contenido destacado
+    contexto += "\n\n    🏆 CONTENIDO DESTACADO:"
+    if top_content:
+        contexto += f"""
+    - Título: {top_content.get('titulo', 'N/A')}
+    - Plataforma: {top_content.get('platform', 'N/A')}
+    - Visualizaciones: {top_content.get('views', 0):,}"""
+    else:
+        contexto += "\n    - Sin datos destacados"
+    
+    contexto += f"\n\n    ⏱️ DATOS ACTUALIZADOS: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     
     return contexto
 
@@ -366,6 +399,8 @@ def call_openai_backend(user_input):
             
     except Exception as e:
         return f"Error al conectar con el backend de OpenAI: {str(e)}"
+
+# ... [EL RESTO DEL CÓDIGO PERMANECE EXACTAMENTE IGUAL DESDE LA LÍNEA 393 EN ADELANTE] ...
 
 # Estilos CSS (sin cambios)
 st.markdown("""
@@ -552,10 +587,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Cargar datos (ahora incluye métricas de gráficas)
-df_all, youtobe_df, tiktok_df, df_followers, df_pauta, metrics_grafica1, metrics_grafica2 = cargar_datos()
-
-# Sidebar (sin cambios significativos)
+# Sidebar
 with st.sidebar:
     st.markdown("""
     <div style="text-align: center; margin-bottom: 20px; padding: 0 10px;">
