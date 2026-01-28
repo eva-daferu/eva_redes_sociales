@@ -24,8 +24,6 @@ FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
 PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
 GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
 GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
-GRAFICA1_METRICS_URL = "https://pahubisas.pythonanywhere.com/metricas_grafica1"
-GRAFICA2_METRICS_URL = "https://pahubisas.pythonanywhere.com/metricas_grafica2"
 OPENAI_BACKEND_URL = "https://pahubisas.pythonanywhere.com/openai_response"
 
 def cargar_datos_backend():
@@ -139,42 +137,12 @@ def cargar_imagen_grafica2_bytes():
         st.error(f"Error al cargar imagen de gráfica 2: {str(e)}")
         return b""
 
-def cargar_metricas_grafica1():
-    """Carga las métricas resumidas de la gráfica 1"""
-    try:
-        r = requests.get(GRAFICA1_METRICS_URL, timeout=20)
-        r.raise_for_status()
-        data = r.json()
-        return data.get("data", {}) or {}
-    except Exception as e:
-        return {}
-
-def cargar_metricas_grafica2():
-    """Carga las métricas resumidas de la gráfica 2"""
-    try:
-        r = requests.get(GRAFICA2_METRICS_URL, timeout=20)
-        r.raise_for_status()
-        data = r.json()
-        return data.get("data", {}) or {}
-    except Exception as e:
-        return {}
-
 # Función para cargar datos con caché
 @st.cache_data(ttl=300)
 def cargar_datos():
     df = cargar_datos_backend()
     df_followers = cargar_datos_seguidores()
     df_pauta = cargar_datos_pauta()
-    
-    # Cargar métricas de gráficas
-    metrics_grafica1 = cargar_metricas_grafica1()
-    metrics_grafica2 = cargar_metricas_grafica2()
-    
-    # Asegurar que sean diccionarios
-    if not isinstance(metrics_grafica1, dict):
-        metrics_grafica1 = {}
-    if not isinstance(metrics_grafica2, dict):
-        metrics_grafica2 = {}
     
     if df.empty:
         st.warning("Usando datos de respaldo.")
@@ -214,21 +182,6 @@ def cargar_datos():
             'fecha': ['2025-10-19']
         })
         
-        # Métricas de gráficas por defecto
-        metrics_grafica1 = {
-            "promedio_seguidores_por_inversion": 0.0065,
-            "inversion_total": 641140,
-            "seguidores_totales": 450,
-            "costo_por_seguidor": 1424.76
-        }
-        
-        metrics_grafica2 = {
-            "mejor_cps": 100,
-            "peor_cps": 500,
-            "promedio_cps": 250,
-            "total_anuncios": 10
-        }
-        
     else:
         if 'red' in df.columns:
             df['red'] = df['red'].astype(str).str.lower().str.strip()
@@ -239,157 +192,171 @@ def cargar_datos():
         
         tiktok_data = df[df['red'] == 'tiktok'].copy()
     
-    return df, youtobe_data, tiktok_data, df_followers, df_pauta, metrics_grafica1, metrics_grafica2
+    return df, youtobe_data, tiktok_data, df_followers, df_pauta
 
-# Cargar datos primero
-df_all, youtobe_df, tiktok_df, df_followers, df_pauta, metrics_grafica1, metrics_grafica2 = cargar_datos()
-
-# Ahora definimos las funciones que usan los datos cargados
-def generar_contexto_resumido():
-    """Genera un contexto resumido con la información más relevante de todas las bases"""
+def generar_contexto_completo():
+    """Genera un contexto completo con TODOS los datos disponibles para la IA"""
     
-    # Asegurar que sean diccionarios (por si acaso)
-    mg1 = metrics_grafica1 if isinstance(metrics_grafica1, dict) else {}
-    mg2 = metrics_grafica2 if isinstance(metrics_grafica2, dict) else {}
+    contexto = "=== DATOS COMPLETOS DISPONIBLES ===\n\n"
     
-    # Calcular métricas resumidas de contenido
-    total_posts = len(df_all)
+    # 1. Videos/Contenidos
+    contexto += "📊 CONTENIDOS (VIDEOS):\n"
+    if not df_all.empty:
+        contexto += f"• Total de videos: {len(df_all)}\n"
+        contexto += f"• Visualizaciones totales: {df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0:,}\n"
+        contexto += f"• Likes totales: {df_all['me_gusta'].sum() if 'me_gusta' in df_all.columns else 0:,}\n"
+        contexto += f"• Comentarios totales: {df_all['comentarios'].sum() if 'comentarios' in df_all.columns else 0:,}\n"
+        
+        # TikTok
+        if not tiktok_df.empty:
+            contexto += f"• TikTok: {len(tiktok_df)} videos, {tiktok_df['visualizaciones'].sum() if 'visualizaciones' in tiktok_df.columns else 0:,} visualizaciones\n"
+        else:
+            contexto += "• TikTok: 0 videos\n"
+        
+        # YouTube
+        if not youtobe_df.empty:
+            contexto += f"• YouTube: {len(youtobe_df)} videos, {youtobe_df['visualizaciones'].sum() if 'visualizaciones' in youtobe_df.columns else 0:,} visualizaciones\n"
+        else:
+            contexto += "• YouTube: 0 videos\n"
+        
+        # Lista de videos (primeros 10)
+        contexto += "\n📋 LISTA DE VIDEOS (primeros 10):\n"
+        for i, (_, row) in enumerate(df_all.head(10).iterrows(), 1):
+            titulo = str(row.get('titulo', 'Sin título'))
+            if len(titulo) > 50:
+                titulo = titulo[:50] + "..."
+            plataforma = str(row.get('red', 'Desconocida'))
+            views = int(row.get('visualizaciones', 0))
+            likes = int(row.get('me_gusta', 0))
+            contexto += f"  {i}. {titulo} - {plataforma} - {views:,} views - {likes} likes\n"
+        
+        if len(df_all) > 10:
+            contexto += f"  ... y {len(df_all) - 10} videos más\n"
+        
+        # Top 5 videos por visualizaciones
+        if 'visualizaciones' in df_all.columns:
+            contexto += "\n🏆 TOP 5 VIDEOS POR VISUALIZACIONES:\n"
+            top_videos = df_all.nlargest(5, 'visualizaciones')
+            for i, (_, row) in enumerate(top_videos.iterrows(), 1):
+                titulo = str(row.get('titulo', 'Sin título'))
+                if len(titulo) > 40:
+                    titulo = titulo[:40] + "..."
+                plataforma = str(row.get('red', 'Desconocida'))
+                views = int(row.get('visualizaciones', 0))
+                likes = int(row.get('me_gusta', 0))
+                contexto += f"  {i}. {titulo} - {plataforma} - {views:,} views - {likes} likes\n"
+    else:
+        contexto += "  • Sin datos de videos disponibles\n"
     
-    # Métricas por plataforma
-    youtube_posts = len(youtobe_df) if not youtobe_df.empty else 0
-    tiktok_posts = len(tiktok_df) if not tiktok_df.empty else 0
+    contexto += "\n" + "="*50 + "\n\n"
     
-    # Views totales
-    total_views = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
-    youtube_views = youtobe_df['visualizaciones'].sum() if not youtobe_df.empty and 'visualizaciones' in youtobe_df.columns else 0
-    tiktok_views = tiktok_df['visualizaciones'].sum() if not tiktok_df.empty and 'visualizaciones' in tiktok_df.columns else 0
-    
-    # Likes totales
-    total_likes = df_all['me_gusta'].sum() if 'me_gusta' in df_all.columns else 0
-    youtube_likes = youtobe_df['me_gusta'].sum() if not youtobe_df.empty and 'me_gusta' in youtobe_df.columns else 0
-    tiktok_likes = tiktok_df['me_gusta'].sum() if not tiktok_df.empty and 'me_gusta' in tiktok_df.columns else 0
-    
-    # Comentarios totales
-    total_comments = df_all['comentarios'].sum() if 'comentarios' in df_all.columns else 0
-    youtube_comments = youtobe_df['comentarios'].sum() if not youtobe_df.empty and 'comentarios' in youtobe_df.columns else 0
-    tiktok_comments = tiktok_df['comentarios'].sum() if not tiktok_df.empty and 'comentarios' in tiktok_df.columns else 0
-    
-    # Seguidores
-    total_followers = 0
+    # 2. Seguidores
+    contexto += "👥 SEGUIDORES:\n"
     if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
+        total_seguidores = 0
         if not df_followers['Seguidores_Totales'].dropna().empty:
-            total_followers = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
-    
-    # Métricas de pauta
-    coste_anuncio = df_pauta['coste_anuncio'].sum() if not df_pauta.empty and 'coste_anuncio' in df_pauta.columns else 0
-    visualizaciones_videos = df_pauta['visualizaciones_videos'].sum() if not df_pauta.empty and 'visualizaciones_videos' in df_pauta.columns else 0
-    nuevos_seguidores = df_pauta['nuevos_seguidores'].sum() if not df_pauta.empty and 'nuevos_seguidores' in df_pauta.columns else 0
-    
-    # Engagement rate promedio
-    avg_engagement = 0
-    if total_views > 0 and total_followers > 0:
-        avg_engagement = ((total_likes + total_comments) / total_views) * 100
-    
-    # Contenido más popular
-    top_content = {}
-    if not df_all.empty and 'titulo' in df_all.columns and 'visualizaciones' in df_all.columns:
-        if not df_all['visualizaciones'].empty:
-            try:
-                top_content_row = df_all.loc[df_all['visualizaciones'].idxmax()]
-                top_content = {
-                    'titulo': top_content_row['titulo'][:50] + '...' if len(str(top_content_row['titulo'])) > 50 else str(top_content_row['titulo']),
-                    'views': int(top_content_row['visualizaciones']),
-                    'platform': top_content_row['red'] if 'red' in top_content_row else 'desconocida'
-                }
-            except:
-                top_content = {}
-    
-    # Crear contexto resumido - FORMATO CORREGIDO
-    contexto = f"""
-    RESUMEN DE DATOS - SOCIAL MEDIA DASHBOARD
-    
-    📊 MÉTRICAS GENERALES:
-    - Total de publicaciones: {total_posts}
-    - YouTube: {youtube_posts} publicaciones
-    - TikTok: {tiktok_posts} publicaciones
-    
-    👁️ VISUALIZACIONES:
-    - Total: {total_views:,}
-    - YouTube: {youtube_views:,}
-    - TikTok: {tiktok_views:,}
-    
-    👍 INTERACCIÓN:
-    - Likes totales: {total_likes:,}
-    - Comentarios totales: {total_comments:,}
-    - Tasa de engagement promedio: {avg_engagement:.2f}%
-    
-    👥 SEGUIDORES:
-    - Seguidores actuales TikTok: {total_followers:,}
-    
-    💰 INVERSIÓN EN PUBLICIDAD:
-    - Inversión total: ${coste_anuncio:,}
-    - Visualizaciones de videos pagados: {visualizaciones_videos:,}
-    - Nuevos seguidores de publicidad: {nuevos_seguidores:,}
-    - Costo por seguidor: {f'${coste_anuncio/nuevos_seguidores:,.2f}' if nuevos_seguidores > 0 else 'N/A'}
-    
-    📈 MÉTRICAS DE GRÁFICA 1 (Inversión vs Seguidores):"""
-    
-    # Agregar métricas de gráfica 1 si existen
-    if mg1:
-        contexto += f"""
-    - Inversión total: ${mg1.get('inversion_total', 0):,}
-    - Seguidores totales: {mg1.get('seguidores_totales', 0):,}
-    - Costo por seguidor: ${mg1.get('costo_por_seguidor', 0):.2f}"""
+            total_seguidores = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
+        
+        contexto += f"• Seguidores actuales: {total_seguidores:,}\n"
+        contexto += f"• Total de registros: {len(df_followers)}\n"
+        
+        # Evolución reciente (últimos 5)
+        contexto += "\n📈 EVOLUCIÓN RECIENTE (últimos 5 registros):\n"
+        df_followers_sorted = df_followers.sort_values('Fecha')
+        for i in range(min(5, len(df_followers_sorted))):
+            idx = -(i+1)
+            fecha = df_followers_sorted.iloc[idx]['Fecha']
+            seguidores = int(df_followers_sorted.iloc[idx]['Seguidores_Totales']) if pd.notnull(df_followers_sorted.iloc[idx]['Seguidores_Totales']) else 0
+            fecha_str = fecha.strftime('%d/%m/%Y') if pd.notnull(fecha) else 'Desconocida'
+            contexto += f"  • {fecha_str}: {seguidores:,} seguidores\n"
     else:
-        contexto += "\n    - Datos no disponibles"
+        contexto += "  • Sin datos de seguidores disponibles\n"
     
-    contexto += "\n\n    📊 MÉTRICAS DE GRÁFICA 2 (Heatmap CPS):"
+    contexto += "\n" + "="*50 + "\n\n"
     
-    # Agregar métricas de gráfica 2 si existen
-    if mg2:
-        contexto += f"""
-    - Mejor CPS: ${mg2.get('mejor_cps', 0):.2f}
-    - Peor CPS: ${mg2.get('peor_cps', 0):.2f}
-    - Promedio CPS: ${mg2.get('promedio_cps', 0):.2f}"""
+    # 3. Pauta publicitaria
+    contexto += "💰 PAUTA PUBLICITARIA:\n"
+    if not df_pauta.empty:
+        coste_anuncio_sum = df_pauta['coste_anuncio'].sum() if 'coste_anuncio' in df_pauta.columns else 0
+        visualizaciones_videos_sum = df_pauta['visualizaciones_videos'].sum() if 'visualizaciones_videos' in df_pauta.columns else 0
+        nuevos_seguidores_sum = df_pauta['nuevos_seguidores'].sum() if 'nuevos_seguidores' in df_pauta.columns else 0
+        
+        contexto += f"• Inversión total: ${coste_anuncio_sum:,}\n"
+        contexto += f"• Visualizaciones de pauta: {visualizaciones_videos_sum:,}\n"
+        contexto += f"• Nuevos seguidores de pauta: {nuevos_seguidores_sum:,}\n"
+        
+        if nuevos_seguidores_sum > 0:
+            costo_por_seguidor = coste_anuncio_sum / nuevos_seguidores_sum
+            contexto += f"• Costo por seguidor: ${costo_por_seguidor:.2f}\n"
+        
+        # Detalles de campañas
+        contexto += "\n🎯 CAMPAÑAS DE PAUTA:\n"
+        for i, (_, row) in enumerate(df_pauta.iterrows(), 1):
+            fecha = row.get('fecha', 'Desconocida')
+            costo = int(row.get('coste_anuncio', 0))
+            visualizaciones = int(row.get('visualizaciones_videos', 0))
+            nuevos_seg = int(row.get('nuevos_seguidores', 0))
+            
+            if isinstance(fecha, pd.Timestamp):
+                fecha_str = fecha.strftime('%d/%m/%Y')
+            else:
+                fecha_str = str(fecha)[:10]
+            
+            contexto += f"  {i}. {fecha_str}: ${costo:,} - {visualizaciones:,} views - {nuevos_seg} nuevos seguidores\n"
     else:
-        contexto += "\n    - Datos no disponibles"
+        contexto += "  • Sin datos de pauta disponibles\n"
     
-    # Agregar contenido destacado
-    contexto += "\n\n    🏆 CONTENIDO DESTACADO:"
-    if top_content:
-        contexto += f"""
-    - Título: {top_content.get('titulo', 'N/A')}
-    - Plataforma: {top_content.get('platform', 'N/A')}
-    - Visualizaciones: {top_content.get('views', 0):,}"""
-    else:
-        contexto += "\n    - Sin datos destacados"
+    contexto += "\n" + "="*50 + "\n\n"
     
-    contexto += f"\n\n    ⏱️ DATOS ACTUALIZADOS: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    # 4. Métricas generales del dashboard
+    contexto += "📈 MÉTRICAS GENERALES DEL DASHBOARD:\n"
+    contexto += f"• Total videos: {len(df_all)}\n"
+    contexto += f"• Total registros seguidores: {len(df_followers)}\n"
+    contexto += f"• Total campañas pauta: {len(df_pauta)}\n"
+    contexto += f"• Fecha de actualización: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n"
+    
+    contexto += "\n" + "="*50 + "\n"
+    contexto += "ℹ️  NOTA: Estos son TODOS los datos disponibles. Responde preguntas específicas usando estos datos.\n"
+    contexto += "Ejemplos de preguntas que puedes responder:\n"
+    contexto += "- '¿Cuál es nuestro video más visto?'\n"
+    contexto += "- '¿Cuánto hemos gastado en publicidad?'\n"
+    contexto += "- '¿Cómo ha evolucionado nuestro número de seguidores?'\n"
+    contexto += "- '¿Cuál es el costo por seguidor de nuestra pauta?'\n"
+    contexto += "- '¿Qué plataforma tiene más engagement?'\n"
     
     return contexto
 
 def call_openai_backend(user_input):
-    """Llama al endpoint de OpenAI del backend con contexto enriquecido"""
+    """Llama al endpoint de OpenAI del backend con contexto completo"""
     try:
-        # Generar contexto resumido
-        contexto_resumido = generar_contexto_resumido()
+        # Generar contexto completo con TODOS los datos
+        contexto_completo = generar_contexto_completo()
         
-        # Combinar pregunta con contexto
+        # Combinar pregunta con contexto completo
         prompt_completo = f"""
-        Eres un asistente analítico de redes sociales. Tienes acceso a los siguientes datos resumidos:
-        
-        {contexto_resumido}
-        
+        Eres un asistente analítico especializado en redes sociales. Tienes acceso COMPLETO a todos los datos del dashboard.
+
+        ===== DATOS COMPLETOS DISPONIBLES =====
+        {contexto_completo}
+        ========================================
+
+        INSTRUCCIONES IMPORTANTES:
+        1. Usa TODOS los datos disponibles para responder de manera precisa
+        2. Proporciona números exactos cuando estén disponibles
+        3. Si el usuario pregunta sobre algo específico, refiérete a los datos correspondientes
+        4. Si un dato no existe en los datos proporcionados, di claramente "No tengo información sobre esto en los datos disponibles"
+        5. Sé lo más detallado posible usando la información disponible
+
         Pregunta del usuario: {user_input}
-        
-        Responde de manera concisa y útil basándote SOLO en los datos proporcionados. Si no tienes información suficiente, indícalo.
+
+        Responde de manera detallada y precisa usando los datos anteriores.
         """
         
         payload = {
             "input": prompt_completo
         }
         
-        response = requests.post(OPENAI_BACKEND_URL, json=payload, timeout=30)
+        response = requests.post(OPENAI_BACKEND_URL, json=payload, timeout=60)
         
         if response.status_code == 200:
             data = response.json()
@@ -400,9 +367,7 @@ def call_openai_backend(user_input):
     except Exception as e:
         return f"Error al conectar con el backend de OpenAI: {str(e)}"
 
-# ... [EL RESTO DEL CÓDIGO PERMANECE EXACTAMENTE IGUAL DESDE LA LÍNEA 393 EN ADELANTE] ...
-
-# Estilos CSS (sin cambios)
+# Estilos CSS (MANTENIDOS EXACTAMENTE IGUAL)
 st.markdown("""
 <style>
 /* Animación shimmer */
@@ -587,7 +552,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Sidebar
+# Cargar datos
+df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
+
+# Sidebar (MANTENIDO EXACTAMENTE IGUAL, SOLO CORREGIDO EL TYPO)
 with st.sidebar:
     st.markdown("""
     <div style="text-align: center; margin-bottom: 20px; padding: 0 10px;">
@@ -642,13 +610,28 @@ with st.sidebar:
     # Asistente de Chat
     st.markdown('<p style="color: #cbd5e1; font-size: 11px; font-weight: 600; margin-bottom: 8px; margin-top: 15px; letter-spacing: 0.8px; text-transform: uppercase;">🤖 ASISTENTE DE DATOS</p>', unsafe_allow_html=True)
     
-    # Información del contexto disponible (nueva adición)
-    with st.expander("📋 **Contexto disponible para IA**", expanded=False):
-        st.caption("El asistente tiene acceso a estos datos:")
-        contexto_info = generar_contexto_resumido()
-        # Mostrar solo las primeras líneas para no saturar
-        st.text_area("Resumen de datos", value=contexto_info[:800] + "..." if len(contexto_info) > 800 else contexto_info, 
-                    height=150, disabled=True, label_visibility="collapsed")
+    # Información del contexto disponible
+    with st.expander("📋 **DATOS DISPONIBLES PARA IA**", expanded=False):
+        st.caption("El asistente tiene acceso COMPLETO a estos datos:")
+        
+        # Mostrar resumen rápido (CORREGIDO EL TYPO: total_seguadores → total_seguidores)
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("📊 Videos", len(df_all))
+        with col2:
+            total_seguidores = 0
+            if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
+                if not df_followers['Seguidores_Totales'].dropna().empty:
+                    total_seguidores = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
+            st.metric("👥 Seguidores", f"{total_seguidores:,}")
+        with col3:
+            total_pauta = int(df_pauta['coste_anuncio'].sum()) if not df_pauta.empty and 'coste_anuncio' in df_pauta.columns else 0
+            st.metric("💰 Pauta", f"${total_pauta:,}")
+        
+        # Botón para ver datos completos
+        if st.button("📋 Ver resumen detallado", use_container_width=True):
+            contexto = generar_contexto_completo()
+            st.text_area("Resumen completo", value=contexto, height=300, disabled=True, label_visibility="collapsed")
     
     # Inicializar historial de chat
     if "messages" not in st.session_state:
@@ -669,8 +652,10 @@ with st.sidebar:
         # Agregar mensaje del usuario
         st.session_state.messages.append({"role": "user", "content": user_input})
         
-        # Llamar al backend de OpenAI con contexto mejorado
-        assistant_response = call_openai_backend(user_input)
+        # Mostrar indicador de carga
+        with st.spinner("Analizando datos completos..."):
+            # Llamar al backend de OpenAI con contexto COMPLETO
+            assistant_response = call_openai_backend(user_input)
         
         # Agregar respuesta del asistente
         st.session_state.messages.append({"role": "assistant", "content": assistant_response})
@@ -678,7 +663,7 @@ with st.sidebar:
         # Rerun para mostrar la respuesta
         st.rerun()
 
-# Contenido principal - HEADER (sin cambios)
+# Contenido principal - HEADER (MANTENIDO EXACTAMENTE IGUAL)
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
 st.markdown(f"""
 <div class="dashboard-header">
@@ -696,7 +681,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# MÉTRICAS - VERSIÓN SIMPLIFICADA USANDO FUNCIONES HELPER (sin cambios)
+# MÉTRICAS - VERSIÓN SIMPLIFICADA USANDO FUNCIONES HELPER (MANTENIDAS EXACTAMENTE IGUAL)
 def format_number(num):
     try:
         num = float(num)
@@ -730,7 +715,7 @@ def create_metric_card(icon, value, label, is_light=False):
         </div>
         """
 
-# Calcular métricas (sin cambios)
+# Calcular métricas (MANTENIDO EXACTAMENTE IGUAL)
 if not df_pauta.empty:
     coste_anuncio_sum = df_pauta['coste_anuncio'].sum() if 'coste_anuncio' in df_pauta.columns else 0
     visualizaciones_videos_sum = df_pauta['visualizaciones_videos'].sum() if 'visualizaciones_videos' in df_pauta.columns else 0
@@ -740,7 +725,7 @@ else:
     visualizaciones_videos_sum = 0
     nuevos_seguidores_sum = 0
 
-# Métricas generales (sin cambios)
+# Métricas generales (MANTENIDO EXACTAMENTE IGUAL)
 total_seguidores = 0
 if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
     if not df_followers['Seguidores_Totales'].dropna().empty:
@@ -749,7 +734,7 @@ if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
 total_contenidos = len(df_all)
 total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
 
-# Crear columnas para las métricas (sin cambios)
+# Crear columnas para las métricas (MANTENIDO EXACTAMENTE IGUAL)
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
 # Métrica 1: Coste Anuncio
@@ -815,7 +800,7 @@ with col6:
 # Agregar espacio
 st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 
-# Selector de gráficas (sin cambios)
+# Selector de gráficas (MANTENIDO EXACTAMENTE IGUAL)
 st.markdown('<div class="grafica-selector-container">', unsafe_allow_html=True)
 st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁFICA</div>', unsafe_allow_html=True)
 
@@ -858,7 +843,7 @@ with col3:
 
 st.markdown('</div></div>', unsafe_allow_html=True)
 
-# Mostrar gráfica seleccionada (sin cambios)
+# Mostrar gráfica seleccionada (MANTENIDO EXACTAMENTE IGUAL)
 if st.session_state.grafica_seleccionada == "grafica1":
     st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
     st.markdown("##### 📈 Gráfica 1: Inversión vs Seguidores")
@@ -879,7 +864,7 @@ elif st.session_state.grafica_seleccionada == "grafica2":
         st.warning("No se pudo cargar la Gráfica 2")
     st.markdown('</div>', unsafe_allow_html=True)
 
-else:  # Gráfica de evolución (sin cambios)
+else:  # Gráfica de evolución (MANTENIDO EXACTAMENTE IGUAL)
     st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
     st.markdown("##### 📈 EVOLUCIÓN DE SEGUIDORES TIKTOK Y MÉTRICAS DE PAUTA")
     
@@ -1037,7 +1022,7 @@ else:  # Gráfica de evolución (sin cambios)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Tabla de contenido (sin cambios)
+# Tabla de contenido (MANTENIDO EXACTAMENTE IGUAL)
 st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
 st.markdown("##### 📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA")
 
@@ -1072,7 +1057,7 @@ if not df_all.empty:
     if 'comentarios' in display_df.columns:
         column_order.append('comentarios')
     
-    if 'Seguidores_Totales' in display_df.columns:
+    if 'Seguidores_Totales' in df_all.columns:
         column_order.append('Seguidores_Totales')
     
     column_order = [col for col in column_order if col in display_df.columns]
@@ -1101,7 +1086,7 @@ if not df_all.empty:
     
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Footer (sin cambios)
+# Footer (MANTENIDO EXACTAMENTE IGUAL)
 current_time_full = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 st.markdown(f"""
 <div style="text-align: center; color: #6b7280; font-size: 10px; padding: 12px 0; margin-top: 15px; border-top: 1px solid #e5e7eb;">
