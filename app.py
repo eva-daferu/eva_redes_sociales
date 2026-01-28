@@ -24,8 +24,8 @@ FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
 PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
 GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
 GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
-GRAFICA1_METRICS_URL = "https://pahubisas.pythonanywhere.com/metricas_grafica1"
-GRAFICA2_METRICS_URL = "https://pahubisas.pythonanywhere.com/metricas_grafica2"
+GRAFICA1_METRICS_URL = "https://pahubisas.pythonanywhere.com/metricas_resumidas_grafica1"
+GRAFICA2_METRICS_URL = "https://pahubisas.pythonanywhere.com/metricas_resumidas_grafica2"
 OPENAI_BACKEND_URL = "https://pahubisas.pythonanywhere.com/openai_response"
 
 def cargar_datos_backend():
