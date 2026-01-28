@@ -5,13 +5,8 @@ from datetime import datetime, timedelta
 import warnings
 import requests
 from io import BytesIO
-from openai import OpenAI
 
 warnings.filterwarnings('ignore')
-
-# Configuración de OpenAI
-OPENAI_API_KEY = "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"
-client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Configuración de la página
 st.set_page_config(
@@ -29,6 +24,7 @@ FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
 PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
 GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
 GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
+OPENAI_BACKEND_URL = "https://pahubisas.pythonanywhere.com/openai_response"
 
 def cargar_datos_backend():
     try:
@@ -197,6 +193,25 @@ def cargar_datos():
         tiktok_data = df[df['red'] == 'tiktok'].copy()
     
     return df, youtobe_data, tiktok_data, df_followers, df_pauta
+
+def call_openai_backend(user_input):
+    """Llama al endpoint de OpenAI del backend"""
+    try:
+        payload = {
+            "input": user_input
+        }
+        
+        response = requests.post(OPENAI_BACKEND_URL, json=payload, timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            # El backend devuelve: {"data": {"output_text": "respuesta"}}
+            return data.get("data", {}).get("output_text", "No se recibió respuesta del asistente.")
+        else:
+            return f"Error en la solicitud al backend: {response.status_code}"
+            
+    except Exception as e:
+        return f"Error al conectar con el backend de OpenAI: {str(e)}"
 
 # Estilos CSS
 st.markdown("""
@@ -460,7 +475,7 @@ with st.sidebar:
         # Agregar mensaje del usuario
         st.session_state.messages.append({"role": "user", "content": user_input})
         
-        # Preparar contexto con datos actuales
+        # Preparar contexto con datos actuales para incluir en el prompt
         total_posts = len(df_all)
         total_views = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
         
@@ -475,42 +490,28 @@ with st.sidebar:
         visualizaciones_videos = df_pauta['visualizaciones_videos'].sum() if not df_pauta.empty and 'visualizaciones_videos' in df_pauta.columns else 0
         nuevos_seguidores = df_pauta['nuevos_seguidores'].sum() if not df_pauta.empty and 'nuevos_seguidores' in df_pauta.columns else 0
         
-        contexto = f"""
-        Eres un asistente especializado en análisis de datos de redes sociales. 
+        # Agregar contexto a la pregunta para que OpenAI tenga más información
+        contexto_adicional = f"""
         
-        Datos actuales del dashboard:
+        Contexto de datos actuales:
         - Total de publicaciones: {total_posts}
         - Visualizaciones totales: {total_views:,}
         - Total de seguidores TikTok: {total_followers:,}
         - Inversión en publicidad: ${coste_anuncio:,}
         - Visualizaciones de videos pagados: {visualizaciones_videos:,}
         - Nuevos seguidores de publicidad: {nuevos_seguidores:,}
-        
-        Puedes responder preguntas sobre estas métricas, tendencias, eficiencia de publicidad, y análisis de datos.
         """
         
-        # Llamar a OpenAI
-        try:
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": contexto},
-                    *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
-                ],
-                temperature=0.7,
-                max_tokens=300
-            )
-            
-            assistant_response = response.choices[0].message.content
-            
-            # Agregar respuesta del asistente
-            st.session_state.messages.append({"role": "assistant", "content": assistant_response})
-            
-            # Rerun para mostrar la respuesta
-            st.rerun()
-            
-        except Exception as e:
-            st.error(f"Error al conectar con OpenAI: {str(e)}")
+        pregunta_con_contexto = f"{user_input}\n\n{contexto_adicional}"
+        
+        # Llamar al backend de OpenAI
+        assistant_response = call_openai_backend(pregunta_con_contexto)
+        
+        # Agregar respuesta del asistente
+        st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+        
+        # Rerun para mostrar la respuesta
+        st.rerun()
 
 # Contenido principal - HEADER
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
