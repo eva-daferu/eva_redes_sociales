@@ -20,7 +20,7 @@ GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
 GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
 
 def openai_chat(prompt, model="gpt-4.1-mini", max_output_tokens=300):
-    """Envía una solicitud al backend de OpenAI"""
+    """Envía una solicitud al backend de OpenAI con mejor manejo de errores"""
     try:
         payload = {
             "input": prompt,
@@ -29,21 +29,73 @@ def openai_chat(prompt, model="gpt-4.1-mini", max_output_tokens=300):
         }
         
         headers = {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Accept": "application/json"
         }
+        
+        st.write(f"🔍 Enviando solicitud a: {OPENAI_BACKEND_URL}")  # Debug
         
         r = requests.post(OPENAI_BACKEND_URL, json=payload, headers=headers, timeout=60)
         
-        if r.status_code != 200:
-            return f"❌ Error del backend (código {r.status_code}): {r.text}"
+        st.write(f"📊 Respuesta recibida - Status: {r.status_code}")  # Debug
         
-        data = r.json()
-        return data.get("data", {}).get("output_text", "No se recibió respuesta del backend")
+        if r.status_code == 405:
+            return "❌ **Error del backend:** Método no permitido. El endpoint no acepta POST. Verifica la configuración del servidor."
+        elif r.status_code == 404:
+            return "❌ **Error del backend:** Endpoint no encontrado. La URL del servicio de IA no está disponible."
+        elif r.status_code != 200:
+            return f"❌ **Error del backend (código {r.status_code}):** {r.text[:200]}"
+        
+        # Intentar diferentes formatos de respuesta
+        try:
+            data = r.json()
+            
+            # Intentar diferentes estructuras de respuesta
+            if isinstance(data, dict):
+                # Formato 1: {"data": {"output_text": "..."}}
+                if "data" in data and isinstance(data["data"], dict):
+                    response_text = data["data"].get("output_text", "")
+                    if response_text:
+                        return response_text
+                
+                # Formato 2: {"output_text": "..."}
+                if "output_text" in data:
+                    return data["output_text"]
+                
+                # Formato 3: {"response": "..."}
+                if "response" in data:
+                    return data["response"]
+                
+                # Formato 4: {"text": "..."}
+                if "text" in data:
+                    return data["text"]
+                
+                # Formato 5: {"message": "..."}
+                if "message" in data:
+                    return data["message"]
+                
+                # Si no encontramos el formato esperado, mostrar la respuesta completa
+                return f"📄 **Respuesta del backend (formato no estándar):**\n\n{json.dumps(data, ensure_ascii=False, indent=2)}"
+            
+            elif isinstance(data, str):
+                return data
+            
+            return "⚠️ **El backend respondió, pero en un formato no reconocido.**"
+            
+        except json.JSONDecodeError:
+            # Si no es JSON, devolver el texto plano
+            text_response = r.text[:1000]  # Limitar a 1000 caracteres
+            if text_response.strip():
+                return f"📄 **Respuesta del backend (texto plano):**\n\n{text_response}"
+            else:
+                return "⚠️ **El backend respondió con una respuesta vacía.**"
     
-    except requests.exceptions.RequestException as e:
-        return f"❌ Error de conexión: {str(e)}"
+    except requests.exceptions.Timeout:
+        return "⏰ **Error de tiempo de espera:** El backend tardó demasiado en responder."
+    except requests.exceptions.ConnectionError:
+        return "🔌 **Error de conexión:** No se pudo conectar con el servidor backend."
     except Exception as e:
-        return f"❌ Error inesperado: {str(e)}"
+        return f"❌ **Error inesperado:** {str(e)}"
 
 # ============================================
 # CONFIGURACIÓN DE LA PÁGINA
@@ -257,6 +309,10 @@ def preparar_contexto_ai(df_all, df_followers, df_pauta):
     costo_por_seguidor = coste_anuncio / nuevos_seguidores if nuevos_seguidores > 0 else 0
     costo_por_mil_views = (coste_anuncio / visualizaciones_videos * 1000) if visualizaciones_videos > 0 else 0
     
+    # Filtrar por plataformas
+    tiktok_posts = len(df_all[df_all['red'].str.contains('tiktok', case=False, na=False)]) if 'red' in df_all.columns else 0
+    youtube_posts = len(df_all[df_all['red'].str.contains('youtub|youtobe', case=False, na=False)]) if 'red' in df_all.columns else 0
+    
     contexto = f"""
     Eres DataBot, un asistente especializado en análisis de datos de redes sociales. 
     
@@ -276,8 +332,8 @@ def preparar_contexto_ai(df_all, df_followers, df_pauta):
     • Costo por mil visualizaciones (CPM): ${costo_por_mil_views:,.2f}
     
     📈 PLATAFORMAS ANALIZADAS:
-    • TikTok: {len(df_all[df_all['red'].str.contains('tiktok', case=False, na=False)])} publicaciones
-    • YouTube: {len(df_all[df_all['red'].str.contains('youtub|youtobe', case=False, na=False)])} publicaciones
+    • TikTok: {tiktok_posts} publicaciones
+    • YouTube: {youtube_posts} publicaciones
     
     🔍 ANÁLISIS DISPONIBLE:
     Puedo ayudarte con:
@@ -309,12 +365,17 @@ def procesar_respuesta_ia(df_all, df_followers, df_pauta):
                 contexto = preparar_contexto_ai(df_all, df_followers, df_pauta)
                 
                 # Construir el prompt completo para el backend
+                # Incluir solo los últimos 3 intercambios para no sobrecargar
                 conversacion_reciente = ""
-                for msg in st.session_state.messages[-6:]:
+                for i, msg in enumerate(st.session_state.messages[-6:]):
                     role = "Usuario" if msg["role"] == "user" else "DataBot"
                     conversacion_reciente += f"{role}: {msg['content']}\n"
                 
-                prompt_completo = f"{contexto}\n\nConversación actual:\n{conversacion_reciente}DataBot: "
+                # Si es el primer mensaje después del saludo, no incluir conversación anterior
+                if len(st.session_state.messages) <= 2:
+                    prompt_completo = f"{contexto}\n\nUsuario: {ultimo_mensaje}\nDataBot: "
+                else:
+                    prompt_completo = f"{contexto}\n\n{conversacion_reciente}DataBot: "
                 
                 # Llamar a tu backend
                 respuesta = openai_chat(prompt_completo, model="gpt-4.1-mini", max_output_tokens=500)
@@ -590,7 +651,7 @@ st.markdown("""
 }
 
 .send-button {
-    background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
+    background: linear-gradient(135deg, #8B5CF6 0%, #6366F6 100%);
     color: white;
     border: none;
     border-radius: 10px;
@@ -653,6 +714,20 @@ st.markdown("""
 
 .typing-dot:nth-child(3) {
     animation-delay: 0.4s;
+}
+
+/* Estilo para mensajes de error */
+.error-message {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    color: #dc2626;
+    padding: 10px 14px;
+    border-radius: 14px 14px 14px 4px;
+    max-width: 85%;
+    margin-right: auto;
+    font-size: 12px;
+    line-height: 1.4;
+    border: 1px solid #fecaca;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.1);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -751,7 +826,11 @@ with st.sidebar:
             # Formatear respuesta del asistente
             content = message["content"]
             content = content.replace('\n', '<br>')
-            st.markdown(f'<div class="chat-message"><div class="assistant-message">{content}</div></div>', unsafe_allow_html=True)
+            # Determinar si es un mensaje de error
+            if content.startswith("❌") or content.startswith("⚠️") or content.startswith("⏰") or content.startswith("🔌"):
+                st.markdown(f'<div class="chat-message"><div class="error-message">{content}</div></div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="chat-message"><div class="assistant-message">{content}</div></div>', unsafe_allow_html=True)
     
     # Mostrar indicador de escritura si está procesando
     if st.session_state.get("processing_chat", False):
