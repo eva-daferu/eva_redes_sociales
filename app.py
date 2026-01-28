@@ -10,24 +10,40 @@ import json
 warnings.filterwarnings('ignore')
 
 # ============================================
-# CONFIGURACIÓN DE API KEYS
+# CONFIGURACIÓN DE API KEYS Y ENDPOINTS
 # ============================================
-BACKEND_URL = "https://pahubisas.pythonanywhere.com/openai_response"
+OPENAI_BACKEND_URL = "https://pahubisas.pythonanywhere.com/openai_response"
+DATA_BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
+FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
+PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
+GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
+GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
 
 def openai_chat(prompt, model="gpt-4.1-mini", max_output_tokens=300):
-    payload = {
-        "input": prompt,
-        "model": model,
-        "max_output_tokens": max_output_tokens
-    }
-
-    r = requests.post(BACKEND_URL, json=payload, timeout=60)
-
-    if r.status_code != 200:
-        raise RuntimeError(r.text)
-
-    data = r.json()
-    return data["data"]["output_text"]
+    """Envía una solicitud al backend de OpenAI"""
+    try:
+        payload = {
+            "input": prompt,
+            "model": model,
+            "max_output_tokens": max_output_tokens
+        }
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        r = requests.post(OPENAI_BACKEND_URL, json=payload, headers=headers, timeout=60)
+        
+        if r.status_code != 200:
+            return f"❌ Error del backend (código {r.status_code}): {r.text}"
+        
+        data = r.json()
+        return data.get("data", {}).get("output_text", "No se recibió respuesta del backend")
+    
+    except requests.exceptions.RequestException as e:
+        return f"❌ Error de conexión: {str(e)}"
+    except Exception as e:
+        return f"❌ Error inesperado: {str(e)}"
 
 # ============================================
 # CONFIGURACIÓN DE LA PÁGINA
@@ -40,21 +56,12 @@ st.set_page_config(
 )
 
 # ============================================
-# ENDPOINTS DEL BACKEND
-# ============================================
-BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
-FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
-PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
-GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
-GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
-
-# ============================================
 # FUNCIONES PARA CARGAR DATOS
 # ============================================
 def cargar_datos_backend():
     """Carga datos principales del backend"""
     try:
-        r = requests.get(BACKEND_URL, timeout=20)
+        r = requests.get(DATA_BACKEND_URL, timeout=20)
         r.raise_for_status()
         data = r.json()
         df = pd.DataFrame(data.get("data", []))
@@ -302,15 +309,14 @@ def procesar_respuesta_ia(df_all, df_followers, df_pauta):
                 contexto = preparar_contexto_ai(df_all, df_followers, df_pauta)
                 
                 # Construir el prompt completo para el backend
-                # Incluir el contexto y la conversación reciente
                 conversacion_reciente = ""
-                for msg in st.session_state.messages[-6:]:  # Últimos 6 mensajes (3 intercambios)
+                for msg in st.session_state.messages[-6:]:
                     role = "Usuario" if msg["role"] == "user" else "DataBot"
                     conversacion_reciente += f"{role}: {msg['content']}\n"
                 
                 prompt_completo = f"{contexto}\n\nConversación actual:\n{conversacion_reciente}DataBot: "
                 
-                # Llamar a tu backend en lugar de OpenAI SDK
+                # Llamar a tu backend
                 respuesta = openai_chat(prompt_completo, model="gpt-4.1-mini", max_output_tokens=500)
                 
                 # Agregar respuesta del asistente
@@ -685,7 +691,7 @@ with st.sidebar:
     
     # Estado del sistema
     try:
-        backend_test = requests.get(BACKEND_URL, timeout=5)
+        backend_test = requests.get(DATA_BACKEND_URL, timeout=5)
         if backend_test.status_code == 200:
             st.markdown('<div style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 8px 12px; border-radius: 10px; margin-bottom: 8px; border: 1px solid rgba(16, 185, 129, 0.2); font-size: 11px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 14px;">✅</span> <strong>Backend Conectado</strong></div>', unsafe_allow_html=True)
         else:
