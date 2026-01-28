@@ -6,12 +6,15 @@ import warnings
 import requests
 from io import BytesIO
 import json
+import os
+from openai import OpenAI
 
 warnings.filterwarnings('ignore')
 
 # ============================================
-# CONFIGURACIÓN DE API KEYS Y ENDPOINTS
+# CONFIGURACIÓN - SOLUCIÓN HÍBRIDA
 # ============================================
+# Primero intentamos usar el backend, si falla usamos OpenAI directo
 OPENAI_BACKEND_URL = "https://pahubisas.pythonanywhere.com/openai_response"
 DATA_BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
 FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
@@ -19,93 +22,8 @@ PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
 GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
 GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
 
-def openai_chat(prompt, model="gpt-4.1-mini", max_output_tokens=300):
-    """Envía una solicitud al backend de OpenAI con mejor manejo de errores"""
-    try:
-        payload = {
-            "input": prompt,
-            "model": model,
-            "max_output_tokens": max_output_tokens
-        }
-        
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
-        
-        st.write(f"🔍 Enviando solicitud a: {OPENAI_BACKEND_URL}")  # Debug
-        
-        r = requests.post(OPENAI_BACKEND_URL, json=payload, headers=headers, timeout=60)
-        
-        st.write(f"📊 Respuesta recibida - Status: {r.status_code}")  # Debug
-        
-        if r.status_code == 405:
-            return "❌ **Error del backend:** Método no permitido. El endpoint no acepta POST. Verifica la configuración del servidor."
-        elif r.status_code == 404:
-            return "❌ **Error del backend:** Endpoint no encontrado. La URL del servicio de IA no está disponible."
-        elif r.status_code != 200:
-            return f"❌ **Error del backend (código {r.status_code}):** {r.text[:200]}"
-        
-        # Intentar diferentes formatos de respuesta
-        try:
-            data = r.json()
-            
-            # Intentar diferentes estructuras de respuesta
-            if isinstance(data, dict):
-                # Formato 1: {"data": {"output_text": "..."}}
-                if "data" in data and isinstance(data["data"], dict):
-                    response_text = data["data"].get("output_text", "")
-                    if response_text:
-                        return response_text
-                
-                # Formato 2: {"output_text": "..."}
-                if "output_text" in data:
-                    return data["output_text"]
-                
-                # Formato 3: {"response": "..."}
-                if "response" in data:
-                    return data["response"]
-                
-                # Formato 4: {"text": "..."}
-                if "text" in data:
-                    return data["text"]
-                
-                # Formato 5: {"message": "..."}
-                if "message" in data:
-                    return data["message"]
-                
-                # Si no encontramos el formato esperado, mostrar la respuesta completa
-                return f"📄 **Respuesta del backend (formato no estándar):**\n\n{json.dumps(data, ensure_ascii=False, indent=2)}"
-            
-            elif isinstance(data, str):
-                return data
-            
-            return "⚠️ **El backend respondió, pero en un formato no reconocido.**"
-            
-        except json.JSONDecodeError:
-            # Si no es JSON, devolver el texto plano
-            text_response = r.text[:1000]  # Limitar a 1000 caracteres
-            if text_response.strip():
-                return f"📄 **Respuesta del backend (texto plano):**\n\n{text_response}"
-            else:
-                return "⚠️ **El backend respondió con una respuesta vacía.**"
-    
-    except requests.exceptions.Timeout:
-        return "⏰ **Error de tiempo de espera:** El backend tardó demasiado en responder."
-    except requests.exceptions.ConnectionError:
-        return "🔌 **Error de conexión:** No se pudo conectar con el servidor backend."
-    except Exception as e:
-        return f"❌ **Error inesperado:** {str(e)}"
-
-# ============================================
-# CONFIGURACIÓN DE LA PÁGINA
-# ============================================
-st.set_page_config(
-    page_title="Social Media Dashboard PRO",
-    layout="wide",
-    page_icon="📊",
-    initial_sidebar_state="expanded"
-)
+# Configuración de OpenAI (como respaldo)
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
 # ============================================
 # FUNCIONES PARA CARGAR DATOS
@@ -286,7 +204,7 @@ def cargar_datos():
     return df, youtobe_data, tiktok_data, df_followers, df_pauta
 
 # ============================================
-# FUNCIONES DE ASISTENTE IA
+# FUNCIONES DE ASISTENTE IA - SOLUCIÓN HÍBRIDA
 # ============================================
 def preparar_contexto_ai(df_all, df_followers, df_pauta):
     """Prepara el contexto para el asistente IA"""
@@ -348,8 +266,85 @@ def preparar_contexto_ai(df_all, df_followers, df_pauta):
     
     return contexto
 
+def obtener_respuesta_ia_backend(prompt):
+    """Intenta obtener respuesta del backend"""
+    try:
+        payload = {
+            "input": prompt,
+            "model": "gpt-4.1-mini",
+            "max_output_tokens": 500
+        }
+        
+        headers = {"Content-Type": "application/json"}
+        r = requests.post(OPENAI_BACKEND_URL, json=payload, headers=headers, timeout=30)
+        
+        if r.status_code == 200:
+            try:
+                data = r.json()
+                # Intentar diferentes formatos de respuesta
+                if isinstance(data, dict):
+                    if "data" in data and "output_text" in data["data"]:
+                        return data["data"]["output_text"]
+                    elif "output_text" in data:
+                        return data["output_text"]
+                    elif "response" in data:
+                        return data["response"]
+                    elif "text" in data:
+                        return data["text"]
+                    elif "message" in data:
+                        return data["message"]
+                
+                # Si es texto plano
+                text_response = r.text.strip()
+                if text_response and text_response != "OpenAI response":
+                    return text_response
+                
+            except:
+                # Si no es JSON, devolver texto
+                text_response = r.text.strip()
+                if text_response and text_response != "OpenAI response":
+                    return text_response
+        
+        return None  # Falló
+    except:
+        return None  # Falló
+
+def obtener_respuesta_ia_openai_directo(prompt):
+    """Usa OpenAI directamente como respaldo"""
+    try:
+        if not OPENAI_API_KEY:
+            return "❌ **Error:** No se configuró la API Key de OpenAI. Configura la variable de entorno OPENAI_API_KEY."
+        
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Eres DataBot, un asistente especializado en análisis de datos de redes sociales. Responde de forma clara, concisa y profesional. Usa emojis relevantes y estructura la información."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=500
+        )
+        
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"❌ **Error al usar OpenAI directamente:** {str(e)}"
+
+def openai_chat_híbrido(prompt):
+    """Solución híbrida: primero intenta backend, luego OpenAI directo"""
+    # Primero intenta con el backend
+    respuesta_backend = obtener_respuesta_ia_backend(prompt)
+    
+    if respuesta_backend:
+        return respuesta_backend
+    
+    # Si el backend falla o devuelve "OpenAI response", usa OpenAI directo
+    st.sidebar.info("⚠️ Usando OpenAI directamente (backend no disponible)")
+    return obtener_respuesta_ia_openai_directo(prompt)
+
 def procesar_respuesta_ia(df_all, df_followers, df_pauta):
-    """Procesa la respuesta del asistente IA usando tu backend"""
+    """Procesa la respuesta del asistente IA"""
     if "processing_chat" not in st.session_state:
         st.session_state.processing_chat = False
     
@@ -364,7 +359,7 @@ def procesar_respuesta_ia(df_all, df_followers, df_pauta):
                 # Preparar contexto
                 contexto = preparar_contexto_ai(df_all, df_followers, df_pauta)
                 
-                # Construir el prompt completo para el backend
+                # Construir el prompt completo
                 # Incluir solo los últimos 3 intercambios para no sobrecargar
                 conversacion_reciente = ""
                 for i, msg in enumerate(st.session_state.messages[-6:]):
@@ -377,8 +372,8 @@ def procesar_respuesta_ia(df_all, df_followers, df_pauta):
                 else:
                     prompt_completo = f"{contexto}\n\n{conversacion_reciente}DataBot: "
                 
-                # Llamar a tu backend
-                respuesta = openai_chat(prompt_completo, model="gpt-4.1-mini", max_output_tokens=500)
+                # Usar solución híbrida
+                respuesta = openai_chat_híbrido(prompt_completo)
                 
                 # Agregar respuesta del asistente
                 st.session_state.messages.append({"role": "assistant", "content": respuesta})
@@ -651,7 +646,7 @@ st.markdown("""
 }
 
 .send-button {
-    background: linear-gradient(135deg, #8B5CF6 0%, #6366F6 100%);
+    background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
     color: white;
     border: none;
     border-radius: 10px;
@@ -729,8 +724,32 @@ st.markdown("""
     border: 1px solid #fecaca;
     box-shadow: 0 2px 8px rgba(220, 38, 38, 0.1);
 }
+
+/* Estilo para mensajes informativos */
+.info-message {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    color: #0369a1;
+    padding: 10px 14px;
+    border-radius: 14px 14px 14px 4px;
+    max-width: 85%;
+    margin-right: auto;
+    font-size: 12px;
+    line-height: 1.4;
+    border: 1px solid #bae6fd;
+    box-shadow: 0 2px 8px rgba(3, 105, 161, 0.1);
+}
 </style>
 """, unsafe_allow_html=True)
+
+# ============================================
+# CONFIGURACIÓN DE LA PÁGINA
+# ============================================
+st.set_page_config(
+    page_title="Social Media Dashboard PRO",
+    layout="wide",
+    page_icon="📊",
+    initial_sidebar_state="expanded"
+)
 
 # ============================================
 # CARGAR DATOS
@@ -774,6 +793,12 @@ with st.sidebar:
     except:
         st.markdown('<div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 8px 12px; border-radius: 10px; margin-bottom: 8px; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 11px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 14px;">⚠️</span> <strong>Backend Offline</strong></div>', unsafe_allow_html=True)
     
+    # Estado de OpenAI
+    if OPENAI_API_KEY:
+        st.markdown('<div style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 8px 12px; border-radius: 10px; margin-bottom: 8px; border: 1px solid rgba(16, 185, 129, 0.2); font-size: 11px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 14px;">🔑</span> <strong>OpenAI API Key Disponible</strong></div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 8px 12px; border-radius: 10px; margin-bottom: 8px; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 11px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 14px;">⚠️</span> <strong>Sin OpenAI API Key</strong></div>', unsafe_allow_html=True)
+    
     # Selector de plataformas
     st.markdown('<div style="background: rgba(139, 92, 246, 0.1); padding: 12px; border-radius: 12px; margin: 15px 0;">', unsafe_allow_html=True)
     st.markdown('<p style="color: #8B5CF6; font-size: 12px; font-weight: 700; margin-bottom: 10px; letter-spacing: 0.8px; text-transform: uppercase; display: flex; align-items: center; gap: 6px;"><span style="font-size: 16px;">📱</span> PANEL PROFESIONAL</p>', unsafe_allow_html=True)
@@ -797,7 +822,7 @@ with st.sidebar:
     st.markdown('</div>', unsafe_allow_html=True)
     
     # ============================================
-    # ASISTENTE IA MEJORADO - SIN BUCLE
+    # ASISTENTE IA MEJORADO
     # ============================================
     st.markdown('<div class="ai-header">', unsafe_allow_html=True)
     st.markdown('<h3><span>🤖</span> ASISTENTE IA DE DATOS</h3>', unsafe_allow_html=True)
@@ -826,11 +851,13 @@ with st.sidebar:
             # Formatear respuesta del asistente
             content = message["content"]
             content = content.replace('\n', '<br>')
-            # Determinar si es un mensaje de error
+            # Determinar tipo de mensaje
             if content.startswith("❌") or content.startswith("⚠️") or content.startswith("⏰") or content.startswith("🔌"):
                 st.markdown(f'<div class="chat-message"><div class="error-message">{content}</div></div>', unsafe_allow_html=True)
-            else:
+            elif content.startswith("👋") or content.startswith("📊") or content.startswith("💰"):
                 st.markdown(f'<div class="chat-message"><div class="assistant-message">{content}</div></div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="chat-message"><div class="info-message">{content}</div></div>', unsafe_allow_html=True)
     
     # Mostrar indicador de escritura si está procesando
     if st.session_state.get("processing_chat", False):
@@ -846,7 +873,7 @@ with st.sidebar:
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Input de chat - Usamos un formulario para evitar bucles
+    # Input de chat
     with st.form(key="chat_form", clear_on_submit=True):
         col1, col2 = st.columns([4, 1])
         with col1:
