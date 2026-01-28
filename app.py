@@ -82,6 +82,10 @@ def cargar_datos_seguidores():
         if "Seguidores_Totales" in df_followers.columns:
             df_followers["Seguidores_Totales"] = pd.to_numeric(df_followers["Seguidores_Totales"], errors="coerce")
         
+        # Ordenar por fecha ascendente para que el último registro sea el más reciente
+        if not df_followers.empty and "Fecha" in df_followers.columns:
+            df_followers = df_followers.sort_values("Fecha", ascending=True)
+        
         return df_followers
     except Exception as e:
         st.error(f"Error al conectar con el backend de seguidores: {str(e)}")
@@ -253,9 +257,12 @@ def generar_contexto_completo():
     # 2. Seguidores
     contexto += "👥 SEGUIDORES:\n"
     if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
+        # Calcular total seguidores CORREGIDO
         total_seguidores = 0
-        if not df_followers['Seguidores_Totales'].dropna().empty:
-            total_seguidores = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
+        df_followers_sorted = df_followers.sort_values("Fecha", ascending=True)
+        non_null_values = df_followers_sorted['Seguidores_Totales'].dropna()
+        if not non_null_values.empty:
+            total_seguidores = int(non_null_values.iloc[-1])
         
         contexto += f"• Seguidores actuales: {total_seguidores:,}\n"
         contexto += f"• Total de registros: {len(df_followers)}\n"
@@ -555,7 +562,7 @@ st.markdown("""
 # Cargar datos
 df_all, youtobe_df, tiktok_df, df_followers, df_pauta = cargar_datos()
 
-# Sidebar (MANTENIDO EXACTAMENTE IGUAL, SOLO CORREGIDO EL TYPO)
+# Sidebar (MANTENIDO EXACTAMENTE IGUAL)
 with st.sidebar:
     st.markdown("""
     <div style="text-align: center; margin-bottom: 20px; padding: 0 10px;">
@@ -614,15 +621,17 @@ with st.sidebar:
     with st.expander("📋 **DATOS DISPONIBLES PARA IA**", expanded=False):
         st.caption("El asistente tiene acceso COMPLETO a estos datos:")
         
-        # Mostrar resumen rápido (CORREGIDO EL TYPO: total_seguadores → total_seguidores)
+        # Mostrar resumen rápido
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("📊 Videos", len(df_all))
         with col2:
             total_seguidores = 0
             if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
-                if not df_followers['Seguidores_Totales'].dropna().empty:
-                    total_seguidores = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
+                df_followers_sorted = df_followers.sort_values("Fecha", ascending=True)
+                non_null_values = df_followers_sorted['Seguidores_Totales'].dropna()
+                if not non_null_values.empty:
+                    total_seguidores = int(non_null_values.iloc[-1])
             st.metric("👥 Seguidores", f"{total_seguidores:,}")
         with col3:
             total_pauta = int(df_pauta['coste_anuncio'].sum()) if not df_pauta.empty and 'coste_anuncio' in df_pauta.columns else 0
@@ -663,7 +672,7 @@ with st.sidebar:
         # Rerun para mostrar la respuesta
         st.rerun()
 
-# Contenido principal - HEADER (MANTENIDO EXACTAMENTE IGUAL)
+# Contenido principal - HEADER
 current_time = datetime.now().strftime('%d/%m/%Y %H:%M')
 st.markdown(f"""
 <div class="dashboard-header">
@@ -681,7 +690,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# MÉTRICAS - VERSIÓN SIMPLIFICADA USANDO FUNCIONES HELPER (MANTENIDAS EXACTAMENTE IGUAL)
+# MÉTRICAS - VERSIÓN SIMPLIFICADA USANDO FUNCIONES HELPER
 def format_number(num):
     try:
         num = float(num)
@@ -715,7 +724,7 @@ def create_metric_card(icon, value, label, is_light=False):
         </div>
         """
 
-# Calcular métricas (MANTENIDO EXACTAMENTE IGUAL)
+# Calcular métricas
 if not df_pauta.empty:
     coste_anuncio_sum = df_pauta['coste_anuncio'].sum() if 'coste_anuncio' in df_pauta.columns else 0
     visualizaciones_videos_sum = df_pauta['visualizaciones_videos'].sum() if 'visualizaciones_videos' in df_pauta.columns else 0
@@ -725,16 +734,20 @@ else:
     visualizaciones_videos_sum = 0
     nuevos_seguidores_sum = 0
 
-# Métricas generales (MANTENIDO EXACTAMENTE IGUAL)
+# MÉTRICAS GENERALES - CORRECCIÓN DEL CÁLCULO DE TOTAL SEGUIDORES
 total_seguidores = 0
 if not df_followers.empty and 'Seguidores_Totales' in df_followers.columns:
-    if not df_followers['Seguidores_Totales'].dropna().empty:
-        total_seguidores = int(df_followers['Seguidores_Totales'].dropna().iloc[-1])
+    # Ordenar por fecha para asegurar que el último registro sea el más reciente
+    df_followers_sorted = df_followers.sort_values("Fecha", ascending=True)
+    # Tomar el último valor no nulo
+    non_null_values = df_followers_sorted['Seguidores_Totales'].dropna()
+    if not non_null_values.empty:
+        total_seguidores = int(non_null_values.iloc[-1])
 
 total_contenidos = len(df_all)
 total_visualizaciones = df_all['visualizaciones'].sum() if 'visualizaciones' in df_all.columns else 0
 
-# Crear columnas para las métricas (MANTENIDO EXACTAMENTE IGUAL)
+# Crear columnas para las métricas
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
 # Métrica 1: Coste Anuncio
@@ -800,7 +813,7 @@ with col6:
 # Agregar espacio
 st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 
-# Selector de gráficas (MANTENIDO EXACTAMENTE IGUAL)
+# Selector de gráficas
 st.markdown('<div class="grafica-selector-container">', unsafe_allow_html=True)
 st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁFICA</div>', unsafe_allow_html=True)
 
@@ -843,7 +856,7 @@ with col3:
 
 st.markdown('</div></div>', unsafe_allow_html=True)
 
-# Mostrar gráfica seleccionada (MANTENIDO EXACTAMENTE IGUAL)
+# Mostrar gráfica seleccionada
 if st.session_state.grafica_seleccionada == "grafica1":
     st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
     st.markdown("##### 📈 Gráfica 1: Inversión vs Seguidores")
@@ -864,13 +877,13 @@ elif st.session_state.grafica_seleccionada == "grafica2":
         st.warning("No se pudo cargar la Gráfica 2")
     st.markdown('</div>', unsafe_allow_html=True)
 
-else:  # Gráfica de evolución (MANTENIDO EXACTAMENTE IGUAL)
+else:  # Gráfica de evolución
     st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
     st.markdown("##### 📈 EVOLUCIÓN DE SEGUIDORES TIKTOK Y MÉTRICAS DE PAUTA")
     
     if not df_followers.empty and 'Fecha' in df_followers.columns and 'Seguidores_Totales' in df_followers.columns:
         try:
-            # Preparar datos de pauta si existen (MÉTODO ORIGINAL)
+            # Preparar datos de pauta si existen
             if not df_pauta.empty:
                 if 'Costo' in df_pauta.columns:
                     df_pauta['coste_anuncio'] = df_pauta['Costo']
@@ -909,7 +922,7 @@ else:  # Gráfica de evolución (MANTENIDO EXACTAMENTE IGUAL)
                 df_merged['visualizaciones_videos'] = 0
                 df_merged['nuevos_seguidores_pauta'] = 0
             
-            # Crear gráfica de 4 líneas (MÉTODO ORIGINAL)
+            # Crear gráfica de 4 líneas
             fig_followers = go.Figure()
             
             # 1. Seguidores Totales (línea principal)
@@ -976,7 +989,7 @@ else:  # Gráfica de evolución (MANTENIDO EXACTAMENTE IGUAL)
                     yaxis='y2'
                 ))
             
-            # Configurar layout con eje secundario (MÉTODO ORIGINAL)
+            # Configurar layout con eje secundario
             fig_followers.update_layout(
                 height=350,
                 template='plotly_white',
@@ -1022,7 +1035,7 @@ else:  # Gráfica de evolución (MANTENIDO EXACTAMENTE IGUAL)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Tabla de contenido (MANTENIDO EXACTAMENTE IGUAL)
+# Tabla de contenido
 st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
 st.markdown("##### 📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA")
 
@@ -1086,7 +1099,7 @@ if not df_all.empty:
     
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Footer (MANTENIDO EXACTAMENTE IGUAL)
+# Footer
 current_time_full = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 st.markdown(f"""
 <div style="text-align: center; color: #6b7280; font-size: 10px; padding: 12px 0; margin-top: 15px; border-top: 1px solid #e5e7eb;">
