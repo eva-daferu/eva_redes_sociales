@@ -22,8 +22,19 @@ st.set_page_config(
 BACKEND_URL = "https://pahubisas.pythonanywhere.com/data"
 FOLLOWERS_URL = "https://pahubisas.pythonanywhere.com/followers"
 PAUTA_URL = "https://pahubisas.pythonanywhere.com/pauta_anuncio"
+
+# NUEVOS (YouTube/Instagram pauta)
+PAUTA_YOUTUBE_URL = "https://pahubisas.pythonanywhere.com/pauta_youtube"
+PAUTA_INSTAGRAM_URL = "https://pahubisas.pythonanywhere.com/pauta_instagram"
+
+# Gráficas existentes
 GRAFICA1_URL = "https://pahubisas.pythonanywhere.com/grafica1"
 GRAFICA2_URL = "https://pahubisas.pythonanywhere.com/grafica2"
+
+# NUEVAS gráficas (YouTube / Instagram)
+GRAFICA_YOUTUBE_URL = "https://pahubisas.pythonanywhere.com/grafica_youtube"
+GRAFICA_INSTAGRAM_URL = "https://pahubisas.pythonanywhere.com/grafica_instagram"
+
 OPENAI_BACKEND_URL = "https://pahubisas.pythonanywhere.com/openai_response"
 
 def cargar_datos_backend():
@@ -116,6 +127,37 @@ def cargar_datos_pauta():
     except Exception as e:
         return pd.DataFrame()
 
+# NUEVO: pauta por plataforma (YouTube / Instagram)
+def cargar_datos_pauta_plataforma(url):
+    try:
+        r = requests.get(url, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        df_pauta = pd.DataFrame(data.get("data", []))
+        analytics = data.get("analytics", {})
+
+        if not df_pauta.empty:
+            if 'Costo' in df_pauta.columns:
+                df_pauta['coste_anuncio'] = df_pauta['Costo']
+            if 'Visualizaciones' in df_pauta.columns:
+                df_pauta['visualizaciones_videos'] = df_pauta['Visualizaciones']
+            if 'Seguidores' in df_pauta.columns:
+                df_pauta['nuevos_seguidores'] = df_pauta['Seguidores']
+
+            if "coste_anuncio" in df_pauta.columns:
+                df_pauta["coste_anuncio"] = pd.to_numeric(df_pauta["coste_anuncio"], errors="coerce").fillna(0).astype(int)
+
+            for col in ["visualizaciones_videos", "nuevos_seguidores"]:
+                if col in df_pauta.columns:
+                    df_pauta[col] = pd.to_numeric(df_pauta[col], errors="coerce").fillna(0).astype(int)
+
+            if "fecha" in df_pauta.columns:
+                df_pauta["fecha"] = pd.to_datetime(df_pauta["fecha"], errors='coerce', dayfirst=True)
+
+        return df_pauta, analytics
+    except Exception:
+        return pd.DataFrame(), {}
+
 def _descargar_bytes(url, timeout=30):
     r = requests.get(url, timeout=timeout)
     r.raise_for_status()
@@ -137,12 +179,33 @@ def cargar_imagen_grafica2_bytes():
         st.error(f"Error al cargar imagen de gráfica 2: {str(e)}")
         return b""
 
+# NUEVO: imágenes YouTube / Instagram
+def cargar_imagen_grafica_youtube_bytes():
+    try:
+        content = _descargar_bytes(GRAFICA_YOUTUBE_URL, timeout=30)
+        return content
+    except Exception as e:
+        st.error(f"Error al cargar imagen de gráfica YouTube: {str(e)}")
+        return b""
+
+def cargar_imagen_grafica_instagram_bytes():
+    try:
+        content = _descargar_bytes(GRAFICA_INSTAGRAM_URL, timeout=30)
+        return content
+    except Exception as e:
+        st.error(f"Error al cargar imagen de gráfica Instagram: {str(e)}")
+        return b""
+
 # Función para cargar datos con caché
 @st.cache_data(ttl=300)
 def cargar_datos():
     df = cargar_datos_backend()
     df_followers, analytics_followers = cargar_datos_seguidores()
     df_pauta = cargar_datos_pauta()
+
+    # NUEVO: pauta por plataforma
+    df_pauta_youtube, analytics_pauta_youtube = cargar_datos_pauta_plataforma(PAUTA_YOUTUBE_URL)
+    df_pauta_instagram, analytics_pauta_instagram = cargar_datos_pauta_plataforma(PAUTA_INSTAGRAM_URL)
     
     if df.empty:
         st.warning("Usando datos de respaldo.")
@@ -165,6 +228,16 @@ def cargar_datos():
             'comentarios': [2, 5],
             'Seguidores_Totales': [450, 450],
             'red': ['tiktok', 'tiktok']
+        })
+
+        instagram_data = pd.DataFrame({
+            'titulo': [],
+            'fecha_publicacion': [],
+            'visualizaciones': [],
+            'me_gusta': [],
+            'comentarios': [],
+            'Seguidores_Totales': [],
+            'red': []
         })
         
         youtobe_data['fecha_publicacion'] = pd.to_datetime(youtobe_data['fecha_publicacion'], dayfirst=True)
@@ -192,8 +265,23 @@ def cargar_datos():
             youtobe_data = df[df['red'] == 'youtube'].copy()
         
         tiktok_data = df[df['red'] == 'tiktok'].copy()
+
+        # NUEVO: instagram desde /data si existe
+        instagram_data = df[df['red'] == 'instagram'].copy()
     
-    return df, youtobe_data, tiktok_data, df_followers, df_pauta, analytics_followers
+    return (
+        df,
+        youtobe_data,
+        tiktok_data,
+        instagram_data,
+        df_followers,
+        df_pauta,
+        analytics_followers,
+        df_pauta_youtube,
+        analytics_pauta_youtube,
+        df_pauta_instagram,
+        analytics_pauta_instagram
+    )
 
 def generar_contexto_completo():
     """Genera un contexto completo con TODOS los datos disponibles para la IA"""
@@ -219,6 +307,12 @@ def generar_contexto_completo():
             contexto += f"• YouTube: {len(youtobe_df)} videos, {youtobe_df['visualizaciones'].sum() if 'visualizaciones' in youtobe_df.columns else 0:,} visualizaciones\n"
         else:
             contexto += "• YouTube: 0 videos\n"
+
+        # Instagram
+        if not instagram_df.empty:
+            contexto += f"• Instagram: {len(instagram_df)} contenidos, {instagram_df['visualizaciones'].sum() if 'visualizaciones' in instagram_df.columns else 0:,} visualizaciones\n"
+        else:
+            contexto += "• Instagram: 0 contenidos\n"
         
         # Lista de videos (primeros 10)
         contexto += "\n📋 LISTA DE VIDEOS (primeros 10):\n"
@@ -277,8 +371,8 @@ def generar_contexto_completo():
     
     contexto += "\n" + "="*50 + "\n\n"
     
-    # 3. Pauta publicitaria
-    contexto += "💰 PAUTA PUBLICITARIA:\n"
+    # 3. Pauta publicitaria (general)
+    contexto += "💰 PAUTA PUBLICITARIA (GENERAL):\n"
     if not df_pauta.empty:
         coste_anuncio_sum = df_pauta['coste_anuncio'].sum() if 'coste_anuncio' in df_pauta.columns else 0
         visualizaciones_videos_sum = df_pauta['visualizaciones_videos'].sum() if 'visualizaciones_videos' in df_pauta.columns else 0
@@ -308,6 +402,38 @@ def generar_contexto_completo():
             contexto += f"  {i}. {fecha_str}: ${costo:,} - {visualizaciones:,} views - {nuevos_seg} nuevos seguidores\n"
     else:
         contexto += "  • Sin datos de pauta disponibles\n"
+
+    contexto += "\n" + "="*50 + "\n\n"
+
+    # 3.1 Pauta YouTube (NUEVO)
+    contexto += "💰 PAUTA YOUTUBE:\n"
+    if not df_pauta_youtube.empty:
+        coste_y = df_pauta_youtube['coste_anuncio'].sum() if 'coste_anuncio' in df_pauta_youtube.columns else 0
+        views_y = df_pauta_youtube['visualizaciones_videos'].sum() if 'visualizaciones_videos' in df_pauta_youtube.columns else 0
+        seg_y = df_pauta_youtube['nuevos_seguidores'].sum() if 'nuevos_seguidores' in df_pauta_youtube.columns else 0
+        contexto += f"• Inversión total: ${coste_y:,}\n"
+        contexto += f"• Visualizaciones: {views_y:,}\n"
+        contexto += f"• Nuevos seguidores: {seg_y:,}\n"
+        if seg_y > 0:
+            contexto += f"• Costo por seguidor: ${coste_y/seg_y:.2f}\n"
+    else:
+        contexto += "  • Sin datos de pauta YouTube disponibles\n"
+
+    contexto += "\n" + "="*50 + "\n\n"
+
+    # 3.2 Pauta Instagram (NUEVO)
+    contexto += "💰 PAUTA INSTAGRAM:\n"
+    if not df_pauta_instagram.empty:
+        coste_i = df_pauta_instagram['coste_anuncio'].sum() if 'coste_anuncio' in df_pauta_instagram.columns else 0
+        views_i = df_pauta_instagram['visualizaciones_videos'].sum() if 'visualizaciones_videos' in df_pauta_instagram.columns else 0
+        seg_i = df_pauta_instagram['nuevos_seguidores'].sum() if 'nuevos_seguidores' in df_pauta_instagram.columns else 0
+        contexto += f"• Inversión total: ${coste_i:,}\n"
+        contexto += f"• Visualizaciones: {views_i:,}\n"
+        contexto += f"• Nuevos seguidores: {seg_i:,}\n"
+        if seg_i > 0:
+            contexto += f"• Costo por seguidor: ${coste_i/seg_i:.2f}\n"
+    else:
+        contexto += "  • Sin datos de pauta Instagram disponibles\n"
     
     contexto += "\n" + "="*50 + "\n\n"
     
@@ -556,9 +682,21 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cargar datos
-df_all, youtobe_df, tiktok_df, df_followers, df_pauta, analytics_followers = cargar_datos()
+(
+    df_all,
+    youtobe_df,
+    tiktok_df,
+    instagram_df,
+    df_followers,
+    df_pauta,
+    analytics_followers,
+    df_pauta_youtube,
+    analytics_pauta_youtube,
+    df_pauta_instagram,
+    analytics_pauta_instagram
+) = cargar_datos()
 
-# Sidebar (MANTENIDO EXACTAMENTE IGUAL, SOLO CORREGIDO EL TYPO)
+# Sidebar (MANTENIDO EXACTAMENTE IGUAL, SOLO EXTENDIDO PARA INSTAGRAM)
 with st.sidebar:
     st.markdown("""
     <div style="text-align: center; margin-bottom: 20px; padding: 0 10px;">
@@ -597,6 +735,7 @@ with st.sidebar:
     platforms = {
         "general": "🌐 GENERAL",
         "youtube": "▶️ YouTube",
+        "instagram": "📸 Instagram",
         "tiktok": "🎵 TikTok"
     }
     
@@ -802,7 +941,7 @@ with col6:
 # Agregar espacio
 st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 
-# Selector de gráficas (MANTENIDO EXACTAMENTE IGUAL)
+# Selector de gráficas (MANTENIDO EXACTAMENTE IGUAL + EXTENDIDO)
 st.markdown('<div class="grafica-selector-container">', unsafe_allow_html=True)
 st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁFICA</div>', unsafe_allow_html=True)
 
@@ -810,10 +949,9 @@ st.markdown('<div class="grafica-selector-title">📈 SELECCIONA EL TIPO DE GRÁ
 if "grafica_seleccionada" not in st.session_state:
     st.session_state.grafica_seleccionada = "evolucion"
 
-# Selector visual
+# Fila 1 (3 botones originales)
 st.markdown('<div class="grafica-selector-buttons">', unsafe_allow_html=True)
 
-# Crear botones
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -843,9 +981,33 @@ with col3:
         st.session_state.grafica_seleccionada = "grafica2"
         st.rerun()
 
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Fila 2 (NUEVO: YouTube/Instagram)
+st.markdown('<div class="grafica-selector-buttons">', unsafe_allow_html=True)
+col4, col5 = st.columns(2)
+
+with col4:
+    btn4_active = st.session_state.grafica_seleccionada == "grafica_youtube"
+    if st.button("**▶️** **YouTube**", 
+                 key="btn_grafica_youtube",
+                 use_container_width=True,
+                 type="primary" if btn4_active else "secondary"):
+        st.session_state.grafica_seleccionada = "grafica_youtube"
+        st.rerun()
+
+with col5:
+    btn5_active = st.session_state.grafica_seleccionada == "grafica_instagram"
+    if st.button("**📸** **Instagram**", 
+                 key="btn_grafica_instagram",
+                 use_container_width=True,
+                 type="primary" if btn5_active else "secondary"):
+        st.session_state.grafica_seleccionada = "grafica_instagram"
+        st.rerun()
+
 st.markdown('</div></div>', unsafe_allow_html=True)
 
-# Mostrar gráfica seleccionada (MANTENIDO EXACTAMENTE IGUAL)
+# Mostrar gráfica seleccionada (MANTENIDO EXACTAMENTE IGUAL + NUEVAS VISTAS)
 if st.session_state.grafica_seleccionada == "grafica1":
     st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
     st.markdown("##### 📈 Gráfica 1: Inversión vs Seguidores")
@@ -864,6 +1026,68 @@ elif st.session_state.grafica_seleccionada == "grafica2":
         st.image(img_bytes, use_container_width=True)
     else:
         st.warning("No se pudo cargar la Gráfica 2")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+elif st.session_state.grafica_seleccionada == "grafica_youtube":
+    st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
+    st.markdown("##### ▶️ YouTube: Inversión vs Seguidores")
+    img_bytes = cargar_imagen_grafica_youtube_bytes()
+    if img_bytes:
+        st.image(img_bytes, use_container_width=True)
+    else:
+        st.warning("No se pudo cargar la Gráfica YouTube")
+
+    # MÉTRICAS (desde /pauta_youtube)
+    coste_y = analytics_pauta_youtube.get("costo_total", 0)
+    views_y = analytics_pauta_youtube.get("total_visualizaciones", 0)
+    seg_y = analytics_pauta_youtube.get("total_seguidores", 0)
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(create_metric_card("💰", f"${format_number(coste_y)}", "INVERSIÓN YOUTUBE", is_light=True), unsafe_allow_html=True)
+    with c2:
+        st.markdown(create_metric_card("👁️", format_number(views_y), "VIEWS YOUTUBE", is_light=True), unsafe_allow_html=True)
+    with c3:
+        st.markdown(create_metric_card("👥", format_number(seg_y), "SEGUIDORES YOUTUBE", is_light=True), unsafe_allow_html=True)
+    with c4:
+        cps = (float(coste_y) / float(seg_y)) if seg_y else 0
+        st.markdown(create_metric_card("🧾", f"${cps:.2f}", "COSTO/SEGUIDOR", is_light=True), unsafe_allow_html=True)
+
+    if not df_pauta_youtube.empty:
+        st.markdown("###### 📋 Pauta YouTube (tabla)")
+        st.dataframe(df_pauta_youtube, use_container_width=True, hide_index=True, height=220)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+elif st.session_state.grafica_seleccionada == "grafica_instagram":
+    st.markdown('<div class="performance-chart">', unsafe_allow_html=True)
+    st.markdown("##### 📸 Instagram: Inversión vs Seguidores")
+    img_bytes = cargar_imagen_grafica_instagram_bytes()
+    if img_bytes:
+        st.image(img_bytes, use_container_width=True)
+    else:
+        st.warning("No se pudo cargar la Gráfica Instagram")
+
+    # MÉTRICAS (desde /pauta_instagram)
+    coste_i = analytics_pauta_instagram.get("costo_total", 0)
+    views_i = analytics_pauta_instagram.get("total_visualizaciones", 0)
+    seg_i = analytics_pauta_instagram.get("total_seguidores", 0)
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(create_metric_card("💰", f"${format_number(coste_i)}", "INVERSIÓN INSTAGRAM", is_light=True), unsafe_allow_html=True)
+    with c2:
+        st.markdown(create_metric_card("👁️", format_number(views_i), "VIEWS INSTAGRAM", is_light=True), unsafe_allow_html=True)
+    with c3:
+        st.markdown(create_metric_card("👥", format_number(seg_i), "SEGUIDORES INSTAGRAM", is_light=True), unsafe_allow_html=True)
+    with c4:
+        cps = (float(coste_i) / float(seg_i)) if seg_i else 0
+        st.markdown(create_metric_card("🧾", f"${cps:.2f}", "COSTO/SEGUIDOR", is_light=True), unsafe_allow_html=True)
+
+    if not df_pauta_instagram.empty:
+        st.markdown("###### 📋 Pauta Instagram (tabla)")
+        st.dataframe(df_pauta_instagram, use_container_width=True, hide_index=True, height=220)
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 else:  # Gráfica de evolución (MANTENIDO EXACTAMENTE IGUAL)
@@ -1024,7 +1248,7 @@ else:  # Gráfica de evolución (MANTENIDO EXACTAMENTE IGUAL)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Tabla de contenido (MANTENIDO EXACTAMENTE IGUAL)
+# Tabla de contenido (MANTENIDO EXACTAMENTE IGUAL + INSTAGRAM)
 st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
 st.markdown("##### 📊 CONTENT PERFORMANCE DATA - TABLA COMPLETA")
 
@@ -1034,6 +1258,8 @@ if not df_all.empty:
         display_df = tiktok_df.copy()
     elif selected_platform == "youtube":
         display_df = youtobe_df.copy()
+    elif selected_platform == "instagram":
+        display_df = instagram_df.copy()
     else:
         display_df = df_all.copy()
     
@@ -1041,11 +1267,15 @@ if not df_all.empty:
     column_order = []
     if 'titulo' in display_df.columns:
         column_order.append('titulo')
-        display_df['titulo'] = display_df['titulo'].fillna('Sin título').str.slice(0, 35) + '...'
+        display_df['titulo'] = display_df['titulo'].fillna('Sin título').astype(str).str.slice(0, 35) + '...'
     
     if 'fecha_publicacion' in display_df.columns:
         column_order.append('fecha_publicacion')
-        display_df['fecha_publicacion'] = display_df['fecha_publicacion'].dt.strftime('%d/%m')
+        try:
+            display_df['fecha_publicacion'] = pd.to_datetime(display_df['fecha_publicacion'], errors="coerce", dayfirst=True)
+            display_df['fecha_publicacion'] = display_df['fecha_publicacion'].dt.strftime('%d/%m')
+        except Exception:
+            pass
     
     if 'red' in display_df.columns:
         column_order.append('red')
