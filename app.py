@@ -143,7 +143,7 @@ tabla_html = f"""
         <td>{formato_porcentaje(efectividad_1, 0)}</td>
     </tr>
     <tr>
-        <td>Efectividad 2</td>
+        <td>Efectividad alcanzable</td>
         <td>{formato_numero(efectividad_2, 1)}</td>
     </tr>
 </table>
