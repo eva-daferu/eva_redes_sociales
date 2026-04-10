@@ -139,7 +139,7 @@ tabla_html = f"""
         <td>{formato_numero(ventas_2, 1)}</td>
     </tr>
     <tr>
-        <td>Efectividad 1</td>
+        <td>Resultados Redes</td>
         <td>{formato_porcentaje(efectividad_1, 0)}</td>
     </tr>
     <tr>
