@@ -184,6 +184,12 @@ def nombre_dia_es(fecha_val):
         return ""
     return dias[fecha_ts.weekday()]
 
+def semana_del_mes(fecha_val):
+    fecha_ts = pd.to_datetime(fecha_val, errors="coerce")
+    if pd.isna(fecha_ts):
+        return ""
+    return int(((fecha_ts.day - 1) // 7) + 1)
+
 def normalizar_tipo(tipo):
     if pd.isna(tipo):
         return ""
@@ -237,7 +243,7 @@ def cronograma_calculado(df_editable):
 
     if df.empty:
         return pd.DataFrame(columns=[
-            "Tipo", "Fecha", "Dia", "Flyer", "Video", "Encuentas", "Comercial", "Cantidad"
+            "Tipo", "Fecha", "Semana", "Dia", "Flyer", "Video", "Encuentas", "Comercial", "Cantidad"
         ])
 
     filas = []
@@ -251,6 +257,7 @@ def cronograma_calculado(df_editable):
         filas.append({
             "Tipo": tipo,
             "Fecha": fecha,
+            "Semana": semana_del_mes(fecha),
             "Dia": nombre_dia_es(fecha),
             "Flyer": marcas["Flyer"],
             "Video": marcas["Video"],
@@ -373,6 +380,16 @@ def render_cronograma_html(df):
             font-weight: 900;
         }
 
+        .semana-pill {
+            display: inline-block;
+            min-width: 46px;
+            padding: 7px 10px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            color: #92400e;
+            font-weight: 900;
+        }
+
         .si-badge {
             display: inline-flex;
             align-items: center;
@@ -409,6 +426,7 @@ def render_cronograma_html(df):
                     <tr>
                         <th>Tipo</th>
                         <th>Fecha</th>
+                        <th>Semana</th>
                         <th>Día</th>
                         <th>Flyer</th>
                         <th>Video</th>
@@ -431,6 +449,7 @@ def render_cronograma_html(df):
             <tr class="{clase}">
                 <td><span class="tipo-pill">{row['Tipo']}</span></td>
                 <td>{row['Fecha']}</td>
+                <td class="center"><span class="semana-pill">S{row['Semana']}</span></td>
                 <td>{row['Dia']}</td>
                 <td class="center">{badge_si(row['Flyer'])}</td>
                 <td class="center">{badge_si(row['Video'])}</td>
@@ -477,7 +496,7 @@ if "cronograma_editable" not in st.session_state:
 st.markdown("""
 <div class="hero">
     <div class="hero-title">¿Cuánto logras con tu inversión y tu cronograma de contenido?</div>
-    <div class="hero-subtitle">Edita solo Tipo, Fecha y Cantidad. El resto se calcula automáticamente y la vista final se marca visualmente donde corresponda.</div>
+    <div class="hero-subtitle">Edita solo Tipo, Fecha y Cantidad. El resto se calcula automáticamente y la vista final muestra también la semana dentro del mes.</div>
 </div>
 """, unsafe_allow_html=True)
 
