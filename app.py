@@ -12,54 +12,216 @@ st.set_page_config(
 # =========================================================
 st.markdown("""
 <style>
-    .titulo-principal {
-        font-size: 28px;
-        font-weight: 800;
-        margin-bottom: 4px;
+    .stApp {
+        background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
     }
+
+    .titulo-principal {
+        font-size: 34px;
+        font-weight: 900;
+        color: #0f172a;
+        margin-bottom: 4px;
+        letter-spacing: -0.5px;
+    }
+
     .subtitulo {
         font-size: 14px;
-        color: #666;
-        margin-bottom: 18px;
+        color: #475569;
+        margin-bottom: 20px;
     }
+
     .bloque {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 16px;
-        padding: 18px;
-        margin-bottom: 18px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.20);
+        border-radius: 22px;
+        padding: 22px;
+        margin-bottom: 20px;
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+        backdrop-filter: blur(8px);
     }
-    .calc-box {
-        max-width: 520px;
-        margin: 0 auto;
-    }
-    .calc-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 15px;
-        overflow: hidden;
-        border-radius: 12px;
-    }
-    .calc-table td {
-        border: 1px solid #d9d9d9;
-        padding: 9px 12px;
-    }
-    .calc-table td:first-child {
-        background: #e10600;
-        color: white;
-        font-weight: 700;
-        width: 58%;
-    }
-    .calc-table td:last-child {
-        background: #f8f8f8;
-        color: #111;
-        text-align: right;
-        font-weight: 600;
-    }
+
     .seccion-titulo {
         font-size: 22px;
+        font-weight: 900;
+        color: #0f172a;
+        margin-bottom: 12px;
+        letter-spacing: -0.3px;
+    }
+
+    .calc-wrap {
+        max-width: 560px;
+        margin: 0 auto;
+    }
+
+    .calc-input-box {
+        background: linear-gradient(135deg, #111827 0%, #1e293b 100%);
+        color: white;
+        border-radius: 18px;
+        padding: 18px 18px 8px 18px;
+        margin-bottom: 14px;
+        box-shadow: 0 16px 36px rgba(15, 23, 42, 0.22);
+    }
+
+    .calc-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 8px;
+        font-size: 15px;
+    }
+
+    .calc-table td {
+        padding: 12px 14px;
+    }
+
+    .calc-table td:first-child {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
         font-weight: 800;
-        margin-bottom: 10px;
+        border-radius: 14px 0 0 14px;
+        width: 58%;
+        box-shadow: 0 8px 20px rgba(239, 68, 68, 0.18);
+    }
+
+    .calc-table td:last-child {
+        background: white;
+        color: #0f172a;
+        text-align: right;
+        font-weight: 800;
+        border-radius: 0 14px 14px 0;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    .nota-tabla {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 10px;
+    }
+
+    .mini-label {
+        font-size: 12px;
+        color: #cbd5e1;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 6px;
+    }
+
+    .cronograma-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 10px;
+        font-size: 14px;
+    }
+
+    .cronograma-table thead th {
+        background: #0f172a;
+        color: white;
+        padding: 13px 12px;
+        text-align: left;
+        font-weight: 800;
+        position: sticky;
+        top: 0;
+    }
+
+    .cronograma-table thead th:first-child {
+        border-radius: 14px 0 0 14px;
+    }
+
+    .cronograma-table thead th:last-child {
+        border-radius: 0 14px 14px 0;
+        text-align: center;
+    }
+
+    .cronograma-table tbody td {
+        background: rgba(255, 255, 255, 0.96);
+        padding: 12px 12px;
+        color: #0f172a;
+        border-top: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .cronograma-table tbody td:first-child {
+        border-left: 1px solid #e2e8f0;
+        border-radius: 14px 0 0 14px;
+        font-weight: 800;
+    }
+
+    .cronograma-table tbody td:last-child {
+        border-right: 1px solid #e2e8f0;
+        border-radius: 0 14px 14px 0;
+        text-align: center;
+        font-weight: 800;
+    }
+
+    .row-active td {
+        background: linear-gradient(135deg, #ecfeff 0%, #f0fdf4 100%) !important;
+        border-top: 1px solid #86efac !important;
+        border-bottom: 1px solid #86efac !important;
+        box-shadow: 0 8px 26px rgba(34, 197, 94, 0.10);
+    }
+
+    .row-active td:first-child {
+        border-left: 1px solid #86efac !important;
+    }
+
+    .row-active td:last-child {
+        border-right: 1px solid #86efac !important;
+    }
+
+    .badge-si {
+        display: inline-block;
+        min-width: 38px;
+        text-align: center;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        color: white;
+        font-weight: 900;
+        box-shadow: 0 8px 18px rgba(34, 197, 94, 0.28);
+        animation: pulseGlow 1.8s infinite;
+    }
+
+    @keyframes pulseGlow {
+        0% { transform: scale(1); box-shadow: 0 8px 18px rgba(34, 197, 94, 0.25); }
+        50% { transform: scale(1.04); box-shadow: 0 10px 24px rgba(34, 197, 94, 0.40); }
+        100% { transform: scale(1); box-shadow: 0 8px 18px rgba(34, 197, 94, 0.25); }
+    }
+
+    .pill-tipo {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        font-weight: 800;
+        color: #0f172a;
+        font-size: 12px;
+    }
+
+    .pill-cantidad {
+        display: inline-block;
+        min-width: 34px;
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-weight: 900;
+    }
+
+    .stDataFrame, .stDataEditor {
+        border-radius: 18px !important;
+        overflow: hidden !important;
+        border: 1px solid rgba(148, 163, 184, 0.20) !important;
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06) !important;
+    }
+
+    div[data-testid="stDataEditor"] {
+        border-radius: 18px !important;
+    }
+
+    .helper-text {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 6px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -98,15 +260,15 @@ def marcar_columnas_por_tipo(tipo):
     tipo_limpio = normalizar_tipo(tipo).lower()
 
     if tipo_limpio == "flyer":
-        marcas["Flyer"] = "si"
+        marcas["Flyer"] = "Si"
     elif tipo_limpio == "video":
-        marcas["Video"] = "si"
+        marcas["Video"] = "Si"
     elif tipo_limpio == "encuestas":
-        marcas["Encuentas"] = "si"
+        marcas["Encuentas"] = "Si"
     elif tipo_limpio == "comercial":
-        marcas["Comercial"] = "si"
+        marcas["Comercial"] = "Si"
     elif tipo_limpio == "testeo":
-        marcas["Flyer"] = "si"
+        marcas["Flyer"] = "Si"
 
     return marcas
 
@@ -129,7 +291,6 @@ def limpiar_editable(df):
 def cronograma_calculado(df_editable):
     df = limpiar_editable(df_editable)
 
-    # Solo filas válidas para la tabla final
     df = df.dropna(subset=["Tipo", "Fecha", "Cantidad"]).copy()
     df = df[df["Tipo"].astype(str).str.strip() != ""].copy()
     df = df[df["Cantidad"] > 0].copy()
@@ -175,6 +336,60 @@ def formato_numero(valor, decimales=0):
 def formato_porcentaje(valor, decimales=0):
     return f"{valor * 100:.{decimales}f}%".replace(".", ",")
 
+def render_tabla_cronograma(df):
+    if df.empty:
+        st.info("Agrega una fila en la tabla editable.")
+        return
+
+    df = df.copy()
+    df["Fecha"] = pd.to_datetime(df["Fecha"]).dt.strftime("%d/%m/%Y")
+
+    html = """
+    <table class="cronograma-table">
+        <thead>
+            <tr>
+                <th>Tipo</th>
+                <th>Fecha</th>
+                <th>Día</th>
+                <th>Flyer</th>
+                <th>Video</th>
+                <th>Encuentas</th>
+                <th>Comercial</th>
+                <th>Cantidad</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
+
+    for _, row in df.iterrows():
+        tiene_si = any(str(row[col]).strip() == "Si" for col in ["Flyer", "Video", "Encuentas", "Comercial"])
+        clase_fila = "row-active" if tiene_si else ""
+
+        def celda_si(valor):
+            if str(valor).strip() == "Si":
+                return '<span class="badge-si">Si</span>'
+            return ""
+
+        html += f"""
+        <tr class="{clase_fila}">
+            <td><span class="pill-tipo">{row['Tipo']}</span></td>
+            <td>{row['Fecha']}</td>
+            <td>{row['Dia']}</td>
+            <td>{celda_si(row['Flyer'])}</td>
+            <td>{celda_si(row['Video'])}</td>
+            <td>{celda_si(row['Encuentas'])}</td>
+            <td>{celda_si(row['Comercial'])}</td>
+            <td><span class="pill-cantidad">{row['Cantidad']}</span></td>
+        </tr>
+        """
+
+    html += """
+        </tbody>
+    </table>
+    """
+
+    st.markdown(html, unsafe_allow_html=True)
+
 # =========================================================
 # DATOS INICIALES
 # =========================================================
@@ -196,20 +411,22 @@ if "cronograma_editable" not in st.session_state:
     st.session_state["cronograma_editable"] = cronograma_inicial_editable()
 
 # =========================================================
-# TÍTULO
+# HEADER
 # =========================================================
 st.markdown('<div class="titulo-principal">Calculadora de Inversión + Cronograma de Contenido</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitulo">Edita fecha, tipo y cantidad. El resto se calcula solo.</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitulo">Edita solo Tipo, Fecha y Cantidad. Flyer, Video, Encuentas y Comercial se calculan automáticamente.</div>', unsafe_allow_html=True)
 
 # =========================================================
 # CALCULADORA
 # =========================================================
+st.markdown('<div class="bloque">', unsafe_allow_html=True)
 st.markdown('<div class="seccion-titulo">Calculadora de inversión</div>', unsafe_allow_html=True)
 
-col_esp_1, col_centro, col_esp_2 = st.columns([1.2, 1.6, 1.2])
+col_esp_1, col_centro, col_esp_2 = st.columns([1.4, 1.5, 1.4])
 
 with col_centro:
-    st.markdown('<div class="calc-box">', unsafe_allow_html=True)
+    st.markdown('<div class="calc-wrap">', unsafe_allow_html=True)
+    st.markdown('<div class="calc-input-box"><div class="mini-label">Valor base</div></div>', unsafe_allow_html=True)
 
     inversion = st.number_input(
         "Inversión",
@@ -244,13 +461,15 @@ with col_centro:
     </table>
     """
     st.markdown(tabla_html, unsafe_allow_html=True)
+    st.markdown('<div class="nota-tabla">La calculadora quedó compacta y centrada para no romper el orden visual.</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-st.divider()
+st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
-# CRONOGRAMA EDITABLE
+# CRONOGRAMA
 # =========================================================
+st.markdown('<div class="bloque">', unsafe_allow_html=True)
 st.markdown('<div class="seccion-titulo">Cronograma de contenido</div>', unsafe_allow_html=True)
 
 editor_df = st.data_editor(
@@ -259,6 +478,7 @@ editor_df = st.data_editor(
     num_rows="dynamic",
     hide_index=True,
     use_container_width=True,
+    height=390,
     column_order=["Tipo", "Fecha", "Cantidad"],
     column_config={
         "Tipo": st.column_config.SelectboxColumn(
@@ -283,23 +503,12 @@ editor_df = st.data_editor(
     }
 )
 
-st.session_state["cronograma_editable"] = limpiar_editable(editor_df)
+st.markdown('<div class="helper-text">Puedes agregar, borrar o editar filas directamente aquí.</div>', unsafe_allow_html=True)
 
+st.session_state["cronograma_editable"] = limpiar_editable(editor_df)
 df_cronograma = cronograma_calculado(st.session_state["cronograma_editable"])
 
 st.markdown("### Vista final")
+render_tabla_cronograma(df_cronograma)
 
-if df_cronograma.empty:
-    st.info("Agrega una fila en la tabla editable.")
-else:
-    df_mostrar = df_cronograma.copy()
-    df_mostrar["Fecha"] = pd.to_datetime(df_mostrar["Fecha"]).dt.strftime("%d/%m/%Y")
-    df_mostrar = df_mostrar[[
-        "Tipo", "Fecha", "Dia", "Flyer", "Video", "Encuentas", "Comercial", "Cantidad"
-    ]]
-
-    st.dataframe(
-        df_mostrar,
-        use_container_width=True,
-        hide_index=True
-    )
+st.markdown('</div>', unsafe_allow_html=True)
