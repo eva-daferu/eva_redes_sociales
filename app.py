@@ -12,49 +12,14 @@ OUTSIDE_BG = "#EDEDED"
 
 GRID_COLOR = "rgba(0,0,0,0.10)"
 MID_COLOR = "rgba(0,0,0,0.25)"
-BLOCK_BORDER = "2px dashed rgba(0,0,0,.55)"
-BLOCK_BG = "rgba(0,0,0,.03)"
-LABEL_BG = "rgba(255,255,255,.92)"
+OUTER_BORDER = "2px dashed rgba(0,0,0,.60)"
+INNER_BORDER = "1.5px dashed rgba(0,0,0,.45)"
+OUTER_BG = "rgba(0,0,0,.04)"
+INNER_BG = "rgba(0,0,0,.02)"
+LABEL_BG = "rgba(255,255,255,.94)"
 
-# BLOQUES MOBILE (0–100 dentro del área total scrollable del teléfono)
-# id, left, top, width, height
-BLOCKS = [
-    # HEADER
-    {"id": "SOCIALS",               "left": 4,  "top": 2.0,  "width": 22, "height": 3.2},
-    {"id": "LOGO",                  "left": 27, "top": 1.2,  "width": 46, "height": 5.0},
-    {"id": "LANGUAGE",              "left": 6,  "top": 8.2,  "width": 40, "height": 4.8},
-    {"id": "SETTINGS",              "left": 54, "top": 8.2,  "width": 40, "height": 4.8},
-    {"id": "USER",                  "left": 6,  "top": 14.0, "width": 88, "height": 4.8},
-
-    # MODOS
-    {"id": "CARD_PPM",              "left": 6,  "top": 22.0, "width": 88, "height": 8.8},
-    {"id": "CARD_CLASSIC",          "left": 6,  "top": 32.2, "width": 88, "height": 8.8},
-
-    # WALLET
-    {"id": "CARD_WALLET",           "left": 6,  "top": 42.4, "width": 88, "height": 13.8},
-    {"id": "WALLET_USD",            "left": 10, "top": 46.4, "width": 36, "height": 4.4},
-    {"id": "WALLET_POINTS",         "left": 54, "top": 46.4, "width": 36, "height": 4.4},
-    {"id": "WALLET_RECARGAR",       "left": 10, "top": 52.0, "width": 36, "height": 4.2},
-    {"id": "WALLET_CANJEAR",        "left": 54, "top": 52.0, "width": 36, "height": 4.2},
-
-    # POZO RETOS GRUPALES
-    {"id": "POZO_PANEL",            "left": 6,  "top": 58.6, "width": 88, "height": 10.8},
-    {"id": "POZO_PARTICIPANTES",    "left": 58, "top": 60.4, "width": 14, "height": 3.8},
-    {"id": "POZO_BOLSA",            "left": 76, "top": 60.4, "width": 14, "height": 3.8},
-    {"id": "POZO_BTN_UNIRSE",       "left": 10, "top": 65.0, "width": 36, "height": 4.4},
-    {"id": "POZO_BTN_HISTORIAL",    "left": 54, "top": 65.0, "width": 36, "height": 4.4},
-
-    # RETOS GRUPALES -> en móvil pasa de tabla a tarjetas
-    {"id": "RETOS_TITULO",          "left": 8,  "top": 72.2, "width": 42, "height": 3.0},
-    {"id": "RETO_CARD_01",          "left": 6,  "top": 76.0, "width": 88, "height": 5.4},
-    {"id": "RETO_CARD_02",          "left": 6,  "top": 82.2, "width": 88, "height": 5.4},
-    {"id": "RETO_CARD_03",          "left": 6,  "top": 88.4, "width": 88, "height": 5.4},
-    {"id": "RETO_CARD_04",          "left": 6,  "top": 94.6, "width": 88, "height": 5.0},
-
-    # ASISTENTE -> en móvil se colapsa a botón flotante
-    {"id": "ASISTENTE_FLOAT",       "left": 78, "top": 70.5, "width": 16, "height": 4.8},
-]
-# ===================
+SCREEN_HEIGHT_VH = 230  # altura total scrollable del plano móvil
+# ====================
 
 st.set_page_config(layout="wide")
 
@@ -70,16 +35,98 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+BLOCKS = []
+
+def add_block(id_, left, top, width, height, kind="outer"):
+    BLOCKS.append({
+        "id": id_,
+        "left": left,
+        "top": top,
+        "width": width,
+        "height": height,
+        "kind": kind,
+    })
+
+# ===== HEADER =====
+add_block("SOCIALS",    4,  2.0, 22, 3.0, "outer")
+add_block("LOGO",      27,  1.3, 46, 4.6, "outer")
+add_block("LANGUAGE",   6,  7.0, 42, 4.2, "outer")
+add_block("SETTINGS",  52,  7.0, 42, 4.2, "outer")
+add_block("USER",       6, 12.2, 88, 4.2, "outer")
+
+# ===== MODOS =====
+add_block("CARD_PPM",       6, 19.0, 88, 8.0, "outer")
+add_block("PPM_TITLE",     10, 20.1, 50, 1.8, "inner")
+add_block("PPM_DESC",      10, 22.2, 66, 1.4, "inner")
+add_block("PPM_BTN",       10, 24.2, 22, 2.0, "inner")
+
+add_block("CARD_CLASSIC",   6, 28.5, 88, 8.0, "outer")
+add_block("CLASSIC_TITLE", 10, 29.6, 56, 1.8, "inner")
+add_block("CLASSIC_DESC",  10, 31.7, 68, 1.4, "inner")
+add_block("CLASSIC_BTN",   10, 33.7, 22, 2.0, "inner")
+
+# ===== WALLET =====
+add_block("CARD_WALLET",      6, 38.0, 88, 13.0, "outer")
+add_block("WALLET_TITLE",    32, 39.2, 36, 1.8, "inner")
+add_block("WALLET_USD",      10, 42.2, 36, 3.2, "inner")
+add_block("WALLET_POINTS",   54, 42.2, 36, 3.2, "inner")
+add_block("WALLET_RECARGAR", 10, 46.5, 36, 2.4, "inner")
+add_block("WALLET_CANJEAR",  54, 46.5, 36, 2.4, "inner")
+
+# ===== POZO =====
+add_block("POZO_PANEL",          6, 53.0, 88, 10.0, "outer")
+add_block("POZO_TITLE",         10, 54.3, 40, 1.8, "inner")
+add_block("POZO_PARTICIPANTES", 60, 54.3, 12, 2.2, "inner")
+add_block("POZO_BOLSA",         76, 54.3, 14, 2.2, "inner")
+add_block("POZO_BTN_UNIRSE",    10, 58.2, 36, 2.6, "inner")
+add_block("POZO_BTN_HISTORIAL", 54, 58.2, 36, 2.6, "inner")
+
+# ===== RETOS =====
+add_block("RETOS_PANEL",   4.5, 65.0, 91.0, 33.5, "outer")
+add_block("RETOS_TITULO",  8.0, 66.2, 42.0, 2.0, "inner")
+
+def add_reto_card(name, top):
+    add_block(f"{name}_CARD",      6.5, top,     87.0, 6.5, "outer")
+
+    # Fila 1
+    add_block(f"{name}_PARTIDO",  10.0, top+0.7, 56.0, 1.4, "inner")
+    add_block(f"{name}_CTA",      70.0, top+0.6, 18.0, 1.6, "inner")
+
+    # Fila 2
+    add_block(f"{name}_HORARIO",  10.0, top+2.8, 38.0, 1.4, "inner")
+    add_block(f"{name}_ESTADO",   52.0, top+2.8, 38.0, 1.4, "inner")
+
+    # Fila 3
+    add_block(f"{name}_STATS",    10.0, top+4.9, 38.0, 1.4, "inner")
+    add_block(f"{name}_INGRESO",  52.0, top+4.9, 38.0, 1.4, "inner")
+
+add_reto_card("RETO_01", 70.0)
+add_reto_card("RETO_02", 77.4)
+add_reto_card("RETO_03", 84.8)
+add_reto_card("RETO_04", 92.2)
+
+# ===== ASISTENTE =====
+add_block("ASISTENTE_FLOAT", 78.0, 96.3, 16.0, 2.6, "outer")
+
 def blocks_to_html(blocks):
     out = []
     for b in blocks:
+        border = OUTER_BORDER if b["kind"] == "outer" else INNER_BORDER
+        bg = OUTER_BG if b["kind"] == "outer" else INNER_BG
+        label_class = "blk-label outer-label" if b["kind"] == "outer" else "blk-label inner-label"
+
         out.append(
             f"""
             <div class="blk"
-                 style="left:{b["left"]}%; top:{b["top"]}%;
-                        width:{b["width"]}%; height:{b["height"]}%;">
-
-              <span class="blk-label">{b["id"]}</span>
+                 style="
+                    left:{b['left']}%;
+                    top:{b['top']}%;
+                    width:{b['width']}%;
+                    height:{b['height']}%;
+                    border:{border};
+                    background:{bg};
+                 ">
+              <span class="{label_class}">{b['id']}</span>
             </div>
             """
         )
@@ -101,8 +148,6 @@ html = f"""
       --outside-bg:{OUTSIDE_BG};
       --grid-color:{GRID_COLOR};
       --mid-color:{MID_COLOR};
-      --block-border:{BLOCK_BORDER};
-      --block-bg:{BLOCK_BG};
       --label-bg:{LABEL_BG};
     }}
 
@@ -143,7 +188,7 @@ html = f"""
     #screen{{
       position:relative;
       width:100%;
-      height:215%;
+      height:{SCREEN_HEIGHT_VH}%;
       background:var(--phone-bg);
     }}
 
@@ -182,20 +227,29 @@ html = f"""
 
     .blk{{
       position:absolute;
-      border:var(--block-border);
-      background:var(--block-bg);
+      box-sizing:border-box;
     }}
 
     .blk-label{{
       position:absolute;
       top:2px;
       left:2px;
-      font:11px Arial, sans-serif;
       background:var(--label-bg);
       border:1px solid rgba(0,0,0,.15);
       border-radius:4px;
-      padding:2px 6px;
+      padding:1px 4px;
       white-space:nowrap;
+      line-height:1.1;
+    }}
+
+    .outer-label{{
+      font:10px Arial, sans-serif;
+      font-weight:700;
+    }}
+
+    .inner-label{{
+      font:9px Arial, sans-serif;
+      font-weight:400;
     }}
 
     #hud{{
@@ -205,7 +259,7 @@ html = f"""
       margin:8px;
       width:max-content;
       font:12px Arial, sans-serif;
-      background:rgba(255,255,255,.95);
+      background:rgba(255,255,255,.96);
       border:1px solid rgba(0,0,0,.2);
       border-radius:6px;
       padding:6px 10px;
