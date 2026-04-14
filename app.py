@@ -18,7 +18,7 @@ OUTER_BG = "rgba(0,0,0,.04)"
 INNER_BG = "rgba(0,0,0,.02)"
 LABEL_BG = "rgba(255,255,255,.94)"
 
-SCREEN_HEIGHT_VH = 248
+SCREEN_HEIGHT_VH = 180
 # ====================
 
 st.set_page_config(layout="wide")
@@ -48,59 +48,59 @@ def add_block(id_, left, top, width, height, kind="outer"):
     })
 
 # ===== HEADER =====
-add_block("SOCIALS",    4,  2.0, 22, 3.0, "outer")
-add_block("LOGO",      27,  1.3, 46, 4.6, "outer")
-add_block("LANGUAGE",   6,  7.0, 42, 4.2, "outer")
-add_block("SETTINGS",  52,  7.0, 42, 4.2, "outer")
-add_block("USER",       6, 12.2, 88, 4.2, "outer")
+add_block("SOCIALS",    4.0,  1.8, 22.0, 2.6, "outer")
+add_block("LOGO",      27.0,  1.0, 46.0, 4.0, "outer")
+add_block("LANGUAGE",   6.0,  6.0, 42.0, 3.5, "outer")
+add_block("SETTINGS",  52.0,  6.0, 42.0, 3.5, "outer")
+add_block("USER",       6.0, 10.6, 88.0, 3.5, "outer")
 
 # ===== MODOS =====
-add_block("CARD_PPM",       6, 19.0, 88, 8.0, "outer")
-add_block("PPM_TITLE",     10, 20.1, 50, 1.8, "inner")
-add_block("PPM_DESC",      10, 22.2, 66, 1.4, "inner")
-add_block("PPM_BTN",       10, 24.2, 22, 2.0, "inner")
+add_block("CARD_PPM",       6.0, 15.8, 88.0, 6.4, "outer")
+add_block("PPM_TITLE",     10.0, 16.7, 50.0, 1.3, "inner")
+add_block("PPM_DESC",      10.0, 18.2, 66.0, 1.0, "inner")
+add_block("PPM_BTN",       10.0, 19.7, 20.0, 1.7, "inner")
 
-add_block("CARD_CLASSIC",   6, 28.5, 88, 8.0, "outer")
-add_block("CLASSIC_TITLE", 10, 29.6, 56, 1.8, "inner")
-add_block("CLASSIC_DESC",  10, 31.7, 68, 1.4, "inner")
-add_block("CLASSIC_BTN",   10, 33.7, 22, 2.0, "inner")
+add_block("CARD_CLASSIC",   6.0, 23.2, 88.0, 6.4, "outer")
+add_block("CLASSIC_TITLE", 10.0, 24.1, 56.0, 1.3, "inner")
+add_block("CLASSIC_DESC",  10.0, 25.6, 68.0, 1.0, "inner")
+add_block("CLASSIC_BTN",   10.0, 27.1, 20.0, 1.7, "inner")
 
 # ===== WALLET =====
-add_block("CARD_WALLET",      6, 38.0, 88, 13.0, "outer")
-add_block("WALLET_TITLE",    32, 39.2, 36, 1.8, "inner")
-add_block("WALLET_USD",      10, 42.2, 36, 3.2, "inner")
-add_block("WALLET_POINTS",   54, 42.2, 36, 3.2, "inner")
-add_block("WALLET_RECARGAR", 10, 46.5, 36, 2.4, "inner")
-add_block("WALLET_CANJEAR",  54, 46.5, 36, 2.4, "inner")
+add_block("CARD_WALLET",      6.0, 30.8, 88.0, 10.0, "outer")
+add_block("WALLET_TITLE",    32.0, 31.7, 36.0, 1.4, "inner")
+add_block("WALLET_USD",      10.0, 34.0, 36.0, 2.5, "inner")
+add_block("WALLET_POINTS",   54.0, 34.0, 36.0, 2.5, "inner")
+add_block("WALLET_RECARGAR", 10.0, 37.6, 36.0, 1.8, "inner")
+add_block("WALLET_CANJEAR",  54.0, 37.6, 36.0, 1.8, "inner")
 
 # ===== POZO =====
-add_block("POZO_PANEL",          6, 53.0, 88, 5.8, "outer")
-add_block("POZO_TITLE",         10, 54.3, 40, 1.8, "inner")
-add_block("POZO_PARTICIPANTES", 60, 54.3, 12, 2.2, "inner")
-add_block("POZO_BOLSA",         76, 54.3, 14, 2.2, "inner")
+add_block("POZO_PANEL",          6.0, 42.0, 88.0, 4.8, "outer")
+add_block("POZO_TITLE",         10.0, 42.9, 40.0, 1.4, "inner")
+add_block("POZO_PARTICIPANTES", 60.0, 42.9, 12.0, 1.8, "inner")
+add_block("POZO_BOLSA",         76.0, 42.9, 12.0, 1.8, "inner")
 
 # ===== RETOS =====
-add_block("RETOS_PANEL",   4.5, 60.0, 91.0, 56.0, "outer")
-add_block("RETOS_TITULO",  8.0, 61.2, 42.0, 2.0, "inner")
+add_block("RETOS_PANEL",   4.5, 48.2, 91.0, 43.8, "outer")
+add_block("RETOS_TITULO",  8.0, 49.0, 42.0, 1.6, "inner")
 
 def add_reto_card(name, top):
     card_left = 6.5
     card_width = 87.0
-    card_height = 11.0
+    card_height = 8.2
 
-    label_left = 10.0
-    label_width = 20.0
-    value_left = 32.5
-    value_width = 56.0
-    row_height = 1.2
+    label_left = 9.5
+    label_width = 18.0
+    value_left = 29.5
+    value_width = 58.0
+    row_height = 0.9
 
     row_tops = [
-        top + 0.8,
-        top + 2.4,
-        top + 4.0,
-        top + 5.6,
-        top + 7.2,
-        top + 8.8,
+        top + 0.55,
+        top + 1.75,
+        top + 2.95,
+        top + 4.15,
+        top + 5.35,
+        top + 6.55,
     ]
 
     row_names = [
@@ -118,13 +118,13 @@ def add_reto_card(name, top):
         add_block(f"{name}_{row_name}_LABEL", label_left, row_top, label_width, row_height, "inner")
         add_block(f"{name}_{row_name}_VALUE", value_left, row_top, value_width, row_height, "inner")
 
-add_reto_card("RETO_01", 65.0)
-add_reto_card("RETO_02", 77.8)
-add_reto_card("RETO_03", 90.6)
-add_reto_card("RETO_04", 103.4)
+add_reto_card("RETO_01", 52.0)
+add_reto_card("RETO_02", 61.0)
+add_reto_card("RETO_03", 70.0)
+add_reto_card("RETO_04", 79.0)
 
 # ===== ASISTENTE =====
-add_block("ASISTENTE_FLOAT", 78.0, 118.0, 16.0, 2.8, "outer")
+add_block("ASISTENTE_FLOAT", 78.0, 93.2, 16.0, 2.4, "outer")
 
 def blocks_to_html(blocks):
     out = []
@@ -250,23 +250,23 @@ html = f"""
 
     .blk-label{{
       position:absolute;
-      top:2px;
-      left:2px;
+      top:1px;
+      left:1px;
       background:var(--label-bg);
       border:1px solid rgba(0,0,0,.15);
       border-radius:4px;
-      padding:1px 4px;
+      padding:1px 3px;
       white-space:nowrap;
-      line-height:1.05;
+      line-height:1.0;
     }}
 
     .outer-label{{
-      font:10px Arial, sans-serif;
+      font:9px Arial, sans-serif;
       font-weight:700;
     }}
 
     .inner-label{{
-      font:8px Arial, sans-serif;
+      font:7px Arial, sans-serif;
       font-weight:400;
     }}
 
