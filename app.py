@@ -18,7 +18,7 @@ OUTER_BG = "rgba(0,0,0,.04)"
 INNER_BG = "rgba(0,0,0,.02)"
 LABEL_BG = "rgba(255,255,255,.94)"
 
-SCREEN_HEIGHT_VH = 230  # altura total scrollable del plano móvil
+SCREEN_HEIGHT_VH = 260
 # ====================
 
 st.set_page_config(layout="wide")
@@ -82,31 +82,51 @@ add_block("POZO_BTN_UNIRSE",    10, 58.2, 36, 2.6, "inner")
 add_block("POZO_BTN_HISTORIAL", 54, 58.2, 36, 2.6, "inner")
 
 # ===== RETOS =====
-add_block("RETOS_PANEL",   4.5, 65.0, 91.0, 33.5, "outer")
+add_block("RETOS_PANEL",   4.5, 65.0, 91.0, 62.0, "outer")
 add_block("RETOS_TITULO",  8.0, 66.2, 42.0, 2.0, "inner")
 
 def add_reto_card(name, top):
-    add_block(f"{name}_CARD",      6.5, top,     87.0, 6.5, "outer")
+    card_left = 6.5
+    card_width = 87.0
+    card_height = 11.0
 
-    # Fila 1
-    add_block(f"{name}_PARTIDO",  10.0, top+0.7, 56.0, 1.4, "inner")
-    add_block(f"{name}_CTA",      70.0, top+0.6, 18.0, 1.6, "inner")
+    label_left = 10.0
+    label_width = 20.0
+    value_left = 32.5
+    value_width = 56.0
+    row_height = 1.2
 
-    # Fila 2
-    add_block(f"{name}_HORARIO",  10.0, top+2.8, 38.0, 1.4, "inner")
-    add_block(f"{name}_ESTADO",   52.0, top+2.8, 38.0, 1.4, "inner")
+    row_tops = [
+        top + 0.8,
+        top + 2.4,
+        top + 4.0,
+        top + 5.6,
+        top + 7.2,
+        top + 8.8,
+    ]
 
-    # Fila 3
-    add_block(f"{name}_STATS",    10.0, top+4.9, 38.0, 1.4, "inner")
-    add_block(f"{name}_INGRESO",  52.0, top+4.9, 38.0, 1.4, "inner")
+    row_names = [
+        "RETO",
+        "HORARIO",
+        "BOLSA",
+        "ESTADO",
+        "INGRESO_MESA",
+        "ACCION",
+    ]
+
+    add_block(f"{name}_CARD", card_left, top, card_width, card_height, "outer")
+
+    for row_name, row_top in zip(row_names, row_tops):
+        add_block(f"{name}_{row_name}_LABEL", label_left, row_top, label_width, row_height, "inner")
+        add_block(f"{name}_{row_name}_VALUE", value_left, row_top, value_width, row_height, "inner")
 
 add_reto_card("RETO_01", 70.0)
-add_reto_card("RETO_02", 77.4)
-add_reto_card("RETO_03", 84.8)
-add_reto_card("RETO_04", 92.2)
+add_reto_card("RETO_02", 82.8)
+add_reto_card("RETO_03", 95.6)
+add_reto_card("RETO_04", 108.4)
 
 # ===== ASISTENTE =====
-add_block("ASISTENTE_FLOAT", 78.0, 96.3, 16.0, 2.6, "outer")
+add_block("ASISTENTE_FLOAT", 78.0, 123.0, 16.0, 2.8, "outer")
 
 def blocks_to_html(blocks):
     out = []
@@ -239,7 +259,7 @@ html = f"""
       border-radius:4px;
       padding:1px 4px;
       white-space:nowrap;
-      line-height:1.1;
+      line-height:1.05;
     }}
 
     .outer-label{{
@@ -248,7 +268,7 @@ html = f"""
     }}
 
     .inner-label{{
-      font:9px Arial, sans-serif;
+      font:8px Arial, sans-serif;
       font-weight:400;
     }}
 
