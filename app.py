@@ -18,7 +18,7 @@ OUTER_BG = "rgba(0,0,0,.04)"
 INNER_BG = "rgba(0,0,0,.02)"
 LABEL_BG = "rgba(255,255,255,.94)"
 
-SCREEN_HEIGHT_VH = 260
+SCREEN_HEIGHT_VH = 248
 # ====================
 
 st.set_page_config(layout="wide")
@@ -74,16 +74,14 @@ add_block("WALLET_RECARGAR", 10, 46.5, 36, 2.4, "inner")
 add_block("WALLET_CANJEAR",  54, 46.5, 36, 2.4, "inner")
 
 # ===== POZO =====
-add_block("POZO_PANEL",          6, 53.0, 88, 10.0, "outer")
+add_block("POZO_PANEL",          6, 53.0, 88, 5.8, "outer")
 add_block("POZO_TITLE",         10, 54.3, 40, 1.8, "inner")
 add_block("POZO_PARTICIPANTES", 60, 54.3, 12, 2.2, "inner")
 add_block("POZO_BOLSA",         76, 54.3, 14, 2.2, "inner")
-add_block("POZO_BTN_UNIRSE",    10, 58.2, 36, 2.6, "inner")
-add_block("POZO_BTN_HISTORIAL", 54, 58.2, 36, 2.6, "inner")
 
 # ===== RETOS =====
-add_block("RETOS_PANEL",   4.5, 65.0, 91.0, 62.0, "outer")
-add_block("RETOS_TITULO",  8.0, 66.2, 42.0, 2.0, "inner")
+add_block("RETOS_PANEL",   4.5, 60.0, 91.0, 56.0, "outer")
+add_block("RETOS_TITULO",  8.0, 61.2, 42.0, 2.0, "inner")
 
 def add_reto_card(name, top):
     card_left = 6.5
@@ -120,13 +118,13 @@ def add_reto_card(name, top):
         add_block(f"{name}_{row_name}_LABEL", label_left, row_top, label_width, row_height, "inner")
         add_block(f"{name}_{row_name}_VALUE", value_left, row_top, value_width, row_height, "inner")
 
-add_reto_card("RETO_01", 70.0)
-add_reto_card("RETO_02", 82.8)
-add_reto_card("RETO_03", 95.6)
-add_reto_card("RETO_04", 108.4)
+add_reto_card("RETO_01", 65.0)
+add_reto_card("RETO_02", 77.8)
+add_reto_card("RETO_03", 90.6)
+add_reto_card("RETO_04", 103.4)
 
 # ===== ASISTENTE =====
-add_block("ASISTENTE_FLOAT", 78.0, 123.0, 16.0, 2.8, "outer")
+add_block("ASISTENTE_FLOAT", 78.0, 118.0, 16.0, 2.8, "outer")
 
 def blocks_to_html(blocks):
     out = []
