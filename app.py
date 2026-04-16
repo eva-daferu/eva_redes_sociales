@@ -11,14 +11,14 @@ PHONE_BG = "#FFFFFF"
 OUTSIDE_BG = "#EDEDED"
 
 GRID_COLOR = "rgba(0,0,0,0.10)"
-MID_COLOR = "rgba(0,0,0,0.25)"
-OUTER_BORDER = "2px dashed rgba(0,0,0,.60)"
-INNER_BORDER = "1.5px dashed rgba(0,0,0,.45)"
+MID_COLOR = "rgba(0,0,0,0.22)"
+OUTER_BORDER = "2px dashed rgba(0,0,0,.62)"
+INNER_BORDER = "1.4px dashed rgba(0,0,0,.45)"
 OUTER_BG = "rgba(0,0,0,.04)"
 INNER_BG = "rgba(0,0,0,.02)"
-LABEL_BG = "rgba(255,255,255,.94)"
+LABEL_BG = "rgba(255,255,255,.95)"
 
-SCREEN_HEIGHT_VH = 180
+SCREEN_HEIGHT_VH = 205
 # ====================
 
 st.set_page_config(layout="wide")
@@ -47,84 +47,85 @@ def add_block(id_, left, top, width, height, kind="outer"):
         "kind": kind,
     })
 
-# ===== HEADER =====
-add_block("SOCIALS",    4.0,  1.8, 22.0, 2.6, "outer")
-add_block("LOGO",      27.0,  1.0, 46.0, 4.0, "outer")
-add_block("LANGUAGE",   6.0,  6.0, 42.0, 3.5, "outer")
-add_block("SETTINGS",  52.0,  6.0, 42.0, 3.5, "outer")
-add_block("USER",       6.0, 10.6, 88.0, 3.5, "outer")
+# =========================
+# HEADER
+# =========================
+add_block("SOCIALS",     4.0,  1.8, 22.0, 2.7, "outer")
+add_block("LOGO",       27.0,  1.0, 46.0, 4.1, "outer")
+add_block("LANGUAGE",    6.0,  6.0, 42.0, 3.6, "outer")
+add_block("SETTINGS",   52.0,  6.0, 42.0, 3.6, "outer")
+add_block("USER",        6.0, 10.5, 88.0, 3.6, "outer")
 
-# ===== MODOS =====
-add_block("CARD_PPM",       6.0, 15.8, 88.0, 6.4, "outer")
-add_block("PPM_TITLE",     10.0, 16.7, 50.0, 1.3, "inner")
-add_block("PPM_DESC",      10.0, 18.2, 66.0, 1.0, "inner")
-add_block("PPM_BTN",       10.0, 19.7, 20.0, 1.7, "inner")
+# =========================
+# CARDS SUPERIORES
+# =========================
+# Fila 1
+add_block("CARD_SALDO",   6.0, 15.8, 42.0, 8.0, "outer")
+add_block("SALDO_TITULO", 9.5, 17.0, 18.0, 1.2, "inner")
+add_block("SALDO_VALOR",  9.5, 19.0, 18.0, 1.6, "inner")
+add_block("SALDO_BTN",    9.5, 21.3, 24.0, 1.7, "inner")
 
-add_block("CARD_CLASSIC",   6.0, 23.2, 88.0, 6.4, "outer")
-add_block("CLASSIC_TITLE", 10.0, 24.1, 56.0, 1.3, "inner")
-add_block("CLASSIC_DESC",  10.0, 25.6, 68.0, 1.0, "inner")
-add_block("CLASSIC_BTN",   10.0, 27.1, 20.0, 1.7, "inner")
+add_block("CARD_PUNTOS",   52.0, 15.8, 42.0, 8.0, "outer")
+add_block("PUNTOS_TITULO", 55.5, 17.0, 20.0, 1.2, "inner")
+add_block("PUNTOS_VALOR",  55.5, 19.0, 16.0, 1.6, "inner")
+add_block("PUNTOS_META_1", 55.5, 21.0, 24.0, 1.0, "inner")
+add_block("PUNTOS_META_2", 55.5, 22.2, 24.0, 1.0, "inner")
 
-# ===== WALLET =====
-add_block("CARD_WALLET",      6.0, 30.8, 88.0, 10.0, "outer")
-add_block("WALLET_TITLE",    32.0, 31.7, 36.0, 1.4, "inner")
-add_block("WALLET_USD",      10.0, 34.0, 36.0, 2.5, "inner")
-add_block("WALLET_POINTS",   54.0, 34.0, 36.0, 2.5, "inner")
-add_block("WALLET_RECARGAR", 10.0, 37.6, 36.0, 1.8, "inner")
-add_block("WALLET_CANJEAR",  54.0, 37.6, 36.0, 1.8, "inner")
+# Fila 2
+add_block("CARD_CLASSIC",      6.0, 25.4, 88.0, 6.8, "outer")
+add_block("CLASSIC_TITULO",   10.0, 26.5, 28.0, 1.3, "inner")
+add_block("CLASSIC_DESC_1",   10.0, 28.1, 34.0, 1.0, "inner")
+add_block("CLASSIC_DESC_2",   10.0, 29.2, 28.0, 1.0, "inner")
+add_block("CLASSIC_BTN",      68.0, 27.3, 18.0, 1.8, "inner")
 
-# ===== POZO =====
-add_block("POZO_PANEL",          6.0, 42.0, 88.0, 4.8, "outer")
-add_block("POZO_TITLE",         10.0, 42.9, 40.0, 1.4, "inner")
-add_block("POZO_PARTICIPANTES", 60.0, 42.9, 12.0, 1.8, "inner")
-add_block("POZO_BOLSA",         76.0, 42.9, 12.0, 1.8, "inner")
+# =========================
+# MENÚ ACCIONES 2x2
+# =========================
+add_block("MENU_BTN_UNIRSE",       6.0, 34.0, 42.0, 4.4, "outer")
+add_block("MENU_BTN_CREAR",       52.0, 34.0, 42.0, 4.4, "outer")
+add_block("MENU_BTN_JUGADOR",      6.0, 39.5, 42.0, 4.4, "outer")
+add_block("MENU_BTN_PRIVADA",     52.0, 39.5, 42.0, 4.4, "outer")
 
-# ===== RETOS =====
-add_block("RETOS_PANEL",   4.5, 48.2, 91.0, 43.8, "outer")
-add_block("RETOS_TITULO",  8.0, 49.0, 42.0, 1.6, "inner")
+# =========================
+# TABS HISTÓRICOS
+# =========================
+add_block("TAB_ACTIVAS",         6.0, 45.5, 28.0, 3.2, "outer")
+add_block("TAB_ENCUENTROS",     36.0, 45.5, 28.0, 3.2, "outer")
+add_block("TAB_APUESTAS",       66.0, 45.5, 28.0, 3.2, "outer")
 
-def add_reto_card(name, top):
-    card_left = 6.5
-    card_width = 87.0
-    card_height = 8.2
+# =========================
+# PANEL PRINCIPAL
+# =========================
+add_block("MESAS_PANEL",         4.5, 50.0, 91.0, 73.0, "outer")
+add_block("MESAS_TITULO",        8.0, 51.4, 46.0, 1.8, "inner")
+add_block("MESAS_SEARCH",       58.0, 51.3, 32.0, 2.0, "inner")
+add_block("MESAS_SCROLL_WRAP",   6.8, 55.0, 86.5, 65.5, "outer")
 
-    label_left = 9.5
-    label_width = 18.0
-    value_left = 29.5
-    value_width = 58.0
-    row_height = 0.9
+def add_mesa_card(name, top):
+    # tarjeta compacta con 4 filas + CTA
+    add_block(f"{name}_CARD",            8.5, top,      82.0, 12.0, "outer")
+    add_block(f"{name}_TITULO",         11.0, top+0.8,  44.0, 1.2,  "inner")
+    add_block(f"{name}_DEPORTE_LBL",    11.0, top+2.5,  18.0, 1.0,  "inner")
+    add_block(f"{name}_DEPORTE_VAL",    31.0, top+2.5,  22.0, 1.0,  "inner")
+    add_block(f"{name}_PARTIDOS_LBL",   11.0, top+4.1,  18.0, 1.0,  "inner")
+    add_block(f"{name}_PARTIDOS_VAL",   31.0, top+4.1,  12.0, 1.0,  "inner")
+    add_block(f"{name}_APUESTA_LBL",    11.0, top+5.7,  22.0, 1.0,  "inner")
+    add_block(f"{name}_APUESTA_VAL",    35.0, top+5.7,  18.0, 1.0,  "inner")
+    add_block(f"{name}_BTN",            11.0, top+8.4,  66.0, 1.8,  "inner")
 
-    row_tops = [
-        top + 0.55,
-        top + 1.75,
-        top + 2.95,
-        top + 4.15,
-        top + 5.35,
-        top + 6.55,
-    ]
+add_mesa_card("MESA_01", 57.0)
+add_mesa_card("MESA_02", 70.3)
+add_mesa_card("MESA_03", 83.6)
+add_mesa_card("MESA_04", 96.9)
+add_mesa_card("MESA_05", 110.2)
 
-    row_names = [
-        "RETO",
-        "HORARIO",
-        "BOLSA",
-        "ESTADO",
-        "INGRESO_MESA",
-        "ACCION",
-    ]
+# barra scroll visual del panel
+add_block("MESAS_SCROLLBAR",     91.8, 56.5, 1.5, 62.0, "inner")
 
-    add_block(f"{name}_CARD", card_left, top, card_width, card_height, "outer")
-
-    for row_name, row_top in zip(row_names, row_tops):
-        add_block(f"{name}_{row_name}_LABEL", label_left, row_top, label_width, row_height, "inner")
-        add_block(f"{name}_{row_name}_VALUE", value_left, row_top, value_width, row_height, "inner")
-
-add_reto_card("RETO_01", 52.0)
-add_reto_card("RETO_02", 61.0)
-add_reto_card("RETO_03", 70.0)
-add_reto_card("RETO_04", 79.0)
-
-# ===== ASISTENTE =====
-add_block("ASISTENTE_FLOAT", 78.0, 93.2, 16.0, 2.4, "outer")
+# =========================
+# BOTÓN FLOTANTE / CHAT
+# =========================
+add_block("CHAT_FLOAT",          76.5, 124.5, 17.5, 2.6, "outer")
 
 def blocks_to_html(blocks):
     out = []
