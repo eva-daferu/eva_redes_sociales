@@ -31,52 +31,59 @@ html = """
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    :root {
-      --bg:#071423;
-      --panel:#071d2c;
-      --panel2:#082235;
-      --line:#1ee7ff;
-      --line2:#ffe84c;
-      --text:#eaf7ff;
-      --muted:#b7d2df;
-      --btn:#20dfff;
+    :root{
+      --bg:#f3f3f3;
+      --panel:#ffffff;
+      --panel2:#f7f7f7;
+      --line:#202020;
+      --line2:#6d6d6d;
+      --text:#111111;
+      --muted:#555555;
+      --soft:#e7e7e7;
     }
 
     *{box-sizing:border-box;}
+
     html,body{
       margin:0;
       padding:0;
-      background:#dfe3e8;
-      font-family:Arial,sans-serif;
+      width:100%;
+      height:100%;
       overflow:hidden;
+      background:var(--bg);
+      font-family:Arial,sans-serif;
+      color:var(--text);
     }
 
     #stage{
       position:fixed;
       inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:8px;
+      width:100vw;
+      height:100vh;
+      margin:0;
+      padding:0;
+      background:var(--bg);
     }
 
     #phone{
-      width:min(390px,96vw);
-      height:min(844px,96vh);
-      border:3px solid #111;
-      border-radius:28px;
+      width:100vw;
+      height:100vh;
+      margin:0;
+      padding:0;
       overflow:auto;
-      background:
-        radial-gradient(circle at 20% 15%, rgba(255,255,255,.22), transparent 18%),
-        radial-gradient(circle at 85% 18%, rgba(255,255,255,.20), transparent 16%),
-        linear-gradient(180deg, #0c1728 0%, #13233a 40%, #101c2f 100%);
-      box-shadow:0 10px 35px rgba(0,0,0,.22);
+      background:var(--bg);
+      border:none;
+      border-radius:0;
+      box-shadow:none;
     }
 
     #screen{
-      min-height:100%;
-      padding:12px 12px 22px;
-      color:var(--text);
+      min-height:100vh;
+      padding:0;
+      margin:0;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
     }
 
     .topbar{
@@ -84,64 +91,65 @@ html = """
       align-items:center;
       justify-content:space-between;
       gap:8px;
-      margin-bottom:12px;
+      padding:10px;
+      background:var(--panel);
+      border-bottom:1px solid var(--line);
     }
 
     .logo{
-      height:44px;
-      border:2px solid var(--line);
-      border-radius:16px;
+      min-width:120px;
+      height:42px;
+      border:1px solid var(--line);
       display:flex;
       align-items:center;
       justify-content:center;
-      padding:0 14px;
       font-weight:900;
-      font-size:22px;
-      letter-spacing:1px;
-      background:rgba(0,0,0,.28);
-      box-shadow:0 0 16px rgba(30,231,255,.18);
+      font-size:24px;
+      background:var(--panel2);
     }
 
     .lang{
-      min-width:110px;
+      min-width:120px;
       height:36px;
-      border:1.6px solid var(--line);
-      border-radius:18px;
-      background:rgba(0,0,0,.28);
+      border:1px solid var(--line);
+      background:var(--panel2);
       display:flex;
       align-items:center;
       justify-content:center;
-      font-weight:700;
       font-size:14px;
+      font-weight:700;
+    }
+
+    .content-wrap{
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
     }
 
     .cards{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
-      margin-bottom:10px;
     }
 
     .card{
-      background:rgba(0,0,0,.36);
-      border:1.6px solid var(--line);
-      border-radius:18px;
+      background:var(--panel);
+      border:1px solid var(--line);
       padding:12px;
       min-height:92px;
-      box-shadow:0 0 18px rgba(30,231,255,.14);
     }
 
     .card.full{
-      grid-column:1/-1;
+      grid-column:1 / -1;
       min-height:84px;
     }
 
     .card-title{
       font-size:12px;
       font-weight:700;
-      color:#d6effa;
-      margin-bottom:8px;
       text-transform:uppercase;
+      margin-bottom:8px;
     }
 
     .card-value{
@@ -153,7 +161,7 @@ html = """
 
     .mini{
       font-size:12px;
-      line-height:1.2;
+      line-height:1.25;
       color:var(--muted);
     }
 
@@ -161,39 +169,34 @@ html = """
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      height:34px;
-      padding:0 18px;
-      border-radius:12px;
-      background:var(--btn);
-      color:#05131f;
+      min-height:34px;
+      padding:0 16px;
+      border:1px solid var(--line);
+      background:var(--soft);
       font-weight:900;
       font-size:14px;
     }
 
     .select-wrap{
-      background:rgba(0,0,0,.36);
-      border:1.6px solid var(--line);
-      border-radius:18px;
-      padding:10px 12px;
-      margin-bottom:10px;
+      background:var(--panel);
+      border:1px solid var(--line);
+      padding:10px;
     }
 
     .select-label{
       font-size:12px;
       font-weight:700;
-      color:#d6effa;
-      margin-bottom:6px;
       text-transform:uppercase;
+      margin-bottom:6px;
     }
 
     select{
       width:100%;
       height:40px;
-      border-radius:12px;
-      border:1.4px solid var(--line);
-      background:#071b2c;
+      border:1px solid var(--line);
+      background:#fff;
       color:var(--text);
-      padding:0 12px;
+      padding:0 10px;
       font-size:14px;
       font-weight:700;
       outline:none;
@@ -203,14 +206,12 @@ html = """
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:8px;
-      margin-bottom:10px;
     }
 
     .tab{
       min-height:40px;
-      border:1.4px solid var(--line);
-      border-radius:12px;
-      background:rgba(8,34,53,.82);
+      border:1px solid var(--line);
+      background:var(--panel);
       color:var(--text);
       font-weight:700;
       font-size:13px;
@@ -223,23 +224,20 @@ html = """
     }
 
     .tab.active{
-      border-color:var(--line2);
-      box-shadow:inset 0 0 0 1px rgba(255,232,76,.25);
+      background:var(--soft);
+      border-width:2px;
     }
 
     .panel{
-      background:rgba(0,0,0,.34);
-      border:1.8px solid var(--line);
-      border-radius:18px;
-      padding:12px;
-      box-shadow:0 0 18px rgba(30,231,255,.12);
+      background:var(--panel);
+      border:1px solid var(--line);
+      padding:10px;
     }
 
     .panel-inner{
-      border:1.4px solid var(--line2);
-      border-radius:16px;
-      padding:12px;
-      background:rgba(0,0,0,.22);
+      border:1px solid var(--line2);
+      padding:10px;
+      background:#fff;
     }
 
     .title-row{
@@ -253,17 +251,15 @@ html = """
     .title-lg{
       font-size:18px;
       font-weight:900;
-      color:#ffe84c;
       text-transform:uppercase;
     }
 
     .search{
       height:38px;
-      border:1.4px solid var(--line);
-      border-radius:19px;
+      border:1px solid var(--line);
       padding:0 12px;
-      background:#071b2c;
-      color:#dfefff;
+      background:#fff;
+      color:var(--muted);
       display:flex;
       align-items:center;
       font-size:13px;
@@ -277,34 +273,31 @@ html = """
     }
 
     .mesa-card{
-      border:1.4px solid var(--line2);
-      border-radius:14px;
-      background:rgba(0,0,0,.28);
+      border:1px solid var(--line);
+      background:var(--panel2);
       padding:12px;
     }
 
     .mesa-name{
       font-size:14px;
       font-weight:900;
-      color:#ffe84c;
       margin-bottom:8px;
     }
 
     .mesa-meta{
       font-size:13px;
       line-height:1.35;
-      color:#dceaf3;
+      color:#222;
       margin-bottom:10px;
     }
 
     .mesa-btn{
-      height:34px;
-      border-radius:10px;
-      background:var(--btn);
+      min-height:34px;
+      border:1px solid var(--line);
+      background:var(--soft);
       display:flex;
       align-items:center;
       justify-content:center;
-      color:#05131f;
       font-weight:900;
     }
 
@@ -314,7 +307,7 @@ html = """
       align-items:center;
       justify-content:center;
       text-align:center;
-      color:#ffe84c;
+      color:var(--muted);
       font-size:14px;
       font-weight:700;
       line-height:1.35;
@@ -327,24 +320,21 @@ html = """
     }
 
     .field{
-      border:1.4px solid var(--line);
-      border-radius:14px;
+      border:1px solid var(--line);
       padding:12px;
-      background:rgba(0,0,0,.20);
+      background:#fff;
     }
 
     .field-title{
       font-size:13px;
       font-weight:900;
-      color:#ffe84c;
       margin-bottom:10px;
     }
 
     .input{
-      height:42px;
-      border-radius:10px;
-      border:1px solid #a9bfcb;
-      background:#e8ecef;
+      min-height:42px;
+      border:1px solid var(--line2);
+      background:#fff;
       color:#444;
       display:flex;
       align-items:center;
@@ -360,23 +350,21 @@ html = """
 
     .option{
       min-height:44px;
-      border:1.2px solid var(--line);
-      border-radius:12px;
+      border:1px solid var(--line2);
       display:flex;
       align-items:center;
       justify-content:space-between;
       padding:10px 12px;
       font-weight:700;
-      background:rgba(0,0,0,.16);
+      background:#fff;
       gap:10px;
     }
 
     .toggle{
       width:42px;
       height:24px;
-      border-radius:12px;
-      border:1.2px solid var(--line);
-      background:#082235;
+      border:1px solid var(--line);
+      background:#fff;
       position:relative;
       flex:0 0 auto;
     }
@@ -388,59 +376,17 @@ html = """
       left:20px;
       width:18px;
       height:18px;
-      border-radius:50%;
-      background:var(--btn);
+      background:#bbb;
+      border:1px solid var(--line);
     }
 
     .radio-line{
       display:flex;
       flex-wrap:wrap;
       gap:12px;
-      color:#e8f4fb;
+      color:#111;
       font-weight:700;
       font-size:13px;
-    }
-
-    .table-wrap{
-      border:1.4px solid var(--line2);
-      border-radius:14px;
-      overflow:hidden;
-      background:rgba(0,0,0,.18);
-    }
-
-    .thead,.trow{
-      display:grid;
-      grid-template-columns:72px 1fr 110px;
-    }
-
-    .thead div{
-      background:rgba(255,232,76,.18);
-      color:#ffe84c;
-      font-weight:900;
-      padding:10px;
-      border-right:1px solid rgba(255,255,255,.25);
-    }
-
-    .thead div:last-child,
-    .trow div:last-child{
-      border-right:none;
-    }
-
-    .trow div{
-      padding:10px;
-      border-top:1px solid rgba(255,255,255,.12);
-      border-right:1px solid rgba(255,255,255,.16);
-      min-height:42px;
-      display:flex;
-      align-items:center;
-      color:#e8f4fb;
-    }
-
-    .check{
-      width:22px;
-      height:22px;
-      border:2px solid var(--line);
-      border-radius:6px;
     }
 
     .team-grid{
@@ -451,16 +397,14 @@ html = """
     }
 
     .team-card{
-      border:1.4px solid var(--line2);
-      border-radius:14px;
+      border:1px solid var(--line);
       min-height:108px;
       padding:10px;
       display:flex;
       flex-direction:column;
       align-items:center;
       justify-content:center;
-      background:rgba(0,0,0,.18);
-      color:#ffe84c;
+      background:var(--panel2);
       font-weight:900;
       text-align:center;
     }
@@ -468,10 +412,73 @@ html = """
     .team-logo{
       width:52px;
       height:52px;
-      border:1.2px solid var(--line);
-      border-radius:12px;
+      border:1px solid var(--line2);
       margin-bottom:10px;
-      background:rgba(255,255,255,.05);
+      background:#fff;
+    }
+
+    /* CAMBIO TÁCTICO: cards en Elegir Partidos */
+    .pick-cards{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+    }
+
+    .pick-card{
+      border:1px solid var(--line);
+      background:var(--panel2);
+      padding:12px;
+      display:grid;
+      grid-template-columns:36px 1fr;
+      gap:10px;
+      align-items:flex-start;
+      cursor:pointer;
+    }
+
+    .pick-card.selected{
+      border-width:2px;
+      background:#ececec;
+    }
+
+    .pick-check{
+      width:24px;
+      height:24px;
+      border:2px solid var(--line);
+      background:#fff;
+      margin-top:2px;
+      position:relative;
+    }
+
+    .pick-card.selected .pick-check::after{
+      content:"";
+      position:absolute;
+      inset:4px;
+      background:#888;
+    }
+
+    .pick-title{
+      font-size:15px;
+      font-weight:900;
+      margin-bottom:8px;
+    }
+
+    .pick-meta{
+      font-size:13px;
+      line-height:1.35;
+      color:#222;
+    }
+
+    .pick-tag{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:28px;
+      padding:0 10px;
+      border:1px solid var(--line2);
+      background:#fff;
+      font-size:12px;
+      font-weight:700;
+      margin-top:8px;
     }
 
     .next-wrap{
@@ -481,22 +488,20 @@ html = """
     }
 
     .next-btn{
-      height:42px;
+      min-height:42px;
       min-width:160px;
       padding:0 24px;
-      border-radius:12px;
-      background:rgba(255,232,76,.45);
+      border:1px solid var(--line);
+      background:var(--soft);
       display:flex;
       align-items:center;
       justify-content:center;
-      color:#fff2a0;
       font-weight:900;
       font-size:16px;
     }
 
     .history-table{
-      border:1.4px solid var(--line2);
-      border-radius:14px;
+      border:1px solid var(--line2);
       overflow:hidden;
     }
 
@@ -507,10 +512,9 @@ html = """
     }
 
     .history-head div{
-      background:rgba(255,232,76,.18);
+      background:var(--soft);
       padding:10px;
-      border-right:1px solid rgba(255,255,255,.25);
-      color:#ffe84c;
+      border-right:1px solid var(--line2);
       font-weight:900;
     }
 
@@ -521,14 +525,38 @@ html = """
 
     .history-empty div{
       padding:12px;
-      border-top:1px solid rgba(255,255,255,.12);
-      border-right:1px solid rgba(255,255,255,.16);
+      border-top:1px solid var(--line2);
+      border-right:1px solid var(--line2);
       min-height:46px;
       display:flex;
       align-items:center;
       justify-content:center;
-      color:#ffe84c;
+      color:var(--muted);
       font-style:italic;
+      background:#fff;
+    }
+
+    @media (max-width:360px){
+      .cards{
+        grid-template-columns:1fr;
+      }
+
+      .card.full{
+        grid-column:auto;
+      }
+
+      .tabs{
+        grid-template-columns:1fr;
+      }
+
+      .title-row{
+        flex-direction:column;
+        align-items:stretch;
+      }
+
+      .team-grid{
+        grid-template-columns:1fr;
+      }
     }
   </style>
 </head>
@@ -538,36 +566,37 @@ html = """
       <div id="screen">
         <div class="topbar">
           <div class="logo">GAMBT</div>
-          <div class="lang">🇪🇸 Español ▾</div>
+          <div class="lang">Español ▾</div>
         </div>
 
-        <div class="cards">
-          <div class="card">
-            <div class="card-title">Saldo virtual</div>
-            <div class="card-value">$0.00</div>
-            <div class="action-btn">RECARGAR +</div>
+        <div class="content-wrap">
+          <div class="cards">
+            <div class="card">
+              <div class="card-title">Saldo virtual</div>
+              <div class="card-value">$0.00</div>
+              <div class="action-btn">RECARGAR +</div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Puntos ganados</div>
+              <div class="card-value">40 pts</div>
+            </div>
+
+            <div class="card full">
+              <div class="card-title">Modo classic</div>
+              <div class="mini">Cuotas en vivo, tickets tradicionales.</div>
+              <div style="margin-top:10px;" class="action-btn">Entrar</div>
+            </div>
           </div>
 
-          <div class="card">
-            <div class="card-title">Puntos ganados</div>
-            <div class="card-value">40 pts</div>
+          <div class="select-wrap">
+            <div class="select-label">Sección</div>
+            <select id="sectionSelect"></select>
           </div>
 
-          <div class="card full">
-            <div class="card-title">Modo classic</div>
-            <div class="mini">Cuotas en vivo, tickets tradicionales.</div>
-            <div style="margin-top:10px;" class="action-btn">Entrar</div>
-          </div>
+          <div id="tabs" class="tabs"></div>
+          <div id="content"></div>
         </div>
-
-        <div class="select-wrap">
-          <div class="select-label">Sección</div>
-          <select id="sectionSelect"></select>
-        </div>
-
-        <div id="tabs" class="tabs"></div>
-
-        <div id="content"></div>
       </div>
     </div>
   </div>
@@ -578,6 +607,7 @@ html = """
 
     let currentSection = "UNIRSE MESA";
     let currentTab = SECTION_TABS[currentSection][0];
+    const selectedMatches = new Set();
 
     const sectionSelect = document.getElementById("sectionSelect");
     const tabsEl = document.getElementById("tabs");
@@ -637,7 +667,7 @@ html = """
           <div class="panel-inner">
             <div class="title-row">
               <div class="title-lg">${titleText}</div>
-              <div class="search">🔎&nbsp;&nbsp;Buscar mesas...</div>
+              <div class="search">Buscar mesas...</div>
             </div>
 
             <div class="mesa-list">
@@ -655,7 +685,7 @@ html = """
       contentEl.innerHTML = `
         <div class="panel">
           <div class="panel-inner">
-            <div class="title-lg" style="margin-bottom:10px;">HISTÓRICO DE ENCUENTROS</div>
+            <div class="title-lg" style="margin-bottom:10px;">Histórico de encuentros</div>
             <div class="empty">No hay encuentros históricos disponibles</div>
           </div>
         </div>
@@ -666,13 +696,13 @@ html = """
       contentEl.innerHTML = `
         <div class="panel">
           <div class="panel-inner">
-            <div class="title-lg" style="margin-bottom:10px;">HISTÓRICO DE APUESTAS</div>
+            <div class="title-lg" style="margin-bottom:10px;">Histórico de apuestas</div>
 
             <div class="history-table">
               <div class="history-head">
                 <div>Partido</div>
                 <div>Predicción</div>
-                <div>Resultado Real</div>
+                <div>Resultado real</div>
                 <div>Estado</div>
                 <div>Fecha</div>
               </div>
@@ -696,19 +726,19 @@ html = """
       contentEl.innerHTML = `
         <div class="panel">
           <div class="panel-inner">
-            <div class="title-lg" style="margin-bottom:10px;">SPORTS</div>
+            <div class="title-lg" style="margin-bottom:10px;">Sports</div>
 
             <div class="field">
-              <div class="field-title">Nombre Mesa (máximo 30 caracteres)</div>
+              <div class="field-title">Nombre mesa (máximo 30 caracteres)</div>
               <div class="input">Ej: Torneo de expertos</div>
             </div>
 
             <div style="height:10px;"></div>
 
             <div class="option-col">
-              <div class="option"><span>⚽ Fútbol</span><span class="toggle"></span></div>
-              <div class="option"><span>🏀 Baloncesto</span><span class="toggle"></span></div>
-              <div class="option"><span>🎾 Tenis</span><span class="toggle"></span></div>
+              <div class="option"><span>Fútbol</span><span class="toggle"></span></div>
+              <div class="option"><span>Baloncesto</span><span class="toggle"></span></div>
+              <div class="option"><span>Tenis</span><span class="toggle"></span></div>
             </div>
 
             <div class="next-wrap">
@@ -740,10 +770,10 @@ html = """
               <div class="field">
                 <div class="field-title">¿Preguntas por encuentro? (Selecciona 1-4)</div>
                 <div class="option-col">
-                  <div class="option"><span>☑ DEFINIR GANADOR</span><span></span></div>
-                  <div class="option"><span>☐ ¿GOL DE AMBOS EQUIPOS?</span><span></span></div>
-                  <div class="option"><span>☐ ¿PENALES?</span><span></span></div>
-                  <div class="option"><span>☐ PREDICE EL MARCADOR</span><span></span></div>
+                  <div class="option"><span>☑ Definir ganador</span><span></span></div>
+                  <div class="option"><span>☐ ¿Gol de ambos equipos?</span><span></span></div>
+                  <div class="option"><span>☐ ¿Penales?</span><span></span></div>
+                  <div class="option"><span>☐ Predice el marcador</span><span></span></div>
                 </div>
               </div>
 
@@ -773,6 +803,37 @@ html = """
       `;
     }
 
+    function buildPickCard(id, title, schedule) {
+      const selectedClass = selectedMatches.has(id) ? "selected" : "";
+      return `
+        <div class="pick-card ${selectedClass}" data-pick-id="${id}">
+          <div class="pick-check"></div>
+          <div>
+            <div class="pick-title">${title}</div>
+            <div class="pick-meta">
+              Horario: ${schedule}<br>
+              Estado: Disponible
+            </div>
+            <div class="pick-tag">Agregar al reto</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function bindPickCards() {
+      contentEl.querySelectorAll(".pick-card").forEach(card => {
+        card.addEventListener("click", () => {
+          const id = card.dataset.pickId;
+          if (selectedMatches.has(id)) {
+            selectedMatches.delete(id);
+          } else {
+            selectedMatches.add(id);
+          }
+          renderElegirPartidos();
+        });
+      });
+    }
+
     function renderElegirPartidos() {
       contentEl.innerHTML = `
         <div class="panel">
@@ -789,38 +850,14 @@ html = """
               </div>
             </div>
 
-            <div class="title-lg" style="margin-bottom:10px;">TABLA DE PARTIDOS</div>
+            <div class="title-lg" style="margin-bottom:10px;">Partidos disponibles</div>
 
-            <div class="table-wrap">
-              <div class="thead">
-                <div>Seleccionar</div>
-                <div>Reto</div>
-                <div>Horario</div>
-              </div>
-
-              <div class="trow">
-                <div><div class="check"></div></div>
-                <div>Gil Vicente vs Casa Pia</div>
-                <div>26 abr 2026, 00:00</div>
-              </div>
-
-              <div class="trow">
-                <div><div class="check"></div></div>
-                <div>Tondela vs CD Nacional</div>
-                <div>26 abr 2026, 00:00</div>
-              </div>
-
-              <div class="trow">
-                <div><div class="check"></div></div>
-                <div>Santa Clara vs Braga</div>
-                <div>26 abr 2026, 00:00</div>
-              </div>
-
-              <div class="trow">
-                <div><div class="check"></div></div>
-                <div>AVS vs Sporting CP</div>
-                <div>26 abr 2026, 00:00</div>
-              </div>
+            <div class="pick-cards">
+              ${buildPickCard("p1", "Gil Vicente vs Casa Pia", "26 abr 2026, 00:00")}
+              ${buildPickCard("p2", "Tondela vs CD Nacional", "26 abr 2026, 00:00")}
+              ${buildPickCard("p3", "Santa Clara vs Braga", "26 abr 2026, 00:00")}
+              ${buildPickCard("p4", "AVS vs Sporting CP", "26 abr 2026, 00:00")}
+              ${buildPickCard("p5", "Estoril Praia vs Famalicão", "26 abr 2026, 00:00")}
             </div>
 
             <div class="next-wrap">
@@ -829,16 +866,17 @@ html = """
           </div>
         </div>
       `;
+      bindPickCards();
     }
 
     function renderContent() {
       if (currentTab === "Mesas activas") {
-        renderMesas("MESAS ACTIVAS DISPONIBLES");
+        renderMesas("Mesas activas disponibles");
         return;
       }
 
       if (currentTab === "Mesas privadas") {
-        renderMesas("MESAS PRIVADAS DISPONIBLES");
+        renderMesas("Mesas privadas disponibles");
         return;
       }
 
