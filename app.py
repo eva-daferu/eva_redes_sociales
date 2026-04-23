@@ -389,35 +389,6 @@ html = """
       font-size:13px;
     }
 
-    .team-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-      margin-bottom:10px;
-    }
-
-    .team-card{
-      border:1px solid var(--line);
-      min-height:108px;
-      padding:10px;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      background:var(--panel2);
-      font-weight:900;
-      text-align:center;
-    }
-
-    .team-logo{
-      width:52px;
-      height:52px;
-      border:1px solid var(--line2);
-      margin-bottom:10px;
-      background:#fff;
-    }
-
-    /* CAMBIO TÁCTICO: cards en Elegir Partidos */
     .pick-cards{
       display:grid;
       grid-template-columns:1fr;
@@ -552,10 +523,6 @@ html = """
       .title-row{
         flex-direction:column;
         align-items:stretch;
-      }
-
-      .team-grid{
-        grid-template-columns:1fr;
       }
     }
   </style>
@@ -838,18 +805,6 @@ html = """
       contentEl.innerHTML = `
         <div class="panel">
           <div class="panel-inner">
-            <div class="team-grid">
-              <div class="team-card">
-                <div class="team-logo"></div>
-                Gil Vicente
-              </div>
-
-              <div class="team-card">
-                <div class="team-logo"></div>
-                Casa Pia
-              </div>
-            </div>
-
             <div class="title-lg" style="margin-bottom:10px;">Partidos disponibles</div>
 
             <div class="pick-cards">
