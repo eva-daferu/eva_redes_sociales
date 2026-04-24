@@ -2,14 +2,6 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# ===== AJUSTES =====
-PAD_X_PX = 8
-PAD_TOP_PX = 8
-BORDER_PX = 2
-BORDER_COLOR = "#111111"
-BG_COLOR = "#FFFFFF"
-# ===================
-
 st.set_page_config(layout="wide")
 
 st.markdown(
@@ -23,7 +15,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-html = f"""
+html = r"""
 <!doctype html>
 <html>
 <head>
@@ -31,39 +23,30 @@ html = f"""
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
-    :root{{
-      --padx:{PAD_X_PX}px;
-      --padtop:{PAD_TOP_PX}px;
-      --b:{BORDER_PX}px;
-      --bc:{BORDER_COLOR};
-      --bg:{BG_COLOR};
-
-      --cyan:#00e5ff;
-      --cyan-dark:#003b46;
+    :root{
+      --accent:#00e5ff;
+      --accent-soft:rgba(0,229,255,.14);
       --yellow:#ffee32;
+      --bg:#06111b;
       --panel:#061923;
       --panel2:#082632;
       --text:#e9fbff;
       --muted:#9fb5c3;
-      --danger:#ff5f73;
-      --ok:#36ff9f;
-    }}
+    }
 
-    *{{
-      box-sizing:border-box;
-    }}
+    *{box-sizing:border-box;}
 
-    html, body{{
+    html, body{
       margin:0;
       padding:0;
       width:100%;
       height:100%;
       overflow:hidden;
-      background:var(--bg);
       font-family:Arial, Helvetica, sans-serif;
-    }}
+      background:#06111b;
+    }
 
-    #stage{{
+    #stage{
       position:fixed;
       inset:0;
       width:100vw;
@@ -71,47 +54,47 @@ html = f"""
       overflow-y:auto;
       overflow-x:hidden;
       -webkit-overflow-scrolling:touch;
-      background:
-        radial-gradient(circle at 50% 12%, rgba(0,229,255,.20), transparent 28%),
-        linear-gradient(180deg, #06111b 0%, #071926 45%, #051018 100%);
       color:var(--text);
-    }}
+      background:
+        radial-gradient(circle at 50% 12%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 28%),
+        linear-gradient(180deg, #06111b 0%, #071926 45%, #051018 100%);
+    }
 
-    .app{{
+    .app{
       width:100%;
       min-height:100vh;
       padding:10px 10px 92px 10px;
-    }}
+    }
 
-    .topbar{{
-      border:1px solid rgba(0,229,255,.65);
+    .topbar{
+      border:1px solid var(--accent);
       border-radius:18px;
       padding:10px;
       background:rgba(0,0,0,.42);
-      box-shadow:0 0 18px rgba(0,229,255,.25);
+      box-shadow:0 0 18px color-mix(in srgb, var(--accent) 35%, transparent);
       margin-bottom:10px;
-    }}
+    }
 
-    .logo{{
+    .logo{
       width:100%;
       text-align:center;
       font-size:30px;
       font-weight:900;
       letter-spacing:3px;
       color:#9dffbd;
-      text-shadow:0 0 14px rgba(0,229,255,.65);
+      text-shadow:0 0 14px color-mix(in srgb, var(--accent) 70%, transparent);
       line-height:1;
       margin-bottom:10px;
-    }}
+    }
 
-    .top-grid{{
+    .top-grid{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:8px;
-    }}
+    }
 
-    .top-pill{{
-      border:1px solid rgba(0,229,255,.65);
+    .top-pill{
+      border:1px solid var(--accent);
       background:rgba(0,50,65,.55);
       border-radius:999px;
       min-height:36px;
@@ -124,64 +107,64 @@ html = f"""
       color:var(--text);
       overflow:hidden;
       white-space:nowrap;
-    }}
+    }
 
-    .socials{{
+    .socials{
       display:flex;
       justify-content:center;
       gap:10px;
       font-size:15px;
-    }}
+    }
 
-    .stats{{
+    .stats{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:8px;
       margin-bottom:12px;
-    }}
+    }
 
-    .stat-card{{
-      border:1px solid rgba(0,229,255,.75);
+    .stat-card{
+      border:1px solid var(--accent);
       border-radius:14px;
       padding:10px;
       background:rgba(0,10,18,.72);
       min-height:80px;
-      box-shadow:0 0 12px rgba(0,229,255,.18);
-    }}
+      box-shadow:0 0 12px color-mix(in srgb, var(--accent) 25%, transparent);
+    }
 
-    .stat-title{{
+    .stat-title{
       color:var(--yellow);
       font-size:10px;
       font-weight:900;
       text-transform:uppercase;
       margin-bottom:8px;
-    }}
+    }
 
-    .stat-value{{
+    .stat-value{
       font-size:21px;
       font-weight:900;
       color:var(--text);
-    }}
+    }
 
-    .stat-small{{
+    .stat-small{
       font-size:10px;
       color:#bcefff;
       margin-top:5px;
       line-height:1.3;
-    }}
+    }
 
-    .btn-recargar{{
+    .btn-recargar{
       display:inline-flex;
       margin-top:8px;
       padding:4px 9px;
       border-radius:999px;
-      background:var(--cyan);
+      background:var(--accent);
       color:#001018;
       font-weight:900;
       font-size:10px;
-    }}
+    }
 
-    .title-main{{
+    .title-main{
       font-size:21px;
       line-height:1;
       color:var(--yellow);
@@ -189,18 +172,18 @@ html = f"""
       text-transform:uppercase;
       text-shadow:0 0 12px rgba(255,238,50,.75);
       margin:16px 0 10px 0;
-    }}
+    }
 
-    .tabs{{
+    .tabs{
       display:grid;
       grid-template-columns:1fr 1fr;
       border:1px solid var(--yellow);
       border-radius:14px 14px 0 0;
       overflow:hidden;
       background:rgba(0,0,0,.5);
-    }}
+    }
 
-    .tab-btn{{
+    .tab-btn{
       border:0;
       padding:13px 8px;
       font-size:13px;
@@ -209,15 +192,15 @@ html = f"""
       background:transparent;
       cursor:pointer;
       text-transform:uppercase;
-    }}
+    }
 
-    .tab-btn.active{{
+    .tab-btn.active{
       color:var(--yellow);
       background:rgba(255,238,50,.13);
       box-shadow:inset 0 -3px 0 var(--yellow);
-    }}
+    }
 
-    .panel{{
+    .panel{
       border:1px solid rgba(255,238,50,.85);
       border-top:0;
       border-radius:0 0 14px 14px;
@@ -225,27 +208,27 @@ html = f"""
       padding:12px;
       box-shadow:0 0 15px rgba(255,238,50,.18);
       margin-bottom:14px;
-    }}
+    }
 
-    .section-title{{
+    .section-title{
       color:var(--yellow);
       font-size:16px;
       font-weight:900;
       margin-bottom:10px;
       line-height:1.1;
-    }}
+    }
 
-    .field-label{{
+    .field-label{
       font-size:11px;
       font-weight:900;
       color:var(--yellow);
       margin-bottom:5px;
       text-transform:uppercase;
-    }}
+    }
 
-    select, input{{
+    select, input{
       width:100%;
-      border:1px solid rgba(0,229,255,.85);
+      border:1px solid var(--accent);
       background:rgba(0,20,30,.88);
       color:var(--text);
       border-radius:999px;
@@ -254,28 +237,28 @@ html = f"""
       outline:none;
       font-size:13px;
       font-weight:700;
-    }}
+    }
 
-    .ficha{{
+    input::placeholder{color:#7e8d96;}
+
+    .ficha{
       margin-top:12px;
-      border:1px solid rgba(0,229,255,.65);
+      border:1px solid var(--accent);
       border-radius:14px;
       background:rgba(0,23,34,.72);
       overflow:hidden;
-    }}
+    }
 
-    .ficha-row{{
+    .ficha-row{
       display:grid;
       grid-template-columns:42% 58%;
       border-bottom:1px solid rgba(255,255,255,.14);
       min-height:38px;
-    }}
+    }
 
-    .ficha-row:last-child{{
-      border-bottom:0;
-    }}
+    .ficha-row:last-child{border-bottom:0;}
 
-    .ficha-k{{
+    .ficha-k{
       padding:10px;
       font-size:11px;
       font-weight:900;
@@ -283,9 +266,9 @@ html = f"""
       background:rgba(255,238,50,.08);
       display:flex;
       align-items:center;
-    }}
+    }
 
-    .ficha-v{{
+    .ficha-v{
       padding:10px;
       font-size:12px;
       font-weight:800;
@@ -293,36 +276,36 @@ html = f"""
       display:flex;
       align-items:center;
       overflow-wrap:anywhere;
-    }}
+    }
 
-    .actions{{
+    .actions{
       display:flex;
       gap:8px;
       align-items:center;
       flex-wrap:wrap;
-    }}
+    }
 
-    .action-btn{{
+    .action-btn{
       width:34px;
       height:34px;
       border-radius:999px;
-      border:1px solid rgba(0,229,255,.8);
-      background:rgba(0,229,255,.12);
-      color:var(--cyan);
+      border:1px solid var(--accent);
+      background:var(--accent-soft);
+      color:var(--accent);
       display:inline-flex;
       align-items:center;
       justify-content:center;
       font-size:16px;
       cursor:pointer;
-    }}
+    }
 
-    .action-btn.disabled{{
+    .action-btn.disabled{
       opacity:.28;
       cursor:not-allowed;
       filter:grayscale(1);
-    }}
+    }
 
-    .empty{{
+    .empty{
       border:1px dashed rgba(255,255,255,.28);
       border-radius:14px;
       padding:14px;
@@ -330,152 +313,419 @@ html = f"""
       color:var(--muted);
       text-align:center;
       background:rgba(255,255,255,.04);
-    }}
+    }
 
-    .participants-head{{
+    .participants-head{
       display:grid;
       grid-template-columns:1fr;
       gap:8px;
       margin-bottom:10px;
-    }}
+    }
 
-    .participant-card{{
-      border:1px solid rgba(0,229,255,.65);
+    .participant-card{
+      border:1px solid var(--accent);
       border-radius:14px;
       background:rgba(0,17,27,.76);
       overflow:hidden;
       margin-bottom:10px;
-      box-shadow:0 0 10px rgba(0,229,255,.12);
-    }}
+      box-shadow:0 0 10px color-mix(in srgb, var(--accent) 20%, transparent);
+    }
 
-    .participant-title{{
+    .participant-title{
       padding:10px 12px;
       font-size:14px;
       font-weight:900;
       color:var(--text);
       border-bottom:1px solid rgba(255,255,255,.12);
-      background:rgba(0,229,255,.08);
-    }}
+      background:var(--accent-soft);
+    }
 
-    .mini-grid{{
+    .mini-grid{
       display:grid;
       grid-template-columns:1fr 1fr;
-    }}
+    }
 
-    .mini-item{{
+    .mini-item{
       min-height:42px;
       padding:8px 10px;
       border-right:1px solid rgba(255,255,255,.10);
       border-bottom:1px solid rgba(255,255,255,.10);
-    }}
+    }
 
-    .mini-item:nth-child(2n){{
-      border-right:0;
-    }}
+    .mini-item:nth-child(2n){border-right:0;}
 
-    .mini-k{{
+    .mini-k{
       color:var(--yellow);
       font-size:10px;
       font-weight:900;
       margin-bottom:4px;
       text-transform:uppercase;
-    }}
+    }
 
-    .mini-v{{
+    .mini-v{
       color:var(--text);
       font-size:12px;
       font-weight:800;
       line-height:1.25;
       overflow-wrap:anywhere;
-    }}
+    }
 
-    .users-panel{{
-      border:1px solid rgba(0,229,255,.75);
-      border-radius:14px;
-      background:rgba(0,12,18,.72);
-      padding:12px;
-      box-shadow:0 0 15px rgba(0,229,255,.18);
-      margin-bottom:14px;
-    }}
-
-    .users-grid{{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:8px;
-      margin-top:10px;
-      max-height:170px;
-      overflow-y:auto;
-      padding-right:4px;
-    }}
-
-    .alias{{
-      border:1px solid rgba(0,229,255,.35);
-      background:rgba(0,229,255,.12);
-      color:#dffcff;
-      border-radius:999px;
-      padding:7px 9px;
-      font-size:12px;
-      font-weight:800;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-    }}
-
-    .bottom-menu{{
+    .bottom-menu{
       position:fixed;
       left:0;
       right:0;
       bottom:0;
       z-index:9999;
       background:rgba(0,12,18,.96);
-      border-top:1px solid rgba(0,229,255,.75);
-      box-shadow:0 -8px 22px rgba(0,229,255,.18);
+      border-top:1px solid var(--accent);
+      box-shadow:0 -8px 22px color-mix(in srgb, var(--accent) 25%, transparent);
       padding:8px 8px 10px 8px;
       display:grid;
       grid-template-columns:repeat(5, 1fr);
       gap:8px;
-    }}
+    }
 
-    .bottom-item{{
+    .bottom-item{
       height:46px;
-      border:1px solid rgba(0,229,255,.65);
+      border:1px solid var(--accent);
       border-radius:14px;
-      background:rgba(0,229,255,.10);
-      color:var(--cyan);
+      background:var(--accent-soft);
+      color:var(--accent);
       display:flex;
       align-items:center;
       justify-content:center;
       font-size:20px;
       font-weight:900;
-    }}
+      cursor:pointer;
+    }
 
-    .toast{{
+    .bottom-item.active{
+      border-color:var(--yellow);
+      color:var(--yellow);
+      box-shadow:0 0 18px rgba(255,238,50,.75);
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:12000;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background:rgba(0,0,0,.32);
+      padding:12px;
+    }
+
+    .overlay.show{display:flex;}
+
+    .menu-window{
+      width:min(96vw, 560px);
+      height:min(82vh, 410px);
+      border:1px solid var(--accent);
+      border-radius:16px;
+      background:rgba(0,12,18,.97);
+      box-shadow:0 0 25px color-mix(in srgb, var(--accent) 30%, transparent);
+      display:grid;
+      grid-template-columns:88px 1fr;
+      overflow:hidden;
+    }
+
+    .side-menu{
+      border-right:1px solid var(--accent);
+      background:rgba(0,30,38,.62);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+    }
+
+    .side-title{
+      width:100%;
+      height:50px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:19px;
+      font-weight:1000;
+      color:var(--accent);
+      text-shadow:0 0 10px var(--accent);
+      border-bottom:1px solid rgba(255,255,255,.12);
+    }
+
+    .side-icons{
+      flex:1;
+      width:100%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:14px;
+      padding:12px 0;
+    }
+
+    .side-btn{
+      width:56px;
+      height:56px;
+      border-radius:999px;
+      border:1px solid rgba(0,229,255,.25);
+      background:rgba(0,229,255,.08);
+      color:var(--accent);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:24px;
+      box-shadow:0 0 14px color-mix(in srgb, var(--accent) 22%, transparent);
+      cursor:pointer;
+    }
+
+    .side-btn.active{
+      color:var(--yellow);
+      border-color:var(--yellow);
+      box-shadow:0 0 20px rgba(255,238,50,.9);
+    }
+
+    .menu-content{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .content-head{
+      min-height:52px;
+      border-bottom:1px solid rgba(255,255,255,.14);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:0 16px;
+    }
+
+    .content-title{
+      color:var(--accent);
+      font-size:17px;
+      font-weight:1000;
+      letter-spacing:1px;
+      text-shadow:0 0 10px var(--accent);
+      text-transform:uppercase;
+    }
+
+    .close-btn{
+      width:34px;
+      height:26px;
+      border-radius:999px;
+      border:1px solid var(--accent);
+      background:transparent;
+      color:var(--text);
+      font-weight:900;
+      cursor:pointer;
+    }
+
+    .content-body{
+      flex:1;
+      min-height:0;
+      overflow:auto;
+      padding:16px;
+    }
+
+    .message-box{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      justify-content:flex-end;
+      gap:10px;
+    }
+
+    .message-line{
+      border-top:1px solid rgba(0,229,255,.35);
+      padding-top:8px;
+      display:grid;
+      grid-template-columns:1fr 82px;
+      gap:10px;
+    }
+
+    .send-btn{
+      border:0;
+      border-radius:999px;
+      background:var(--accent);
+      color:#001018;
+      font-weight:1000;
+      min-height:38px;
+      cursor:pointer;
+      box-shadow:0 0 15px color-mix(in srgb, var(--accent) 70%, transparent);
+    }
+
+    .alias-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px 22px;
+      margin-top:12px;
+      max-height:200px;
+      overflow-y:auto;
+      background:rgba(0,229,255,.13);
+      border-radius:8px;
+      padding:10px;
+      border-right:4px solid var(--accent);
+    }
+
+    .alias{
+      width:max-content;
+      max-width:100%;
+      border:1px solid rgba(0,229,255,.35);
+      background:var(--accent-soft);
+      color:#dffcff;
+      border-radius:999px;
+      padding:7px 10px;
+      font-size:12px;
+      font-weight:800;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .mesa-list{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:12px;
+      background:rgba(0,229,255,.13);
+      border-radius:8px;
+      padding:12px;
+    }
+
+    .mesa-item{
+      min-height:56px;
+      border:1px solid rgba(0,229,255,.35);
+      background:var(--accent-soft);
+      border-radius:17px;
+      padding:10px;
+      font-size:12px;
+      color:var(--text);
+      font-weight:900;
+      line-height:1.25;
+    }
+
+    .mesa-item strong{color:var(--yellow);}
+
+    .mesa-item span{
+      display:block;
+      margin-top:5px;
+      color:#bcefff;
+      font-size:10px;
+      font-weight:800;
+    }
+
+    .notif-list{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .notif-item{
+      border:1px solid var(--accent);
+      border-radius:14px;
+      background:var(--accent-soft);
+      padding:12px;
+      font-size:13px;
+      font-weight:800;
+      color:var(--text);
+    }
+
+    .center-empty{
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:16px;
+      font-weight:800;
+      color:#dffcff;
+      text-align:center;
+    }
+
+    .color-panel{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-start;
+      padding-top:20px;
+      gap:18px;
+    }
+
+    .color-title{
+      font-size:16px;
+      font-weight:900;
+      color:var(--yellow);
+    }
+
+    .color-input{
+      width:86%;
+      height:44px;
+      border-radius:8px;
+      padding:0;
+      border:0;
+      background:transparent;
+      cursor:pointer;
+    }
+
+    .color-help{
+      text-align:center;
+      font-size:12px;
+      font-weight:800;
+      color:#dffcff;
+      max-width:360px;
+      line-height:1.4;
+    }
+
+    .toast{
       position:fixed;
       left:12px;
       right:12px;
       bottom:76px;
-      z-index:10000;
+      z-index:14000;
       display:none;
-      border:1px solid rgba(0,229,255,.75);
+      border:1px solid var(--accent);
       border-radius:14px;
       background:rgba(0,18,28,.96);
       color:var(--text);
       padding:12px;
       font-size:13px;
       font-weight:800;
-      box-shadow:0 0 18px rgba(0,229,255,.32);
-    }}
+      box-shadow:0 0 18px color-mix(in srgb, var(--accent) 35%, transparent);
+    }
 
-    .toast.show{{
-      display:block;
-    }}
+    .toast.show{display:block;}
 
-    @media (min-width:520px){{
-      .app{{
+    @media (max-width:420px){
+      .menu-window{
+        width:100vw;
+        height:78vh;
+        grid-template-columns:78px 1fr;
+      }
+
+      .side-title{
+        font-size:16px;
+      }
+
+      .side-btn{
+        width:52px;
+        height:52px;
+        font-size:22px;
+      }
+
+      .mesa-list{
+        grid-template-columns:1fr;
+      }
+
+      .alias-grid{
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+      }
+    }
+
+    @media (min-width:520px){
+      .app{
         max-width:430px;
         margin:0 auto;
-      }}
-    }}
+      }
+    }
   </style>
 </head>
 
@@ -550,30 +800,48 @@ html = f"""
         </div>
       </section>
 
-      <section class="users-panel">
-        <div class="section-title">Usuarios</div>
-        <input id="buscarAlias" type="search" placeholder="Buscar alias..." />
-
-        <div class="users-grid" id="usuariosGrid"></div>
-      </section>
-
     </main>
 
     <nav class="bottom-menu">
-      <div class="bottom-item">💬</div>
-      <div class="bottom-item">👤</div>
-      <div class="bottom-item">▦</div>
-      <div class="bottom-item">🔔</div>
-      <div class="bottom-item">⚙</div>
+      <button class="bottom-item" data-open="mensajes" type="button">💬</button>
+      <button class="bottom-item" data-open="usuarios" type="button">👤</button>
+      <button class="bottom-item" data-open="mesas" type="button">▦</button>
+      <button class="bottom-item" data-open="notificaciones" type="button">🔔</button>
+      <button class="bottom-item" data-open="configuracion" type="button">⚙</button>
     </nav>
+
+    <div class="overlay" id="menuOverlay">
+      <section class="menu-window">
+        <aside class="side-menu">
+          <div class="side-title">MENU</div>
+
+          <div class="side-icons">
+            <button class="side-btn" data-open="mensajes" type="button">💬</button>
+            <button class="side-btn" data-open="usuarios" type="button">👤</button>
+            <button class="side-btn" data-open="mesas" type="button">▦</button>
+            <button class="side-btn" data-open="notificaciones" type="button">🔔</button>
+            <button class="side-btn" data-open="configuracion" type="button">⚙</button>
+          </div>
+        </aside>
+
+        <section class="menu-content">
+          <header class="content-head">
+            <div class="content-title" id="menuTitle">MENSAJES</div>
+            <button class="close-btn" id="closeOverlay" type="button">↻</button>
+          </header>
+
+          <div class="content-body" id="menuBody"></div>
+        </section>
+      </section>
+    </div>
 
     <div class="toast" id="toast"></div>
   </div>
 
   <script>
-    (function(){{
+    (function(){
       var fe = window.frameElement;
-      if (fe){{
+      if (fe){
         fe.style.position = "fixed";
         fe.style.inset = "0";
         fe.style.width = "100vw";
@@ -583,11 +851,11 @@ html = f"""
         fe.style.padding = "0";
         fe.style.zIndex = "999999";
         fe.style.background = "transparent";
-      }}
+      }
 
-      const DATA = {{
+      const DATA = {
         abiertos: [
-          {{
+          {
             id: "mesa_diana_open",
             nombreMesa: "Creo mesa privada - Diana",
             partido: "Club Atlético de Madrid vs Athletic Club",
@@ -599,39 +867,12 @@ html = f"""
             apuestas: "1",
             apuesta: "$3.00",
             participantes: [
-              {{
-                usuario: "test1234",
-                partido: "Club Atlético de Madrid vs Athletic Club",
-                ganador: "NO_APLICA",
-                golAmbos: "X",
-                penales: "No",
-                marcador: "X",
-                participantes: "3",
-                bolsa: "$9.00"
-              }},
-              {{
-                usuario: "pablico",
-                partido: "Club Atlético de Madrid vs Athletic Club",
-                ganador: "NO_APLICA",
-                golAmbos: "X",
-                penales: "No",
-                marcador: "X",
-                participantes: "3",
-                bolsa: "$9.00"
-              }},
-              {{
-                usuario: "Diana",
-                partido: "Club Atlético de Madrid vs Athletic Club",
-                ganador: "NO_APLICA",
-                golAmbos: "X",
-                penales: "No",
-                marcador: "X",
-                participantes: "3",
-                bolsa: "$9.00"
-              }}
+              {usuario:"test1234", partido:"Club Atlético de Madrid vs Athletic Club", ganador:"NO_APLICA", golAmbos:"X", penales:"No", marcador:"X", participantes:"3", bolsa:"$9.00"},
+              {usuario:"pablico", partido:"Club Atlético de Madrid vs Athletic Club", ganador:"NO_APLICA", golAmbos:"X", penales:"No", marcador:"X", participantes:"3", bolsa:"$9.00"},
+              {usuario:"Diana", partido:"Club Atlético de Madrid vs Athletic Club", ganador:"NO_APLICA", golAmbos:"X", penales:"No", marcador:"X", participantes:"3", bolsa:"$9.00"}
             ]
-          }},
-          {{
+          },
+          {
             id: "mesa_pablico_open",
             nombreMesa: "Mesa pública - pablico",
             partido: "Real Madrid vs Barcelona",
@@ -643,32 +884,13 @@ html = f"""
             apuestas: "2",
             apuesta: "$5.00",
             participantes: [
-              {{
-                usuario: "pablico",
-                partido: "Real Madrid vs Barcelona",
-                ganador: "Real Madrid",
-                golAmbos: "Sí",
-                penales: "No",
-                marcador: "2-1",
-                participantes: "2",
-                bolsa: "$10.00"
-              }},
-              {{
-                usuario: "Blanco",
-                partido: "Real Madrid vs Barcelona",
-                ganador: "Barcelona",
-                golAmbos: "Sí",
-                penales: "No",
-                marcador: "1-2",
-                participantes: "2",
-                bolsa: "$10.00"
-              }}
+              {usuario:"pablico", partido:"Real Madrid vs Barcelona", ganador:"Real Madrid", golAmbos:"Sí", penales:"No", marcador:"2-1", participantes:"2", bolsa:"$10.00"},
+              {usuario:"Blanco", partido:"Real Madrid vs Barcelona", ganador:"Barcelona", golAmbos:"Sí", penales:"No", marcador:"1-2", participantes:"2", bolsa:"$10.00"}
             ]
-          }}
+          }
         ],
-
         cerrados: [
-          {{
+          {
             id: "mesa_cerrada_1",
             nombreMesa: "Mesa cerrada - Enano",
             partido: "Manchester City vs Liverpool",
@@ -680,50 +902,14 @@ html = f"""
             apuestas: "4",
             apuesta: "$4.00",
             participantes: [
-              {{
-                usuario: "Enano",
-                partido: "Manchester City vs Liverpool",
-                ganador: "Manchester City",
-                golAmbos: "Sí",
-                penales: "No",
-                marcador: "3-2",
-                participantes: "4",
-                bolsa: "$16.00"
-              }},
-              {{
-                usuario: "Gym",
-                partido: "Manchester City vs Liverpool",
-                ganador: "Liverpool",
-                golAmbos: "Sí",
-                penales: "No",
-                marcador: "2-3",
-                participantes: "4",
-                bolsa: "$16.00"
-              }},
-              {{
-                usuario: "Hulk",
-                partido: "Manchester City vs Liverpool",
-                ganador: "Manchester City",
-                golAmbos: "Sí",
-                penales: "No",
-                marcador: "3-2",
-                participantes: "4",
-                bolsa: "$16.00"
-              }},
-              {{
-                usuario: "Fantasma",
-                partido: "Manchester City vs Liverpool",
-                ganador: "Empate",
-                golAmbos: "Sí",
-                penales: "No",
-                marcador: "2-2",
-                participantes: "4",
-                bolsa: "$16.00"
-              }}
+              {usuario:"Enano", partido:"Manchester City vs Liverpool", ganador:"Manchester City", golAmbos:"Sí", penales:"No", marcador:"3-2", participantes:"4", bolsa:"$16.00"},
+              {usuario:"Gym", partido:"Manchester City vs Liverpool", ganador:"Liverpool", golAmbos:"Sí", penales:"No", marcador:"2-3", participantes:"4", bolsa:"$16.00"},
+              {usuario:"Hulk", partido:"Manchester City vs Liverpool", ganador:"Manchester City", golAmbos:"Sí", penales:"No", marcador:"3-2", participantes:"4", bolsa:"$16.00"},
+              {usuario:"Fantasma", partido:"Manchester City vs Liverpool", ganador:"Empate", golAmbos:"Sí", penales:"No", marcador:"2-2", participantes:"4", bolsa:"$16.00"}
             ]
-          }}
+          }
         ]
-      }};
+      };
 
       const USUARIOS = [
         "@Blanco",
@@ -738,10 +924,20 @@ html = f"""
         "@pablico"
       ];
 
+      const MESAS_USUARIO = [
+        {nombre:"Celular - test1234", participantes:"1 participantes"},
+        {nombre:"Creo mesa privada - Diana", participantes:"3 participantes"},
+        {nombre:"Prueba celular - cristhian_gc", participantes:"1 participantes"}
+      ];
+
+      const NOTIFICACIONES = [
+        {titulo:"@Diana", texto:"Envió mensaje en Creo mesa privada - Diana"},
+        {titulo:"Mesa pública - pablico", texto:"Nuevo mensaje recibido"}
+      ];
+
       let modoActual = "abiertos";
       let mesaActual = "";
       let filtroUsuario = "";
-      let filtroAlias = "";
 
       const btnAbiertos = document.getElementById("btnAbiertos");
       const btnCerrados = document.getElementById("btnCerrados");
@@ -749,170 +945,128 @@ html = f"""
       const fichaContainer = document.getElementById("fichaContainer");
       const participantesContainer = document.getElementById("participantesContainer");
       const buscarUsuario = document.getElementById("buscarUsuario");
-      const buscarAlias = document.getElementById("buscarAlias");
-      const usuariosGrid = document.getElementById("usuariosGrid");
       const mainTitle = document.getElementById("mainTitle");
       const statActivos = document.getElementById("statActivos");
       const statCerrados = document.getElementById("statCerrados");
       const toast = document.getElementById("toast");
 
-      function esc(value){{
+      const overlay = document.getElementById("menuOverlay");
+      const menuTitle = document.getElementById("menuTitle");
+      const menuBody = document.getElementById("menuBody");
+      const closeOverlay = document.getElementById("closeOverlay");
+
+      function esc(value){
         return String(value ?? "")
           .replaceAll("&", "&amp;")
           .replaceAll("<", "&lt;")
           .replaceAll(">", "&gt;")
           .replaceAll('"', "&quot;")
           .replaceAll("'", "&#039;");
-      }}
+      }
 
-      function showToast(text){{
+      function showToast(text){
         toast.textContent = text;
         toast.classList.add("show");
-        setTimeout(function(){{
+        setTimeout(function(){
           toast.classList.remove("show");
-        }}, 1700);
-      }}
+        }, 1700);
+      }
 
-      function getMesas(){{
+      function getMesas(){
         return DATA[modoActual] || [];
-      }}
+      }
 
-      function getMesaSeleccionada(){{
-        return getMesas().find(function(m){{ return m.id === mesaActual; }});
-      }}
+      function getMesaSeleccionada(){
+        return getMesas().find(function(m){ return m.id === mesaActual; });
+      }
 
-      function renderStats(){{
+      function renderStats(){
         statActivos.textContent = DATA.abiertos.length;
         statCerrados.textContent = DATA.cerrados.length;
-      }}
+      }
 
-      function renderTabs(){{
+      function renderTabs(){
         btnAbiertos.classList.toggle("active", modoActual === "abiertos");
         btnCerrados.classList.toggle("active", modoActual === "cerrados");
 
         mainTitle.textContent = modoActual === "abiertos"
           ? "Selecciona un reto abierto"
           : "Selecciona un reto cerrado";
-      }}
+      }
 
-      function renderMesaSelect(){{
+      function renderMesaSelect(){
         const mesas = getMesas();
-
         let html = '<option value="">Selecciona nombre de mesa</option>';
 
-        mesas.forEach(function(mesa){{
+        mesas.forEach(function(mesa){
           html += '<option value="' + esc(mesa.id) + '">' + esc(mesa.nombreMesa) + '</option>';
-        }});
+        });
 
         mesaSelect.innerHTML = html;
         mesaSelect.value = mesaActual;
-      }}
+      }
 
-      function renderFicha(){{
+      function renderFicha(){
         const mesa = getMesaSeleccionada();
 
-        if (!mesa){{
+        if (!mesa){
           fichaContainer.innerHTML = '<div class="empty">Primero selecciona el nombre de la mesa.</div>';
           return;
-        }}
+        }
 
         const puedeEditar = modoActual === "abiertos";
 
         fichaContainer.innerHTML = `
           <div class="ficha">
-            <div class="ficha-row">
-              <div class="ficha-k">Nombre Mesa</div>
-              <div class="ficha-v">${{esc(mesa.nombreMesa)}}</div>
-            </div>
-
-            <div class="ficha-row">
-              <div class="ficha-k">Partido</div>
-              <div class="ficha-v">${{esc(mesa.partido)}}</div>
-            </div>
-
-            <div class="ficha-row">
-              <div class="ficha-k">Estado</div>
-              <div class="ficha-v">${{esc(mesa.estado)}}</div>
-            </div>
-
-            <div class="ficha-row">
-              <div class="ficha-k">Ganador</div>
-              <div class="ficha-v">${{esc(mesa.ganador)}}</div>
-            </div>
-
-            <div class="ficha-row">
-              <div class="ficha-k">Gol Ambos</div>
-              <div class="ficha-v">${{esc(mesa.golAmbos)}}</div>
-            </div>
-
-            <div class="ficha-row">
-              <div class="ficha-k">Penales</div>
-              <div class="ficha-v">${{esc(mesa.penales)}}</div>
-            </div>
-
-            <div class="ficha-row">
-              <div class="ficha-k">Marcador</div>
-              <div class="ficha-v">${{esc(mesa.marcador)}}</div>
-            </div>
-
-            <div class="ficha-row">
-              <div class="ficha-k">Apuestas</div>
-              <div class="ficha-v">${{esc(mesa.apuestas)}}</div>
-            </div>
-
-            <div class="ficha-row">
-              <div class="ficha-k">Apuesta</div>
-              <div class="ficha-v">${{esc(mesa.apuesta)}}</div>
-            </div>
-
+            <div class="ficha-row"><div class="ficha-k">Nombre Mesa</div><div class="ficha-v">${esc(mesa.nombreMesa)}</div></div>
+            <div class="ficha-row"><div class="ficha-k">Partido</div><div class="ficha-v">${esc(mesa.partido)}</div></div>
+            <div class="ficha-row"><div class="ficha-k">Estado</div><div class="ficha-v">${esc(mesa.estado)}</div></div>
+            <div class="ficha-row"><div class="ficha-k">Ganador</div><div class="ficha-v">${esc(mesa.ganador)}</div></div>
+            <div class="ficha-row"><div class="ficha-k">Gol Ambos</div><div class="ficha-v">${esc(mesa.golAmbos)}</div></div>
+            <div class="ficha-row"><div class="ficha-k">Penales</div><div class="ficha-v">${esc(mesa.penales)}</div></div>
+            <div class="ficha-row"><div class="ficha-k">Marcador</div><div class="ficha-v">${esc(mesa.marcador)}</div></div>
+            <div class="ficha-row"><div class="ficha-k">Apuestas</div><div class="ficha-v">${esc(mesa.apuestas)}</div></div>
+            <div class="ficha-row"><div class="ficha-k">Apuesta</div><div class="ficha-v">${esc(mesa.apuesta)}</div></div>
             <div class="ficha-row">
               <div class="ficha-k">Acciones</div>
               <div class="ficha-v">
                 <div class="actions">
                   <button class="action-btn" data-action="ver" type="button" title="Ver">👁</button>
                   <button class="action-btn" data-action="estadistica" type="button" title="Estadística">📊</button>
-                  <button class="action-btn ${{puedeEditar ? "" : "disabled"}}" data-action="editar" type="button" title="Editar">✎</button>
+                  <button class="action-btn ${puedeEditar ? "" : "disabled"}" data-action="editar" type="button" title="Editar">✎</button>
                 </div>
               </div>
             </div>
           </div>
         `;
 
-        fichaContainer.querySelectorAll(".action-btn").forEach(function(btn){{
-          btn.addEventListener("click", function(){{
+        fichaContainer.querySelectorAll(".action-btn").forEach(function(btn){
+          btn.addEventListener("click", function(){
             const action = btn.getAttribute("data-action");
 
-            if (action === "editar" && modoActual === "cerrados"){{
+            if (action === "editar" && modoActual === "cerrados"){
               showToast("Reto cerrado: el lápiz está deshabilitado.");
               return;
-            }}
+            }
 
-            if (action === "ver"){{
-              showToast("Ver reto: " + mesa.nombreMesa);
-            }}
+            if (action === "ver") showToast("Ver reto: " + mesa.nombreMesa);
+            if (action === "estadistica") showToast("Estadísticas: " + mesa.nombreMesa);
+            if (action === "editar") showToast("Editar indicadores: " + mesa.nombreMesa);
+          });
+        });
+      }
 
-            if (action === "estadistica"){{
-              showToast("Estadísticas: " + mesa.nombreMesa);
-            }}
-
-            if (action === "editar"){{
-              showToast("Editar indicadores: " + mesa.nombreMesa);
-            }}
-          }});
-        }});
-      }}
-
-      function renderParticipantes(){{
+      function renderParticipantes(){
         const mesa = getMesaSeleccionada();
 
-        if (!mesa){{
+        if (!mesa){
           participantesContainer.innerHTML = '<div class="empty">Sin mesa seleccionada.</div>';
           return;
-        }}
+        }
 
         const filtro = filtroUsuario.trim().toLowerCase();
 
-        const participantes = mesa.participantes.filter(function(p){{
+        const participantes = mesa.participantes.filter(function(p){
           if (!filtro) return true;
 
           return (
@@ -920,111 +1074,220 @@ html = f"""
             p.partido.toLowerCase().includes(filtro) ||
             p.ganador.toLowerCase().includes(filtro)
           );
-        }});
+        });
 
-        if (!participantes.length){{
+        if (!participantes.length){
           participantesContainer.innerHTML = '<div class="empty">No hay participantes con ese filtro.</div>';
           return;
-        }}
+        }
 
-        participantesContainer.innerHTML = participantes.map(function(p){{
+        participantesContainer.innerHTML = participantes.map(function(p){
           return `
             <article class="participant-card">
-              <div class="participant-title">${{esc(p.usuario)}}</div>
-
+              <div class="participant-title">${esc(p.usuario)}</div>
               <div class="mini-grid">
-                <div class="mini-item">
-                  <div class="mini-k">Partido</div>
-                  <div class="mini-v">${{esc(p.partido)}}</div>
-                </div>
-
-                <div class="mini-item">
-                  <div class="mini-k">Ganador</div>
-                  <div class="mini-v">${{esc(p.ganador)}}</div>
-                </div>
-
-                <div class="mini-item">
-                  <div class="mini-k">Gol Ambos</div>
-                  <div class="mini-v">${{esc(p.golAmbos)}}</div>
-                </div>
-
-                <div class="mini-item">
-                  <div class="mini-k">Penales</div>
-                  <div class="mini-v">${{esc(p.penales)}}</div>
-                </div>
-
-                <div class="mini-item">
-                  <div class="mini-k">Marcador</div>
-                  <div class="mini-v">${{esc(p.marcador)}}</div>
-                </div>
-
-                <div class="mini-item">
-                  <div class="mini-k">Bolsa</div>
-                  <div class="mini-v">${{esc(p.bolsa)}}</div>
-                </div>
+                <div class="mini-item"><div class="mini-k">Partido</div><div class="mini-v">${esc(p.partido)}</div></div>
+                <div class="mini-item"><div class="mini-k">Ganador</div><div class="mini-v">${esc(p.ganador)}</div></div>
+                <div class="mini-item"><div class="mini-k">Gol Ambos</div><div class="mini-v">${esc(p.golAmbos)}</div></div>
+                <div class="mini-item"><div class="mini-k">Penales</div><div class="mini-v">${esc(p.penales)}</div></div>
+                <div class="mini-item"><div class="mini-k">Marcador</div><div class="mini-v">${esc(p.marcador)}</div></div>
+                <div class="mini-item"><div class="mini-k">Bolsa</div><div class="mini-v">${esc(p.bolsa)}</div></div>
               </div>
             </article>
           `;
-        }}).join("");
-      }}
+        }).join("");
+      }
 
-      function renderUsuarios(){{
-        const filtro = filtroAlias.trim().toLowerCase();
-
-        const usuarios = USUARIOS.filter(function(alias){{
-          return !filtro || alias.toLowerCase().includes(filtro);
-        }});
-
-        usuariosGrid.innerHTML = usuarios.map(function(alias){{
-          return '<div class="alias">' + esc(alias) + '</div>';
-        }}).join("");
-      }}
-
-      function renderAll(){{
+      function renderAll(){
         renderStats();
         renderTabs();
         renderMesaSelect();
         renderFicha();
         renderParticipantes();
-        renderUsuarios();
-      }}
+      }
 
-      btnAbiertos.addEventListener("click", function(){{
+      function setActiveMenu(type){
+        document.querySelectorAll(".side-btn, .bottom-item").forEach(function(btn){
+          btn.classList.toggle("active", btn.getAttribute("data-open") === type);
+        });
+      }
+
+      function openPanel(type){
+        overlay.classList.add("show");
+        setActiveMenu(type);
+
+        if (type === "mensajes") renderMensajes();
+        if (type === "usuarios") renderUsuariosPanel();
+        if (type === "mesas") renderMesasPanel();
+        if (type === "notificaciones") renderNotificacionesPanel();
+        if (type === "configuracion") renderConfiguracionPanel();
+      }
+
+      function renderMensajes(){
+        menuTitle.textContent = "MENSAJES";
+        menuBody.innerHTML = `
+          <div class="message-box">
+            <div></div>
+            <div class="message-line">
+              <input id="mensajeInput" type="text" placeholder="Escribe un mensaje..." />
+              <button class="send-btn" id="sendMsg" type="button">SEND</button>
+            </div>
+          </div>
+        `;
+
+        document.getElementById("sendMsg").addEventListener("click", function(){
+          const msg = document.getElementById("mensajeInput").value.trim();
+          if (!msg) return;
+          document.getElementById("mensajeInput").value = "";
+          showToast("Mensaje enviado.");
+        });
+      }
+
+      function renderUsuariosPanel(){
+        menuTitle.textContent = "USUARIOS";
+
+        menuBody.innerHTML = `
+          <input id="buscarAliasPanel" type="search" placeholder="Buscar alias..." />
+          <div class="alias-grid" id="aliasGridPanel"></div>
+        `;
+
+        const input = document.getElementById("buscarAliasPanel");
+        const grid = document.getElementById("aliasGridPanel");
+
+        function draw(){
+          const filtro = input.value.trim().toLowerCase();
+          const usuarios = USUARIOS.filter(function(alias){
+            return !filtro || alias.toLowerCase().includes(filtro);
+          });
+
+          grid.innerHTML = usuarios.map(function(alias){
+            return '<div class="alias">' + esc(alias) + '</div>';
+          }).join("");
+        }
+
+        input.addEventListener("input", draw);
+        draw();
+      }
+
+      function renderMesasPanel(){
+        menuTitle.textContent = "MESAS ABIERTAS";
+
+        menuBody.innerHTML = `
+          <input id="buscarMesaPanel" type="search" placeholder="Buscar mesa..." />
+          <div class="mesa-list" id="mesaListPanel"></div>
+        `;
+
+        const input = document.getElementById("buscarMesaPanel");
+        const list = document.getElementById("mesaListPanel");
+
+        function draw(){
+          const filtro = input.value.trim().toLowerCase();
+          const mesas = MESAS_USUARIO.filter(function(mesa){
+            return !filtro || mesa.nombre.toLowerCase().includes(filtro);
+          });
+
+          list.innerHTML = mesas.map(function(mesa){
+            return `
+              <div class="mesa-item">
+                <strong>${esc(mesa.nombre)}</strong>
+                <span>${esc(mesa.participantes)}</span>
+              </div>
+            `;
+          }).join("");
+        }
+
+        input.addEventListener("input", draw);
+        draw();
+      }
+
+      function renderNotificacionesPanel(){
+        menuTitle.textContent = "NOTIFICACIONES";
+
+        if (!NOTIFICACIONES.length){
+          menuBody.innerHTML = '<div class="center-empty">No hay notificaciones</div>';
+          return;
+        }
+
+        menuBody.innerHTML = `
+          <div class="notif-list">
+            ${NOTIFICACIONES.map(function(n){
+              return `
+                <div class="notif-item">
+                  <strong>${esc(n.titulo)}</strong><br>
+                  ${esc(n.texto)}
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `;
+      }
+
+      function renderConfiguracionPanel(){
+        menuTitle.textContent = "CONFIGURACIÓN";
+
+        menuBody.innerHTML = `
+          <div class="color-panel">
+            <div class="color-title">Color primario</div>
+            <input class="color-input" id="colorPicker" type="color" value="#00e5ff" />
+            <div class="color-help">Cambia el color de acento (bordes, sombras, iconos, títulos)</div>
+          </div>
+        `;
+
+        document.getElementById("colorPicker").addEventListener("input", function(e){
+          document.documentElement.style.setProperty("--accent", e.target.value);
+          document.documentElement.style.setProperty("--accent-soft", e.target.value + "22");
+        });
+      }
+
+      btnAbiertos.addEventListener("click", function(){
         modoActual = "abiertos";
         mesaActual = "";
         filtroUsuario = "";
         buscarUsuario.value = "";
         renderAll();
-      }});
+      });
 
-      btnCerrados.addEventListener("click", function(){{
+      btnCerrados.addEventListener("click", function(){
         modoActual = "cerrados";
         mesaActual = "";
         filtroUsuario = "";
         buscarUsuario.value = "";
         renderAll();
-      }});
+      });
 
-      mesaSelect.addEventListener("change", function(){{
+      mesaSelect.addEventListener("change", function(){
         mesaActual = mesaSelect.value;
         filtroUsuario = "";
         buscarUsuario.value = "";
         renderFicha();
         renderParticipantes();
-      }});
+      });
 
-      buscarUsuario.addEventListener("input", function(){{
+      buscarUsuario.addEventListener("input", function(){
         filtroUsuario = buscarUsuario.value;
         renderParticipantes();
-      }});
+      });
 
-      buscarAlias.addEventListener("input", function(){{
-        filtroAlias = buscarAlias.value;
-        renderUsuarios();
-      }});
+      document.querySelectorAll("[data-open]").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          openPanel(btn.getAttribute("data-open"));
+        });
+      });
+
+      closeOverlay.addEventListener("click", function(){
+        overlay.classList.remove("show");
+        setActiveMenu("");
+      });
+
+      overlay.addEventListener("click", function(e){
+        if (e.target === overlay){
+          overlay.classList.remove("show");
+          setActiveMenu("");
+        }
+      });
 
       renderAll();
-    }})();
+    })();
   </script>
 </body>
 </html>
