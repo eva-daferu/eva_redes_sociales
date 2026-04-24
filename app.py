@@ -66,6 +66,10 @@ html = r"""
       padding:10px 10px 92px 10px;
     }
 
+    .hidden{
+      display:none !important;
+    }
+
     .topbar{
       border:1px solid var(--accent);
       border-radius:18px;
@@ -208,6 +212,11 @@ html = r"""
       padding:12px;
       box-shadow:0 0 15px rgba(255,238,50,.18);
       margin-bottom:14px;
+    }
+
+    #participantesPanel{
+      border-top:1px solid rgba(255,238,50,.85);
+      border-radius:14px;
     }
 
     .section-title{
@@ -789,15 +798,13 @@ html = r"""
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel hidden" id="participantesPanel">
         <div class="participants-head">
           <div class="section-title">Participantes del reto</div>
           <input id="buscarUsuario" type="search" placeholder="Buscar usuario..." />
         </div>
 
-        <div id="participantesContainer">
-          <div class="empty">Sin mesa seleccionada.</div>
-        </div>
+        <div id="participantesContainer"></div>
       </section>
 
     </main>
@@ -943,6 +950,7 @@ html = r"""
       const btnCerrados = document.getElementById("btnCerrados");
       const mesaSelect = document.getElementById("mesaSelect");
       const fichaContainer = document.getElementById("fichaContainer");
+      const participantesPanel = document.getElementById("participantesPanel");
       const participantesContainer = document.getElementById("participantesContainer");
       const buscarUsuario = document.getElementById("buscarUsuario");
       const mainTitle = document.getElementById("mainTitle");
@@ -1060,9 +1068,12 @@ html = r"""
         const mesa = getMesaSeleccionada();
 
         if (!mesa){
-          participantesContainer.innerHTML = '<div class="empty">Sin mesa seleccionada.</div>';
+          participantesPanel.classList.add("hidden");
+          participantesContainer.innerHTML = "";
           return;
         }
+
+        participantesPanel.classList.remove("hidden");
 
         const filtro = filtroUsuario.trim().toLowerCase();
 
