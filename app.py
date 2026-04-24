@@ -1,7 +1,69 @@
 # app.py
-import json
 import streamlit as st
 import streamlit.components.v1 as components
+
+# ===== AJUSTES =====
+PAD_X_PX = 8
+PAD_TOP_PX = 8
+BORDER_PX = 2
+BORDER_COLOR = "#111111"
+BG_COLOR = "#FFFFFF"
+CANVAS_HEIGHT_VH = 185
+
+# Coordenadas en % sobre el canvas móvil
+BLOCKS = [
+    {"id": "HEADER_BG", "label": "HEADER SUPERIOR", "note": "Logo + redes + idioma + ajustes + usuario", "left": 2, "top": 1, "width": 96, "height": 13, "kind": "header"},
+    {"id": "LOGO", "label": "LOGO GAMBT", "left": 26, "top": 2, "width": 48, "height": 4, "kind": "header"},
+    {"id": "SOCIALES", "label": "REDES", "note": "Iconos sociales", "left": 4, "top": 7, "width": 44, "height": 3.5, "kind": "button"},
+    {"id": "IDIOMA", "label": "IDIOMA", "note": "Español", "left": 52, "top": 7, "width": 44, "height": 3.5, "kind": "button"},
+    {"id": "AJUSTES", "label": "AJUSTES", "left": 4, "top": 10.8, "width": 44, "height": 3.5, "kind": "button"},
+    {"id": "USUARIO", "label": "@pablico", "left": 52, "top": 10.8, "width": 44, "height": 3.5, "kind": "button"},
+
+    {"id": "SALDO", "label": "SALDO", "note": "$30.00 / Recargar", "left": 3, "top": 16, "width": 45, "height": 8, "kind": "stat"},
+    {"id": "PUNTOS", "label": "PUNTOS", "note": "0 pts / Nivel 0", "left": 52, "top": 16, "width": 45, "height": 8, "kind": "stat"},
+    {"id": "RETOS_ACTIVOS", "label": "RETOS ACTIVOS", "note": "1", "left": 3, "top": 25, "width": 45, "height": 8, "kind": "stat"},
+    {"id": "RETOS_CERRADOS_CARD", "label": "RETOS CERRADOS", "note": "0", "left": 52, "top": 25, "width": 45, "height": 8, "kind": "stat"},
+
+    {"id": "TITULO", "label": "OPEN / CLOSED CHALLENGES", "left": 3, "top": 35, "width": 94, "height": 4, "kind": "title"},
+    {"id": "TAB_ABIERTOS", "label": "RETOS ABIERTOS", "left": 3, "top": 40, "width": 47, "height": 5, "kind": "tab"},
+    {"id": "TAB_CERRADOS", "label": "RETOS CERRADOS", "left": 50, "top": 40, "width": 47, "height": 5, "kind": "tab"},
+
+    {"id": "BUSCAR_PARTIDO", "label": "BUSCAR PARTIDO", "left": 3, "top": 46.5, "width": 94, "height": 4.5, "kind": "search"},
+
+    {"id": "FICHA_RETO", "label": "FICHA DE RETO", "note": "Tabla web convertida a card móvil", "left": 3, "top": 52.5, "width": 94, "height": 26, "kind": "panel"},
+    {"id": "NOMBRE_MESA", "label": "Nombre Mesa", "note": "Creo mesa privada - Diana", "left": 5, "top": 55, "width": 90, "height": 3.8, "kind": "row"},
+    {"id": "PARTIDO", "label": "Partido", "note": "Club Atlético de Madrid vs Athletic Club", "left": 5, "top": 59.3, "width": 90, "height": 3.8, "kind": "row"},
+    {"id": "ESTADO", "label": "Estado", "note": "Retos Abiertos", "left": 5, "top": 63.6, "width": 43.5, "height": 3.8, "kind": "row"},
+    {"id": "GANADOR", "label": "Ganador", "note": "NO_APLICA", "left": 51.5, "top": 63.6, "width": 43.5, "height": 3.8, "kind": "row"},
+    {"id": "GOL_AMBOS", "label": "Gol Ambos", "note": "X", "left": 5, "top": 67.9, "width": 43.5, "height": 3.8, "kind": "row"},
+    {"id": "PENALES", "label": "Penales", "note": "No", "left": 51.5, "top": 67.9, "width": 43.5, "height": 3.8, "kind": "row"},
+    {"id": "MARCADOR", "label": "Marcador", "note": "X", "left": 5, "top": 72.2, "width": 43.5, "height": 3.8, "kind": "row"},
+    {"id": "APUESTA_ACCIONES", "label": "Apuesta / Acción", "note": "$3.00 / Ver / Unirse / Editar", "left": 51.5, "top": 72.2, "width": 43.5, "height": 3.8, "kind": "row"},
+
+    {"id": "PARTICIPANTES_TITULO", "label": "PARTICIPANTES DEL RETO", "left": 3, "top": 81, "width": 55, "height": 4, "kind": "title"},
+    {"id": "BUSCAR_USUARIO", "label": "BUSCAR USUARIO", "left": 60, "top": 81, "width": 37, "height": 4, "kind": "search"},
+
+    {"id": "PART_CARD_1", "label": "PARTICIPANTE 1", "note": "test1234 / Partido / Ganador / Bolsa $9.00", "left": 3, "top": 87, "width": 94, "height": 11, "kind": "card"},
+    {"id": "PART_CARD_2", "label": "PARTICIPANTE 2", "note": "pablico / Partido / Ganador / Bolsa $9.00", "left": 3, "top": 99.5, "width": 94, "height": 11, "kind": "card"},
+    {"id": "PART_CARD_3", "label": "PARTICIPANTE 3", "note": "Diana / Partido / Ganador / Bolsa $9.00", "left": 3, "top": 112, "width": 94, "height": 11, "kind": "card"},
+
+    {"id": "USUARIOS_PANEL", "label": "USUARIOS", "note": "Panel derecho web convertido a sección móvil", "left": 3, "top": 127, "width": 94, "height": 23, "kind": "panel"},
+    {"id": "BUSCAR_ALIAS", "label": "BUSCAR ALIAS", "left": 6, "top": 132, "width": 88, "height": 4.5, "kind": "search"},
+    {"id": "USUARIOS_GRID", "label": "LISTA USUARIOS", "note": "Blanco / cristihan_gc / David / Diana / EliasMuki / Enano / Fantasma / Gym / Hulk / pablico", "left": 6, "top": 138, "width": 88, "height": 9, "kind": "card"},
+
+    {"id": "ESPACIO_MENU", "label": "ESPACIO RESERVADO", "note": "Evita que el menú inferior tape contenido", "left": 3, "top": 154, "width": 94, "height": 8, "kind": "spacer"},
+]
+
+# Bloques fijos sobre el viewport móvil
+FIXED_BLOCKS = [
+    {"id": "MENU_BOTTOM", "label": "MENU INFERIOR FIJO", "left": 0, "top": 92, "width": 100, "height": 8, "kind": "fixed"},
+    {"id": "CHAT", "label": "Chat", "left": 3, "top": 93, "width": 16, "height": 5.5, "kind": "fixed_item"},
+    {"id": "USER_MENU", "label": "Usuario", "left": 22, "top": 93, "width": 16, "height": 5.5, "kind": "fixed_item"},
+    {"id": "TABLA", "label": "Tabla", "left": 41, "top": 93, "width": 16, "height": 5.5, "kind": "fixed_item"},
+    {"id": "ALERTA", "label": "Alerta", "left": 60, "top": 93, "width": 16, "height": 5.5, "kind": "fixed_item"},
+    {"id": "SETTINGS", "label": "Config", "left": 79, "top": 93, "width": 18, "height": 5.5, "kind": "fixed_item"},
+]
+# ===================
 
 st.set_page_config(layout="wide")
 
@@ -11,868 +73,333 @@ st.markdown(
       .block-container{padding:0 !important;margin:0 !important;max-width:100% !important;}
       section.main > div{padding:0 !important;margin:0 !important;}
       header, footer{display:none !important;}
-      iframe{display:block !important;}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-SECTION_TABS = {
-    "UNIRSE MESA": ["Mesas activas", "Histórico de encuentros", "Histórico de apuestas"],
-    "CREAR MESA": ["Elegir Deporte", "Configurar Encuentro", "Elegir Partidos", "Histórico de encuentros", "Histórico de apuestas"],
-    "MESA JUGADOR": ["Mesas activas", "Histórico de encuentros", "Histórico de apuestas"],
-    "MESA PRIVADA": ["Histórico de encuentros", "Histórico de apuestas", "Mesas privadas"],
-}
+def blocks_to_html(blocks, fixed=False):
+    out = []
+    base_cls = "blk fixed-blk" if fixed else "blk"
 
-html = """
+    for b in blocks:
+        note = b.get("note", "")
+        note_html = f'<span class="blk-note">{note}</span>' if note else ""
+
+        out.append(
+            f"""
+            <div class="{base_cls}"
+                 data-kind="{b.get('kind', 'default')}"
+                 style="left:{b['left']}%; top:{b['top']}%;
+                        width:{b['width']}%; height:{b['height']}%;">
+              <span class="blk-label">{b['label']}</span>
+              {note_html}
+              <span class="blk-coord">{b['id']} · ({b['left']},{b['top']}) {b['width']}x{b['height']}</span>
+            </div>
+            """
+        )
+
+    return "\n".join(out)
+
+html = f"""
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <style>
-    :root{
-      --bg:#f3f3f3;
-      --panel:#ffffff;
-      --panel2:#f7f7f7;
-      --line:#202020;
-      --line2:#6d6d6d;
-      --text:#111111;
-      --muted:#555555;
-      --soft:#e7e7e7;
-    }
+    :root{{
+      --padx:{PAD_X_PX}px;
+      --padtop:{PAD_TOP_PX}px;
+      --b:{BORDER_PX}px;
+      --bc:{BORDER_COLOR};
+      --bg:{BG_COLOR};
+      --canvas-h:{CANVAS_HEIGHT_VH}vh;
+    }}
 
-    *{box-sizing:border-box;}
-
-    html,body{
+    html, body{{
       margin:0;
       padding:0;
       width:100%;
       height:100%;
       overflow:hidden;
       background:var(--bg);
-      font-family:Arial,sans-serif;
-      color:var(--text);
-    }
+      font-family:Arial, Helvetica, sans-serif;
+    }}
 
-    #stage{
+    #stage{{
       position:fixed;
       inset:0;
       width:100vw;
       height:100vh;
-      margin:0;
-      padding:0;
       background:var(--bg);
-    }
+      overflow-y:auto;
+      overflow-x:hidden;
+      -webkit-overflow-scrolling:touch;
+    }}
 
-    #phone{
+    #canvas{{
+      position:relative;
       width:100vw;
-      height:100vh;
-      margin:0;
-      padding:0;
-      overflow:auto;
+      min-height:var(--canvas-h);
       background:var(--bg);
-      border:none;
-      border-radius:0;
-      box-shadow:none;
-    }
+      box-sizing:border-box;
+    }}
 
-    #screen{
-      min-height:100vh;
-      padding:0;
-      margin:0;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      padding:10px;
-      background:var(--panel);
-      border-bottom:1px solid var(--line);
-    }
-
-    .logo{
-      min-width:120px;
-      height:42px;
-      border:1px solid var(--line);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-weight:900;
-      font-size:24px;
-      background:var(--panel2);
-    }
-
-    .lang{
-      min-width:120px;
-      height:36px;
-      border:1px solid var(--line);
-      background:var(--panel2);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:14px;
-      font-weight:700;
-    }
-
-    .content-wrap{
-      padding:10px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-
-    .cards{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    }
-
-    .card{
-      background:var(--panel);
-      border:1px solid var(--line);
-      padding:12px;
-      min-height:92px;
-    }
-
-    .card.full{
-      grid-column:1 / -1;
-      min-height:84px;
-    }
-
-    .card-title{
-      font-size:12px;
-      font-weight:700;
-      text-transform:uppercase;
-      margin-bottom:8px;
-    }
-
-    .card-value{
-      font-size:26px;
-      font-weight:900;
-      line-height:1;
-      margin-bottom:8px;
-    }
-
-    .mini{
-      font-size:12px;
-      line-height:1.25;
-      color:var(--muted);
-    }
-
-    .action-btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:34px;
-      padding:0 16px;
-      border:1px solid var(--line);
-      background:var(--soft);
-      font-weight:900;
-      font-size:14px;
-    }
-
-    .select-wrap{
-      background:var(--panel);
-      border:1px solid var(--line);
-      padding:10px;
-    }
-
-    .select-label{
-      font-size:12px;
-      font-weight:700;
-      text-transform:uppercase;
-      margin-bottom:6px;
-    }
-
-    select{
-      width:100%;
-      height:40px;
-      border:1px solid var(--line);
-      background:#fff;
-      color:var(--text);
-      padding:0 10px;
-      font-size:14px;
-      font-weight:700;
-      outline:none;
-    }
-
-    .tabs{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:8px;
-    }
-
-    .tab{
-      min-height:40px;
-      border:1px solid var(--line);
-      background:var(--panel);
-      color:var(--text);
-      font-weight:700;
-      font-size:13px;
-      padding:8px 10px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      cursor:pointer;
-    }
-
-    .tab.active{
-      background:var(--soft);
-      border-width:2px;
-    }
-
-    .panel{
-      background:var(--panel);
-      border:1px solid var(--line);
-      padding:10px;
-    }
-
-    .panel-inner{
-      border:1px solid var(--line2);
-      padding:10px;
-      background:#fff;
-    }
-
-    .title-row{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      margin-bottom:12px;
-    }
-
-    .title-lg{
-      font-size:18px;
-      font-weight:900;
-      text-transform:uppercase;
-    }
-
-    .search{
-      height:38px;
-      border:1px solid var(--line);
-      padding:0 12px;
-      background:#fff;
-      color:var(--muted);
-      display:flex;
-      align-items:center;
-      font-size:13px;
-      min-width:140px;
-    }
-
-    .mesa-list{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-    }
-
-    .mesa-card{
-      border:1px solid var(--line);
-      background:var(--panel2);
-      padding:12px;
-    }
-
-    .mesa-name{
-      font-size:14px;
-      font-weight:900;
-      margin-bottom:8px;
-    }
-
-    .mesa-meta{
-      font-size:13px;
-      line-height:1.35;
-      color:#222;
-      margin-bottom:10px;
-    }
-
-    .mesa-btn{
-      min-height:34px;
-      border:1px solid var(--line);
-      background:var(--soft);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-weight:900;
-    }
-
-    .empty{
-      min-height:280px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      color:var(--muted);
-      font-size:14px;
-      font-weight:700;
-      line-height:1.35;
-    }
-
-    .form-stack{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-    }
-
-    .field{
-      border:1px solid var(--line);
-      padding:12px;
-      background:#fff;
-    }
-
-    .field-title{
-      font-size:13px;
-      font-weight:900;
-      margin-bottom:10px;
-    }
-
-    .input{
-      min-height:42px;
-      border:1px solid var(--line2);
-      background:#fff;
-      color:#444;
-      display:flex;
-      align-items:center;
-      padding:0 12px;
-      font-weight:700;
-    }
-
-    .option-col{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:8px;
-    }
-
-    .option{
-      min-height:44px;
-      border:1px solid var(--line2);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:10px 12px;
-      font-weight:700;
-      background:#fff;
-      gap:10px;
-    }
-
-    .toggle{
-      width:42px;
-      height:24px;
-      border:1px solid var(--line);
-      background:#fff;
-      position:relative;
-      flex:0 0 auto;
-    }
-
-    .toggle::after{
-      content:"";
+    #frame{{
       position:absolute;
-      top:2px;
-      left:20px;
-      width:18px;
-      height:18px;
-      background:#bbb;
-      border:1px solid var(--line);
-    }
+      left:var(--padx);
+      right:var(--padx);
+      top:var(--padtop);
+      bottom:0;
+      border-left:var(--b) solid var(--bc);
+      border-right:var(--b) solid var(--bc);
+      border-top:var(--b) solid var(--bc);
+      box-sizing:border-box;
+      background:transparent;
+      pointer-events:none;
+      z-index:1;
+    }}
 
-    .radio-line{
-      display:flex;
-      flex-wrap:wrap;
-      gap:12px;
+    #overlay{{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:3;
+    }}
+
+    .grid{{
+      position:absolute;
+      inset:0;
+      background-image:
+        linear-gradient(to right, rgba(0,0,0,0.10) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,0,0,0.10) 1px, transparent 1px);
+      background-size:10% 5%;
+      z-index:0;
+    }}
+
+    .mid-v{{
+      position:absolute;
+      left:50%;
+      top:0;
+      bottom:0;
+      width:1px;
+      background:rgba(0,0,0,.25);
+      z-index:2;
+    }}
+
+    .mid-h{{
+      position:absolute;
+      top:50%;
+      left:0;
+      right:0;
+      height:1px;
+      background:rgba(0,0,0,.25);
+      z-index:2;
+    }}
+
+    #hud{{
+      position:fixed;
+      top:6px;
+      left:6px;
+      max-width:calc(100vw - 12px);
+      font:11px Arial, sans-serif;
+      background:rgba(255,255,255,.94);
+      border:1px solid rgba(0,0,0,.25);
+      border-radius:6px;
+      padding:5px 8px;
+      pointer-events:none;
+      z-index:999999;
+      box-sizing:border-box;
       color:#111;
-      font-weight:700;
-      font-size:13px;
-    }
+    }}
 
-    .pick-cards{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-    }
-
-    .pick-card{
-      border:1px solid var(--line);
-      background:var(--panel2);
-      padding:12px;
-      display:grid;
-      grid-template-columns:36px 1fr;
-      gap:10px;
-      align-items:flex-start;
-      cursor:pointer;
-    }
-
-    .pick-card.selected{
-      border-width:2px;
-      background:#ececec;
-    }
-
-    .pick-check{
-      width:24px;
-      height:24px;
-      border:2px solid var(--line);
-      background:#fff;
-      margin-top:2px;
-      position:relative;
-    }
-
-    .pick-card.selected .pick-check::after{
-      content:"";
+    .blk{{
       position:absolute;
-      inset:4px;
-      background:#888;
-    }
-
-    .pick-title{
-      font-size:15px;
-      font-weight:900;
-      margin-bottom:8px;
-    }
-
-    .pick-meta{
-      font-size:13px;
-      line-height:1.35;
-      color:#222;
-    }
-
-    .pick-tag{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:28px;
-      padding:0 10px;
-      border:1px solid var(--line2);
-      background:#fff;
-      font-size:12px;
-      font-weight:700;
-      margin-top:8px;
-    }
-
-    .next-wrap{
-      margin-top:12px;
-      display:flex;
-      justify-content:center;
-    }
-
-    .next-btn{
-      min-height:42px;
-      min-width:160px;
-      padding:0 24px;
-      border:1px solid var(--line);
-      background:var(--soft);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-weight:900;
-      font-size:16px;
-    }
-
-    .history-table{
-      border:1px solid var(--line2);
+      border:2px dashed rgba(0,0,0,.58);
+      box-sizing:border-box;
+      background:rgba(0,0,0,.035);
       overflow:hidden;
-    }
+      border-radius:10px;
+      z-index:4;
+    }}
 
-    .history-head,
-    .history-empty{
-      display:grid;
-      grid-template-columns:1.1fr 1.1fr 1.2fr .9fr .8fr;
-    }
+    .fixed-blk{{
+      position:fixed;
+      z-index:99999;
+    }}
 
-    .history-head div{
-      background:var(--soft);
-      padding:10px;
-      border-right:1px solid var(--line2);
-      font-weight:900;
-    }
+    .blk-label{{
+      position:absolute;
+      top:4px;
+      left:6px;
+      right:6px;
+      font:700 11px Arial, sans-serif;
+      line-height:1.15;
+      color:#111;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }}
 
-    .history-head div:last-child,
-    .history-empty div:last-child{
-      border-right:none;
-    }
+    .blk-note{{
+      position:absolute;
+      left:6px;
+      right:6px;
+      top:22px;
+      font:10px Arial, sans-serif;
+      line-height:1.15;
+      color:#222;
+      opacity:.92;
+    }}
 
-    .history-empty div{
-      padding:12px;
-      border-top:1px solid var(--line2);
-      border-right:1px solid var(--line2);
-      min-height:46px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      color:var(--muted);
-      font-style:italic;
-      background:#fff;
-    }
+    .blk-coord{{
+      position:absolute;
+      left:6px;
+      bottom:4px;
+      font:9px Arial, sans-serif;
+      color:#555;
+      opacity:.75;
+      white-space:nowrap;
+    }}
 
-    @media (max-width:360px){
-      .cards{
-        grid-template-columns:1fr;
-      }
+    .blk[data-kind="header"]{{
+      border-style:solid;
+      background:rgba(0,0,0,.05);
+    }}
 
-      .card.full{
-        grid-column:auto;
-      }
+    .blk[data-kind="button"]{{
+      background:rgba(0,180,220,.08);
+    }}
 
-      .tabs{
-        grid-template-columns:1fr;
-      }
+    .blk[data-kind="stat"]{{
+      background:rgba(0,0,0,.04);
+    }}
 
-      .title-row{
-        flex-direction:column;
-        align-items:stretch;
-      }
-    }
+    .blk[data-kind="title"]{{
+      border-style:solid;
+      background:rgba(255,220,0,.10);
+    }}
+
+    .blk[data-kind="tab"]{{
+      border-style:solid;
+      background:rgba(255,220,0,.08);
+    }}
+
+    .blk[data-kind="search"]{{
+      border-style:solid;
+      background:rgba(0,180,220,.07);
+      border-radius:999px;
+    }}
+
+    .blk[data-kind="panel"]{{
+      border-style:solid;
+      background:rgba(0,0,0,.035);
+    }}
+
+    .blk[data-kind="row"]{{
+      border-style:dashed;
+      border-radius:6px;
+      background:rgba(255,255,255,.45);
+    }}
+
+    .blk[data-kind="card"]{{
+      border-style:solid;
+      background:rgba(0,0,0,.035);
+    }}
+
+    .blk[data-kind="spacer"]{{
+      border-style:dotted;
+      background:rgba(0,0,0,.02);
+    }}
+
+    .blk[data-kind="fixed"]{{
+      border-style:solid;
+      border-radius:16px 16px 0 0;
+      background:rgba(255,255,255,.96);
+    }}
+
+    .blk[data-kind="fixed_item"]{{
+      border-radius:999px;
+      background:rgba(0,180,220,.10);
+    }}
+
+    @media (max-width:420px){{
+      .blk-label{{
+        font-size:10px;
+      }}
+
+      .blk-note{{
+        font-size:9px;
+      }}
+
+      .blk-coord{{
+        font-size:8px;
+      }}
+    }}
   </style>
 </head>
+
 <body>
   <div id="stage">
-    <div id="phone">
-      <div id="screen">
-        <div class="topbar">
-          <div class="logo">GAMBT</div>
-          <div class="lang">Español ▾</div>
-        </div>
+    <div id="canvas">
+      <div class="grid"></div>
+      <div id="frame"></div>
 
-        <div class="content-wrap">
-          <div class="cards">
-            <div class="card">
-              <div class="card-title">Saldo virtual</div>
-              <div class="card-value">$0.00</div>
-              <div class="action-btn">RECARGAR +</div>
-            </div>
-
-            <div class="card">
-              <div class="card-title">Puntos ganados</div>
-              <div class="card-value">40 pts</div>
-            </div>
-
-            <div class="card full">
-              <div class="card-title">Modo classic</div>
-              <div class="mini">Cuotas en vivo, tickets tradicionales.</div>
-              <div style="margin-top:10px;" class="action-btn">Entrar</div>
-            </div>
-          </div>
-
-          <div class="select-wrap">
-            <div class="select-label">Sección</div>
-            <select id="sectionSelect"></select>
-          </div>
-
-          <div id="tabs" class="tabs"></div>
-          <div id="content"></div>
-        </div>
+      <div id="overlay">
+        <div class="mid-v"></div>
+        <div class="mid-h"></div>
+        {blocks_to_html(BLOCKS)}
       </div>
     </div>
   </div>
 
+  <div id="fixedOverlay">
+    {blocks_to_html(FIXED_BLOCKS, fixed=True)}
+  </div>
+
+  <div id="hud">Cargando...</div>
+
   <script>
-    const SECTION_TABS = __SECTION_TABS__;
-    const sectionOrder = ["UNIRSE MESA", "CREAR MESA", "MESA JUGADOR", "MESA PRIVADA"];
+    (function(){{
+      var fe = window.frameElement;
 
-    let currentSection = "UNIRSE MESA";
-    let currentTab = SECTION_TABS[currentSection][0];
-    const selectedMatches = new Set();
+      if (fe){{
+        fe.style.position = "fixed";
+        fe.style.inset = "0";
+        fe.style.width = "100vw";
+        fe.style.height = "100vh";
+        fe.style.border = "0";
+        fe.style.margin = "0";
+        fe.style.padding = "0";
+        fe.style.zIndex = "999999";
+        fe.style.background = "transparent";
+      }}
 
-    const sectionSelect = document.getElementById("sectionSelect");
-    const tabsEl = document.getElementById("tabs");
-    const contentEl = document.getElementById("content");
+      var hud = document.getElementById("hud");
+      var canvas = document.getElementById("canvas");
+      var stage = document.getElementById("stage");
 
-    function fillSelect() {
-      sectionOrder.forEach(name => {
-        const op = document.createElement("option");
-        op.value = name;
-        op.textContent = name;
-        sectionSelect.appendChild(op);
-      });
+      function update(){{
+        var vw = Math.round(window.innerWidth);
+        var vh = Math.round(window.innerHeight);
+        var ch = Math.round(canvas.scrollHeight);
 
-      sectionSelect.value = currentSection;
+        hud.textContent =
+          "Viewport: " + vw + " x " + vh +
+          " | Canvas: " + ch + "px" +
+          " | Scroll: " + Math.round(stage.scrollTop) +
+          " | 10% ancho=" + Math.round(vw * 0.10) + "px";
+      }}
 
-      sectionSelect.addEventListener("change", (e) => {
-        currentSection = e.target.value;
-        currentTab = SECTION_TABS[currentSection][0];
-        render();
-      });
-    }
-
-    function renderTabs() {
-      const tabs = SECTION_TABS[currentSection];
-
-      tabsEl.innerHTML = tabs.map(tab => `
-        <button class="tab ${tab === currentTab ? 'active' : ''}" data-tab="${tab}">
-          ${tab}
-        </button>
-      `).join("");
-
-      tabsEl.querySelectorAll(".tab").forEach(btn => {
-        btn.addEventListener("click", () => {
-          currentTab = btn.dataset.tab;
-          render();
-        });
-      });
-    }
-
-    function mesacard(title, amount) {
-      return `
-        <div class="mesa-card">
-          <div class="mesa-name">${title}</div>
-          <div class="mesa-meta">
-            Deporte: Reto<br>
-            Partidos: 2<br>
-            Apuesta mínima: ${amount}
-          </div>
-          <div class="mesa-btn">Unirse</div>
-        </div>
-      `;
-    }
-
-    function renderMesas(titleText) {
-      contentEl.innerHTML = `
-        <div class="panel">
-          <div class="panel-inner">
-            <div class="title-row">
-              <div class="title-lg">${titleText}</div>
-              <div class="search">Buscar mesas...</div>
-            </div>
-
-            <div class="mesa-list">
-              ${mesacard("Forzce - Gym", "$11.00")}
-              ${mesacard("Creo mesa publica - Diana", "$2.00")}
-              ${mesacard("New - Diana", "$10.00")}
-              ${mesacard("ddd - Blanco", "$6.00")}
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderHistEncuentros() {
-      contentEl.innerHTML = `
-        <div class="panel">
-          <div class="panel-inner">
-            <div class="title-lg" style="margin-bottom:10px;">Histórico de encuentros</div>
-            <div class="empty">No hay encuentros históricos disponibles</div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderHistApuestas() {
-      contentEl.innerHTML = `
-        <div class="panel">
-          <div class="panel-inner">
-            <div class="title-lg" style="margin-bottom:10px;">Histórico de apuestas</div>
-
-            <div class="history-table">
-              <div class="history-head">
-                <div>Partido</div>
-                <div>Predicción</div>
-                <div>Resultado real</div>
-                <div>Estado</div>
-                <div>Fecha</div>
-              </div>
-
-              <div class="history-empty">
-                <div></div>
-                <div></div>
-                <div>No hay apuestas en tu historial</div>
-                <div></div>
-                <div></div>
-              </div>
-            </div>
-
-            <div style="height:180px;"></div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderElegirDeporte() {
-      contentEl.innerHTML = `
-        <div class="panel">
-          <div class="panel-inner">
-            <div class="title-lg" style="margin-bottom:10px;">Sports</div>
-
-            <div class="field">
-              <div class="field-title">Nombre mesa (máximo 30 caracteres)</div>
-              <div class="input">Ej: Torneo de expertos</div>
-            </div>
-
-            <div style="height:10px;"></div>
-
-            <div class="option-col">
-              <div class="option"><span>Fútbol</span><span class="toggle"></span></div>
-              <div class="option"><span>Baloncesto</span><span class="toggle"></span></div>
-              <div class="option"><span>Tenis</span><span class="toggle"></span></div>
-            </div>
-
-            <div class="next-wrap">
-              <div class="next-btn">SIGUIENTE</div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderConfigurarEncuentro() {
-      contentEl.innerHTML = `
-        <div class="panel">
-          <div class="panel-inner">
-            <div class="form-stack">
-              <div class="field">
-                <div class="field-title">Apuesta mínima (USD)</div>
-                <div class="input">Ej: 17</div>
-              </div>
-
-              <div class="field">
-                <div class="field-title">¿Tipo de reto?</div>
-                <div class="radio-line">
-                  <span>◉ Público</span>
-                  <span>○ Privado</span>
-                </div>
-              </div>
-
-              <div class="field">
-                <div class="field-title">¿Preguntas por encuentro? (Selecciona 1-4)</div>
-                <div class="option-col">
-                  <div class="option"><span>☑ Definir ganador</span><span></span></div>
-                  <div class="option"><span>☐ ¿Gol de ambos equipos?</span><span></span></div>
-                  <div class="option"><span>☐ ¿Penales?</span><span></span></div>
-                  <div class="option"><span>☐ Predice el marcador</span><span></span></div>
-                </div>
-              </div>
-
-              <div class="field">
-                <div class="field-title">¿Pregunta cuántos ganadores?</div>
-                <div class="radio-line">
-                  <span>◉ Único ganador</span>
-                  <span>○ Varios ganadores</span>
-                </div>
-              </div>
-
-              <div class="field">
-                <div class="field-title">¿Tipo de mesa?</div>
-                <div class="radio-line">
-                  <span>◉ Selección</span>
-                  <span>○ Torneo corto</span>
-                  <span>○ Torneo largo</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="next-wrap">
-              <div class="next-btn">SIGUIENTE</div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function buildPickCard(id, title, schedule) {
-      const selectedClass = selectedMatches.has(id) ? "selected" : "";
-      return `
-        <div class="pick-card ${selectedClass}" data-pick-id="${id}">
-          <div class="pick-check"></div>
-          <div>
-            <div class="pick-title">${title}</div>
-            <div class="pick-meta">
-              Horario: ${schedule}<br>
-              Estado: Disponible
-            </div>
-            <div class="pick-tag">Agregar al reto</div>
-          </div>
-        </div>
-      `;
-    }
-
-    function bindPickCards() {
-      contentEl.querySelectorAll(".pick-card").forEach(card => {
-        card.addEventListener("click", () => {
-          const id = card.dataset.pickId;
-          if (selectedMatches.has(id)) {
-            selectedMatches.delete(id);
-          } else {
-            selectedMatches.add(id);
-          }
-          renderElegirPartidos();
-        });
-      });
-    }
-
-    function renderElegirPartidos() {
-      contentEl.innerHTML = `
-        <div class="panel">
-          <div class="panel-inner">
-            <div class="title-lg" style="margin-bottom:10px;">Partidos disponibles</div>
-
-            <div class="pick-cards">
-              ${buildPickCard("p1", "Gil Vicente vs Casa Pia", "26 abr 2026, 00:00")}
-              ${buildPickCard("p2", "Tondela vs CD Nacional", "26 abr 2026, 00:00")}
-              ${buildPickCard("p3", "Santa Clara vs Braga", "26 abr 2026, 00:00")}
-              ${buildPickCard("p4", "AVS vs Sporting CP", "26 abr 2026, 00:00")}
-              ${buildPickCard("p5", "Estoril Praia vs Famalicão", "26 abr 2026, 00:00")}
-            </div>
-
-            <div class="next-wrap">
-              <div class="next-btn">ENVIAR</div>
-            </div>
-          </div>
-        </div>
-      `;
-      bindPickCards();
-    }
-
-    function renderContent() {
-      if (currentTab === "Mesas activas") {
-        renderMesas("Mesas activas disponibles");
-        return;
-      }
-
-      if (currentTab === "Mesas privadas") {
-        renderMesas("Mesas privadas disponibles");
-        return;
-      }
-
-      if (currentTab === "Histórico de encuentros") {
-        renderHistEncuentros();
-        return;
-      }
-
-      if (currentTab === "Histórico de apuestas") {
-        renderHistApuestas();
-        return;
-      }
-
-      if (currentTab === "Elegir Deporte") {
-        renderElegirDeporte();
-        return;
-      }
-
-      if (currentTab === "Configurar Encuentro") {
-        renderConfigurarEncuentro();
-        return;
-      }
-
-      if (currentTab === "Elegir Partidos") {
-        renderElegirPartidos();
-        return;
-      }
-    }
-
-    function render() {
-      renderTabs();
-      renderContent();
-      sectionSelect.value = currentSection;
-    }
-
-    fillSelect();
-    render();
+      window.addEventListener("resize", update);
+      stage.addEventListener("scroll", update);
+      update();
+    }})();
   </script>
 </body>
 </html>
 """
 
-html = html.replace("__SECTION_TABS__", json.dumps(SECTION_TABS, ensure_ascii=False))
-components.html(html, height=930, scrolling=False)
+components.html(html, height=10, scrolling=False)
