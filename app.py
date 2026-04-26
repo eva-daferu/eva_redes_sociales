@@ -1,34 +1,59 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
+# ===== AJUSTES =====
 PAD_X_PX = 8
 PAD_TOP_PX = 8
 BORDER_PX = 2
 BORDER_COLOR = "#111111"
 BG_COLOR = "#FFFFFF"
 
+# ESTRUCTURA MÓVIL SEGÚN TOP FIRE PROTECT
 BLOCKS = [
-    {"id": "HERO_TEXTO", "left": 4, "top": 3, "width": 92, "height": 18},
-    {"id": "HERO_IMAGEN", "left": 4, "top": 22, "width": 92, "height": 22},
-    {"id": "BENEFICIOS_2X2", "left": 4, "top": 45, "width": 92, "height": 14},
+    {"id": "BLOQUE_PRINCIPAL_HERO", "left": 4, "top": 2, "width": 92, "height": 22},
 
-    {"id": "VIDEOS_TITULO", "left": 4, "top": 60, "width": 92, "height": 4},
-    {"id": "VIDEO_1", "left": 4, "top": 65, "width": 92, "height": 10},
-    {"id": "VIDEO_2", "left": 4, "top": 76, "width": 92, "height": 10},
-    {"id": "VIDEO_3", "left": 4, "top": 87, "width": 92, "height": 10},
+    {"id": "TEXTO_DEBAJO_HERO", "left": 4, "top": 25, "width": 92, "height": 5},
 
-    {"id": "WHY_CHOOSE", "left": 4, "top": 99, "width": 92, "height": 20},
-    {"id": "HOW_IT_WORKS", "left": 4, "top": 121, "width": 92, "height": 22},
+    {"id": "VIDEO_1", "left": 4, "top": 31, "width": 92, "height": 10},
+    {"id": "VIDEO_2", "left": 4, "top": 42, "width": 92, "height": 10},
+    {"id": "VIDEO_3", "left": 4, "top": 53, "width": 92, "height": 10},
 
-    {"id": "PACK_1", "left": 4, "top": 145, "width": 92, "height": 15},
-    {"id": "PACK_2_DESTACADO", "left": 4, "top": 162, "width": 92, "height": 16},
-    {"id": "PACK_3", "left": 4, "top": 180, "width": 92, "height": 15},
+    {"id": "TITULO_SOBRE_CAJAS_CENTRALES", "left": 4, "top": 65, "width": 92, "height": 5},
 
-    {"id": "GARANTIAS", "left": 4, "top": 197, "width": 92, "height": 14},
-    {"id": "TESTIMONIOS", "left": 4, "top": 213, "width": 92, "height": 22},
-    {"id": "FAQ", "left": 4, "top": 237, "width": 92, "height": 18},
-    {"id": "CTA_FINAL", "left": 4, "top": 257, "width": 92, "height": 14},
-    {"id": "FOOTER", "left": 0, "top": 273, "width": 100, "height": 18},
+    {"id": "CAJA_1_INFO", "left": 4, "top": 71, "width": 44, "height": 10},
+    {"id": "CAJA_2_INFO", "left": 52, "top": 71, "width": 44, "height": 10},
+    {"id": "CAJA_3_INFO", "left": 4, "top": 82, "width": 44, "height": 10},
+    {"id": "CAJA_4_INFO", "left": 52, "top": 82, "width": 44, "height": 10},
+
+    {"id": "TEXTO_ABAJO_1", "left": 4, "top": 94, "width": 92, "height": 5},
+
+    {"id": "PASO_1_TEXTO_IMAGEN", "left": 4, "top": 100, "width": 92, "height": 12},
+    {"id": "PASO_2_TEXTO_IMAGEN", "left": 4, "top": 113, "width": 92, "height": 12},
+    {"id": "PASO_3_TEXTO_IMAGEN", "left": 4, "top": 126, "width": 92, "height": 12},
+
+    {"id": "TEXTO_ABAJO_2", "left": 4, "top": 140, "width": 92, "height": 5},
+
+    {"id": "PRODUCTO_1_TEXTO_IMAGEN", "left": 4, "top": 146, "width": 92, "height": 14},
+    {"id": "PRODUCTO_2_TEXTO_IMAGEN", "left": 4, "top": 161, "width": 92, "height": 14},
+    {"id": "PRODUCTO_3_TEXTO_IMAGEN", "left": 4, "top": 176, "width": 92, "height": 14},
+
+    {"id": "ICONO_1_ENVIO", "left": 12, "top": 192, "width": 34, "height": 6},
+    {"id": "ICONO_2_GARANTIA", "left": 54, "top": 192, "width": 34, "height": 6},
+
+    {"id": "INFO_GRIS_1", "left": 4, "top": 200, "width": 92, "height": 8},
+    {"id": "INFO_GRIS_2", "left": 4, "top": 209, "width": 92, "height": 8},
+    {"id": "INFO_GRIS_3", "left": 4, "top": 218, "width": 92, "height": 8},
+
+    {"id": "TEXTO_TESTIMONIOS", "left": 4, "top": 228, "width": 92, "height": 5},
+
+    {"id": "COMENTARIO_1_IMAGEN_TEXTO", "left": 4, "top": 234, "width": 92, "height": 11},
+    {"id": "COMENTARIO_2_IMAGEN_TEXTO", "left": 4, "top": 246, "width": 92, "height": 11},
+    {"id": "COMENTARIO_3_IMAGEN_TEXTO", "left": 4, "top": 258, "width": 92, "height": 11},
+
+    {"id": "FAQ_LISTADO_IZQUIERDA", "left": 4, "top": 272, "width": 44, "height": 18},
+    {"id": "BLOQUE_GRANDE_DERECHA", "left": 52, "top": 272, "width": 44, "height": 18},
+
+    {"id": "HEADER_FOOTER_FINAL", "left": 0, "top": 292, "width": 100, "height": 14},
 ]
 
 st.set_page_config(layout="wide")
@@ -85,7 +110,7 @@ html = f"""
     #stage{{
       position:relative;
       width:100vw;
-      height:291vh;
+      height:306vh;
       background:var(--bg);
     }}
 
@@ -99,7 +124,6 @@ html = f"""
       border-right:var(--b) solid var(--bc);
       border-top:var(--b) solid var(--bc);
       box-sizing:border-box;
-      background:transparent;
       pointer-events:none;
     }}
 
@@ -115,7 +139,7 @@ html = f"""
       background-image:
         linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
         linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
-      background-size: 10% 5%;
+      background-size:10% 5%;
     }}
 
     .mid-v{{
@@ -124,7 +148,7 @@ html = f"""
       top:0;
       bottom:0;
       width:1px;
-      background:rgba(255,90,20,.45);
+      background:rgba(255,80,20,.45);
     }}
 
     #hud{{
@@ -132,7 +156,7 @@ html = f"""
       top:8px;
       left:8px;
       font:11px Arial, sans-serif;
-      background:rgba(255,255,255,.94);
+      background:rgba(255,255,255,.95);
       border:1px solid rgba(0,0,0,.2);
       border-radius:6px;
       padding:5px 8px;
@@ -155,11 +179,14 @@ html = f"""
       font:10px Arial, sans-serif;
       font-weight:700;
       color:#111;
-      background:rgba(255,255,255,.94);
+      background:rgba(255,255,255,.95);
       border:1px solid rgba(0,0,0,.14);
       border-radius:4px;
       padding:2px 5px;
       white-space:nowrap;
+      max-width:92%;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }}
   </style>
 </head>
@@ -194,7 +221,7 @@ html = f"""
       function update(){{
         var vw = Math.round(window.innerWidth);
         var vh = Math.round(window.innerHeight);
-        hud.textContent = "Móvil Top Fire Protect | Viewport: " + vw + " x " + vh;
+        hud.textContent = "Top Fire Protect móvil | " + vw + " x " + vh;
       }}
 
       window.addEventListener("resize", update);
