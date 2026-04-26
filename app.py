@@ -1,23 +1,35 @@
-# app.py
 import streamlit as st
 import streamlit.components.v1 as components
 
-# ===== AJUSTES (EDITA SOLO ESTO) =====
-PAD_X_PX = 10
-PAD_TOP_PX = 10
+PAD_X_PX = 8
+PAD_TOP_PX = 8
 BORDER_PX = 2
 BORDER_COLOR = "#111111"
 BG_COLOR = "#FFFFFF"
 
-# BLOQUES (0–100 en % del viewport)
-# id, left, top, width, height
 BLOCKS = [
-    {"id": "BTN1", "left": 10, "top": 10, "width": 20, "height": 10},
-    {"id": "BTN2", "left": 32, "top": 10, "width": 20, "height": 10},
-    {"id": "BTN3", "left": 54, "top": 10, "width": 20, "height": 10},
-    {"id": "BTN4", "left": 76, "top": 10, "width": 14, "height": 10},
+    {"id": "HERO_TEXTO", "left": 4, "top": 3, "width": 92, "height": 18},
+    {"id": "HERO_IMAGEN", "left": 4, "top": 22, "width": 92, "height": 22},
+    {"id": "BENEFICIOS_2X2", "left": 4, "top": 45, "width": 92, "height": 14},
+
+    {"id": "VIDEOS_TITULO", "left": 4, "top": 60, "width": 92, "height": 4},
+    {"id": "VIDEO_1", "left": 4, "top": 65, "width": 92, "height": 10},
+    {"id": "VIDEO_2", "left": 4, "top": 76, "width": 92, "height": 10},
+    {"id": "VIDEO_3", "left": 4, "top": 87, "width": 92, "height": 10},
+
+    {"id": "WHY_CHOOSE", "left": 4, "top": 99, "width": 92, "height": 20},
+    {"id": "HOW_IT_WORKS", "left": 4, "top": 121, "width": 92, "height": 22},
+
+    {"id": "PACK_1", "left": 4, "top": 145, "width": 92, "height": 15},
+    {"id": "PACK_2_DESTACADO", "left": 4, "top": 162, "width": 92, "height": 16},
+    {"id": "PACK_3", "left": 4, "top": 180, "width": 92, "height": 15},
+
+    {"id": "GARANTIAS", "left": 4, "top": 197, "width": 92, "height": 14},
+    {"id": "TESTIMONIOS", "left": 4, "top": 213, "width": 92, "height": 22},
+    {"id": "FAQ", "left": 4, "top": 237, "width": 92, "height": 18},
+    {"id": "CTA_FINAL", "left": 4, "top": 257, "width": 92, "height": 14},
+    {"id": "FOOTER", "left": 0, "top": 273, "width": 100, "height": 18},
 ]
-# ====================================
 
 st.set_page_config(layout="wide")
 
@@ -40,7 +52,7 @@ def blocks_to_html(blocks):
             <div class="blk"
                  style="left:{b["left"]}%; top:{b["top"]}%;
                         width:{b["width"]}%; height:{b["height"]}%;">
-              <span class="blk-label">{b["id"]} ({b["left"]},{b["top"]}) {b["width"]}x{b["height"]}</span>
+              <span class="blk-label">{b["id"]}</span>
             </div>
             """
         )
@@ -60,15 +72,29 @@ html = f"""
       --bc:{BORDER_COLOR};
       --bg:{BG_COLOR};
     }}
-    html, body{{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);}}
 
-    #stage{{position:fixed;inset:0;width:100vw;height:100vh;background:var(--bg);}}
+    html, body{{
+      margin:0;
+      padding:0;
+      width:100%;
+      min-height:100%;
+      overflow:auto;
+      background:var(--bg);
+    }}
 
-    /* Marco (izq/der/sup) */
+    #stage{{
+      position:relative;
+      width:100vw;
+      height:291vh;
+      background:var(--bg);
+    }}
+
     #frame{{
       position:absolute;
-      left:var(--padx); right:var(--padx);
-      top:var(--padtop); bottom:0;
+      left:var(--padx);
+      right:var(--padx);
+      top:var(--padtop);
+      bottom:0;
       border-left:var(--b) solid var(--bc);
       border-right:var(--b) solid var(--bc);
       border-top:var(--b) solid var(--bc);
@@ -77,64 +103,72 @@ html = f"""
       pointer-events:none;
     }}
 
-    /* Overlay en coordenadas % (0–100) */
     #overlay{{
       position:absolute;
       inset:0;
       pointer-events:none;
     }}
 
-    /* Líneas 50% (mitad) */
-    .mid-v{{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(0,0,0,.25);}}
-    .mid-h{{position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(0,0,0,.25);}}
-
-    /* Regla cada 10% */
     .grid{{
-      position:absolute; inset:0;
+      position:absolute;
+      inset:0;
       background-image:
-        linear-gradient(to right, rgba(0,0,0,0.10) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(0,0,0,0.10) 1px, transparent 1px);
-      background-size: 10% 10%;
+        linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
+      background-size: 10% 5%;
     }}
 
-    /* Etiqueta medidas px */
+    .mid-v{{
+      position:absolute;
+      left:50%;
+      top:0;
+      bottom:0;
+      width:1px;
+      background:rgba(255,90,20,.45);
+    }}
+
     #hud{{
-      position:absolute; top:8px; left:8px;
-      font: 12px Arial, sans-serif;
-      background: rgba(255,255,255,.92);
-      border: 1px solid rgba(0,0,0,.2);
-      border-radius: 6px;
-      padding: 6px 10px;
+      position:fixed;
+      top:8px;
+      left:8px;
+      font:11px Arial, sans-serif;
+      background:rgba(255,255,255,.94);
+      border:1px solid rgba(0,0,0,.2);
+      border-radius:6px;
+      padding:5px 8px;
+      z-index:20;
       pointer-events:none;
     }}
 
-    /* Bloques (rectángulos de referencia) */
     .blk{{
       position:absolute;
-      border: 2px dashed rgba(0,0,0,.55);
+      border:2px dashed rgba(255,80,20,.75);
       box-sizing:border-box;
-      background: rgba(0,0,0,.03);
+      background:rgba(255,80,20,.045);
+      border-radius:8px;
     }}
+
     .blk-label{{
       position:absolute;
-      top:2px; left:2px;
-      font: 11px Arial, sans-serif;
-      background: rgba(255,255,255,.9);
-      border: 1px solid rgba(0,0,0,.15);
-      border-radius: 4px;
-      padding: 2px 6px;
-      white-space: nowrap;
+      top:4px;
+      left:4px;
+      font:10px Arial, sans-serif;
+      font-weight:700;
+      color:#111;
+      background:rgba(255,255,255,.94);
+      border:1px solid rgba(0,0,0,.14);
+      border-radius:4px;
+      padding:2px 5px;
+      white-space:nowrap;
     }}
   </style>
 </head>
 <body>
   <div id="stage">
     <div id="frame"></div>
-
     <div id="overlay">
       <div class="grid"></div>
       <div class="mid-v"></div>
-      <div class="mid-h"></div>
       {blocks_to_html(BLOCKS)}
       <div id="hud">Cargando...</div>
     </div>
@@ -142,7 +176,6 @@ html = f"""
 
   <script>
     (function(){{
-      // Full-screen real del iframe
       var fe = window.frameElement;
       if (fe){{
         fe.style.position = "fixed";
@@ -157,12 +190,13 @@ html = f"""
       }}
 
       var hud = document.getElementById("hud");
+
       function update(){{
         var vw = Math.round(window.innerWidth);
         var vh = Math.round(window.innerHeight);
-        hud.textContent = "Viewport(px): " + vw + " x " + vh + " | Mitad: " + Math.round(vw/2) + " x " + Math.round(vh/2)
-          + " | %->px: 10%=" + Math.round(vw*0.10) + "px, 20%=" + Math.round(vw*0.20) + "px";
+        hud.textContent = "Móvil Top Fire Protect | Viewport: " + vw + " x " + vh;
       }}
+
       window.addEventListener("resize", update);
       update();
     }})();
@@ -171,4 +205,4 @@ html = f"""
 </html>
 """
 
-components.html(html, height=10, scrolling=False)
+components.html(html, height=10, scrolling=True)
