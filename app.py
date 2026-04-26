@@ -8,53 +8,54 @@ BORDER_PX = 2
 BORDER_COLOR = "#111111"
 BG_COLOR = "#FFFFFF"
 
-# PLANO MÓVIL / RESPONSIVE SEGÚN TU ESTRUCTURA
-# id, left, top, width, height
+# PLANO WEB SEGÚN TU ESTRUCTURA
+# Contenedor1 aumentado 4 veces en alto.
+# Todos los bloques posteriores fueron bajados +36 puntos en top.
 BLOCKS = [
-    {"id": "Contenedor1", "left": 2, "top": 1, "width": 96, "height": 12},
+    {"id": "Contenedor1", "left": 2, "top": 1, "width": 96, "height": 48},
 
-    {"id": "Texto1", "left": 18, "top": 15, "width": 74, "height": 2.2},
+    {"id": "Texto1", "left": 18, "top": 51, "width": 74, "height": 2.2},
 
-    {"id": "Video1", "left": 18, "top": 19, "width": 22, "height": 8},
-    {"id": "Video2", "left": 47, "top": 19, "width": 21, "height": 8},
-    {"id": "Video3", "left": 78, "top": 19, "width": 15, "height": 8},
+    {"id": "Video1", "left": 18, "top": 55, "width": 22, "height": 8},
+    {"id": "Video2", "left": 47, "top": 55, "width": 21, "height": 8},
+    {"id": "Video3", "left": 78, "top": 55, "width": 15, "height": 8},
 
-    {"id": "Texto2", "left": 29, "top": 29, "width": 48, "height": 2.2},
+    {"id": "Texto2", "left": 29, "top": 65, "width": 48, "height": 2.2},
 
-    {"id": "Contenedor2", "left": 2, "top": 33, "width": 17, "height": 8},
-    {"id": "Contenedor3", "left": 29, "top": 33, "width": 18, "height": 8},
-    {"id": "Contenedor4", "left": 59, "top": 33, "width": 18, "height": 8},
-    {"id": "Contenedor5", "left": 83, "top": 33, "width": 15, "height": 8},
+    {"id": "Contenedor2", "left": 2, "top": 69, "width": 17, "height": 8},
+    {"id": "Contenedor3", "left": 29, "top": 69, "width": 18, "height": 8},
+    {"id": "Contenedor4", "left": 59, "top": 69, "width": 18, "height": 8},
+    {"id": "Contenedor5", "left": 83, "top": 69, "width": 15, "height": 8},
 
-    {"id": "Texto3", "left": 29, "top": 43, "width": 48, "height": 2.2},
+    {"id": "Texto3", "left": 29, "top": 79, "width": 48, "height": 2.2},
 
-    {"id": "Contenedor6", "left": 13, "top": 47, "width": 17, "height": 8},
-    {"id": "Contenedor7", "left": 41, "top": 47, "width": 19, "height": 8},
-    {"id": "Contenedor8", "left": 67, "top": 47, "width": 25, "height": 8},
+    {"id": "Contenedor6", "left": 13, "top": 83, "width": 17, "height": 8},
+    {"id": "Contenedor7", "left": 41, "top": 83, "width": 19, "height": 8},
+    {"id": "Contenedor8", "left": 67, "top": 83, "width": 25, "height": 8},
 
-    {"id": "Texto4", "left": 29, "top": 57, "width": 38, "height": 2.2},
+    {"id": "Texto4", "left": 29, "top": 93, "width": 38, "height": 2.2},
 
-    {"id": "Contenedor9", "left": 13, "top": 61, "width": 17, "height": 8},
-    {"id": "Contenedor10", "left": 41, "top": 61, "width": 19, "height": 8},
-    {"id": "Contenedor11", "left": 67, "top": 61, "width": 25, "height": 8},
+    {"id": "Contenedor9", "left": 13, "top": 97, "width": 17, "height": 8},
+    {"id": "Contenedor10", "left": 41, "top": 97, "width": 19, "height": 8},
+    {"id": "Contenedor11", "left": 67, "top": 97, "width": 25, "height": 8},
 
-    {"id": "Icono1 y texto", "left": 29, "top": 71, "width": 19, "height": 2.2},
-    {"id": "Icono2 y texto", "left": 59, "top": 71, "width": 18, "height": 2.2},
+    {"id": "Icono1 y texto", "left": 29, "top": 107, "width": 19, "height": 2.2},
+    {"id": "Icono2 y texto", "left": 59, "top": 107, "width": 18, "height": 2.2},
 
-    {"id": "Icono 3 y texto", "left": 13, "top": 75, "width": 28, "height": 4},
-    {"id": "Icono 4 y texto", "left": 41, "top": 75, "width": 27, "height": 4},
-    {"id": "Icono 5 y texto", "left": 68, "top": 75, "width": 24, "height": 4},
+    {"id": "Icono 3 y texto", "left": 13, "top": 111, "width": 28, "height": 4},
+    {"id": "Icono 4 y texto", "left": 41, "top": 111, "width": 27, "height": 4},
+    {"id": "Icono 5 y texto", "left": 68, "top": 111, "width": 24, "height": 4},
 
-    {"id": "Texto5", "left": 29, "top": 81, "width": 38, "height": 2.2},
+    {"id": "Texto5", "left": 29, "top": 117, "width": 38, "height": 2.2},
 
-    {"id": "Comentario1", "left": 13, "top": 85, "width": 17, "height": 8},
-    {"id": "Comentario2", "left": 41, "top": 85, "width": 19, "height": 8},
-    {"id": "Comentario3", "left": 67, "top": 85, "width": 25, "height": 8},
+    {"id": "Comentario1", "left": 13, "top": 121, "width": 17, "height": 8},
+    {"id": "Comentario2", "left": 41, "top": 121, "width": 19, "height": 8},
+    {"id": "Comentario3", "left": 67, "top": 121, "width": 25, "height": 8},
 
-    {"id": "Listado", "left": 2, "top": 95, "width": 38, "height": 8},
-    {"id": "Foto", "left": 47, "top": 95, "width": 51, "height": 8},
+    {"id": "Listado", "left": 2, "top": 131, "width": 38, "height": 8},
+    {"id": "Foto", "left": 47, "top": 131, "width": 51, "height": 8},
 
-    {"id": "Header", "left": 0, "top": 105, "width": 100, "height": 7},
+    {"id": "Header", "left": 0, "top": 141, "width": 100, "height": 7},
 ]
 
 st.set_page_config(layout="wide")
@@ -111,7 +112,7 @@ html = f"""
     #stage{{
       position:relative;
       width:100vw;
-      height:112vh;
+      height:148vh;
       background:var(--bg);
     }}
 
