@@ -8,52 +8,53 @@ BORDER_PX = 2
 BORDER_COLOR = "#111111"
 BG_COLOR = "#FFFFFF"
 
-# ESTRUCTURA MÓVIL SEGÚN TOP FIRE PROTECT
+# PLANO MÓVIL / RESPONSIVE SEGÚN TU ESTRUCTURA
+# id, left, top, width, height
 BLOCKS = [
-    {"id": "BLOQUE_PRINCIPAL_HERO", "left": 4, "top": 2, "width": 92, "height": 22},
+    {"id": "Contenedor1", "left": 2, "top": 1, "width": 96, "height": 12},
 
-    {"id": "TEXTO_DEBAJO_HERO", "left": 4, "top": 25, "width": 92, "height": 5},
+    {"id": "Texto1", "left": 18, "top": 15, "width": 74, "height": 2.2},
 
-    {"id": "VIDEO_1", "left": 4, "top": 31, "width": 92, "height": 10},
-    {"id": "VIDEO_2", "left": 4, "top": 42, "width": 92, "height": 10},
-    {"id": "VIDEO_3", "left": 4, "top": 53, "width": 92, "height": 10},
+    {"id": "Video1", "left": 18, "top": 19, "width": 22, "height": 8},
+    {"id": "Video2", "left": 47, "top": 19, "width": 21, "height": 8},
+    {"id": "Video3", "left": 78, "top": 19, "width": 15, "height": 8},
 
-    {"id": "TITULO_SOBRE_CAJAS_CENTRALES", "left": 4, "top": 65, "width": 92, "height": 5},
+    {"id": "Texto2", "left": 29, "top": 29, "width": 48, "height": 2.2},
 
-    {"id": "CAJA_1_INFO", "left": 4, "top": 71, "width": 44, "height": 10},
-    {"id": "CAJA_2_INFO", "left": 52, "top": 71, "width": 44, "height": 10},
-    {"id": "CAJA_3_INFO", "left": 4, "top": 82, "width": 44, "height": 10},
-    {"id": "CAJA_4_INFO", "left": 52, "top": 82, "width": 44, "height": 10},
+    {"id": "Contenedor2", "left": 2, "top": 33, "width": 17, "height": 8},
+    {"id": "Contenedor3", "left": 29, "top": 33, "width": 18, "height": 8},
+    {"id": "Contenedor4", "left": 59, "top": 33, "width": 18, "height": 8},
+    {"id": "Contenedor5", "left": 83, "top": 33, "width": 15, "height": 8},
 
-    {"id": "TEXTO_ABAJO_1", "left": 4, "top": 94, "width": 92, "height": 5},
+    {"id": "Texto3", "left": 29, "top": 43, "width": 48, "height": 2.2},
 
-    {"id": "PASO_1_TEXTO_IMAGEN", "left": 4, "top": 100, "width": 92, "height": 12},
-    {"id": "PASO_2_TEXTO_IMAGEN", "left": 4, "top": 113, "width": 92, "height": 12},
-    {"id": "PASO_3_TEXTO_IMAGEN", "left": 4, "top": 126, "width": 92, "height": 12},
+    {"id": "Contenedor6", "left": 13, "top": 47, "width": 17, "height": 8},
+    {"id": "Contenedor7", "left": 41, "top": 47, "width": 19, "height": 8},
+    {"id": "Contenedor8", "left": 67, "top": 47, "width": 25, "height": 8},
 
-    {"id": "TEXTO_ABAJO_2", "left": 4, "top": 140, "width": 92, "height": 5},
+    {"id": "Texto4", "left": 29, "top": 57, "width": 38, "height": 2.2},
 
-    {"id": "PRODUCTO_1_TEXTO_IMAGEN", "left": 4, "top": 146, "width": 92, "height": 14},
-    {"id": "PRODUCTO_2_TEXTO_IMAGEN", "left": 4, "top": 161, "width": 92, "height": 14},
-    {"id": "PRODUCTO_3_TEXTO_IMAGEN", "left": 4, "top": 176, "width": 92, "height": 14},
+    {"id": "Contenedor9", "left": 13, "top": 61, "width": 17, "height": 8},
+    {"id": "Contenedor10", "left": 41, "top": 61, "width": 19, "height": 8},
+    {"id": "Contenedor11", "left": 67, "top": 61, "width": 25, "height": 8},
 
-    {"id": "ICONO_1_ENVIO", "left": 12, "top": 192, "width": 34, "height": 6},
-    {"id": "ICONO_2_GARANTIA", "left": 54, "top": 192, "width": 34, "height": 6},
+    {"id": "Icono1 y texto", "left": 29, "top": 71, "width": 19, "height": 2.2},
+    {"id": "Icono2 y texto", "left": 59, "top": 71, "width": 18, "height": 2.2},
 
-    {"id": "INFO_GRIS_1", "left": 4, "top": 200, "width": 92, "height": 8},
-    {"id": "INFO_GRIS_2", "left": 4, "top": 209, "width": 92, "height": 8},
-    {"id": "INFO_GRIS_3", "left": 4, "top": 218, "width": 92, "height": 8},
+    {"id": "Icono 3 y texto", "left": 13, "top": 75, "width": 28, "height": 4},
+    {"id": "Icono 4 y texto", "left": 41, "top": 75, "width": 27, "height": 4},
+    {"id": "Icono 5 y texto", "left": 68, "top": 75, "width": 24, "height": 4},
 
-    {"id": "TEXTO_TESTIMONIOS", "left": 4, "top": 228, "width": 92, "height": 5},
+    {"id": "Texto5", "left": 29, "top": 81, "width": 38, "height": 2.2},
 
-    {"id": "COMENTARIO_1_IMAGEN_TEXTO", "left": 4, "top": 234, "width": 92, "height": 11},
-    {"id": "COMENTARIO_2_IMAGEN_TEXTO", "left": 4, "top": 246, "width": 92, "height": 11},
-    {"id": "COMENTARIO_3_IMAGEN_TEXTO", "left": 4, "top": 258, "width": 92, "height": 11},
+    {"id": "Comentario1", "left": 13, "top": 85, "width": 17, "height": 8},
+    {"id": "Comentario2", "left": 41, "top": 85, "width": 19, "height": 8},
+    {"id": "Comentario3", "left": 67, "top": 85, "width": 25, "height": 8},
 
-    {"id": "FAQ_LISTADO_IZQUIERDA", "left": 4, "top": 272, "width": 44, "height": 18},
-    {"id": "BLOQUE_GRANDE_DERECHA", "left": 52, "top": 272, "width": 44, "height": 18},
+    {"id": "Listado", "left": 2, "top": 95, "width": 38, "height": 8},
+    {"id": "Foto", "left": 47, "top": 95, "width": 51, "height": 8},
 
-    {"id": "HEADER_FOOTER_FINAL", "left": 0, "top": 292, "width": 100, "height": 14},
+    {"id": "Header", "left": 0, "top": 105, "width": 100, "height": 7},
 ]
 
 st.set_page_config(layout="wide")
@@ -110,7 +111,7 @@ html = f"""
     #stage{{
       position:relative;
       width:100vw;
-      height:306vh;
+      height:112vh;
       background:var(--bg);
     }}
 
@@ -133,60 +134,20 @@ html = f"""
       pointer-events:none;
     }}
 
-    .grid{{
-      position:absolute;
-      inset:0;
-      background-image:
-        linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
-      background-size:10% 5%;
-    }}
-
-    .mid-v{{
-      position:absolute;
-      left:50%;
-      top:0;
-      bottom:0;
-      width:1px;
-      background:rgba(255,80,20,.45);
-    }}
-
-    #hud{{
-      position:fixed;
-      top:8px;
-      left:8px;
-      font:11px Arial, sans-serif;
-      background:rgba(255,255,255,.95);
-      border:1px solid rgba(0,0,0,.2);
-      border-radius:6px;
-      padding:5px 8px;
-      z-index:20;
-      pointer-events:none;
-    }}
-
     .blk{{
       position:absolute;
-      border:2px dashed rgba(255,80,20,.75);
+      border:2px solid #111;
       box-sizing:border-box;
-      background:rgba(255,80,20,.045);
-      border-radius:8px;
+      background:#fff;
     }}
 
     .blk-label{{
       position:absolute;
       top:4px;
-      left:4px;
-      font:10px Arial, sans-serif;
-      font-weight:700;
-      color:#111;
-      background:rgba(255,255,255,.95);
-      border:1px solid rgba(0,0,0,.14);
-      border-radius:4px;
-      padding:2px 5px;
+      left:5px;
+      font:15px Arial, sans-serif;
+      color:#000;
       white-space:nowrap;
-      max-width:92%;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }}
   </style>
 </head>
@@ -194,10 +155,7 @@ html = f"""
   <div id="stage">
     <div id="frame"></div>
     <div id="overlay">
-      <div class="grid"></div>
-      <div class="mid-v"></div>
       {blocks_to_html(BLOCKS)}
-      <div id="hud">Cargando...</div>
     </div>
   </div>
 
@@ -215,17 +173,6 @@ html = f"""
         fe.style.zIndex = "999999";
         fe.style.background = "transparent";
       }}
-
-      var hud = document.getElementById("hud");
-
-      function update(){{
-        var vw = Math.round(window.innerWidth);
-        var vh = Math.round(window.innerHeight);
-        hud.textContent = "Top Fire Protect móvil | " + vw + " x " + vh;
-      }}
-
-      window.addEventListener("resize", update);
-      update();
     }})();
   </script>
 </body>
